@@ -214,6 +214,15 @@ app.post('/cycle', (req, res) => {
   res.json({ started: true, pid: child.pid, cycle });
 });
 
+app.get('/agents', (req, res) => {
+  try {
+    const { AGENTS } = require('/home/v/nxs-agents/lib/agents.js');
+    res.json(AGENTS);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/agents/:name/run', (req, res) => {
   const body = JSON.stringify(req.body);
   const options = {

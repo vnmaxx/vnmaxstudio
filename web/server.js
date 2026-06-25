@@ -173,7 +173,10 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
-  app.get('/api/agents', (req, res) => res.json({}));
+  app.get('/api/agents', async (req, res) => {
+    const { status, data } = await bridge('GET', '/agents');
+    res.status(status).json(data);
+  });
 
 } else {
   const STUDIO_ROOT = process.env.STUDIO_ROOT || path.join(__dirname, '..');
