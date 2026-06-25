@@ -5,6 +5,7 @@ import {
   RefreshCw, FolderOpen, FileText, ChevronRight, ArrowLeft, Home, Search,
   Users, PenLine, Package, Globe, Megaphone, Mail, Handshake, ClipboardList,
   BarChart3, CheckSquare, Folder, File, Braces, Terminal, LayoutGrid,
+  Phone, AtSign, Tag, MessageSquare, Star, Code,
 } from 'lucide-react'
 
 type BrowseResult =
@@ -42,6 +43,154 @@ function formatDate(mtime: string) {
 function fileExt(name?: string) {
   if (!name) return ''
   return name.split('.').pop()?.toLowerCase() || ''
+}
+
+interface Lead {
+  nome?: string
+  segmento?: string
+  contato?: string
+  observacao?: string
+  fonte?: string
+  [key: string]: unknown
+}
+
+function parseContato(raw?: string) {
+  if (!raw) return { handle: '', phone: '' }
+  const parts = raw.split('/').map(s => s.trim())
+  const handle = parts.find(p => p.startsWith('@')) || ''
+  const phone  = parts.find(p => /\(?\d{2}\)?[\s-]?\d{4,5}/.test(p)) || ''
+  return { handle, phone }
+}
+
+function extractRank(obs?: string) {
+  const m = obs?.match(/TOP\s*(\d+)/i)
+  return m ? parseInt(m[1]) : null
+}
+
+function LeadCard({ lead, index }: { lead: Lead; index: number }) {
+  const { handle, phone } = parseContato(lead.contato)
+  const rank = extractRank(lead.observacao)
+  const obs = lead.observacao?.replace(/^TOP\s*\d+\s*[–-]\s*/i, '') || ''
+
+  const rankColor = rank === 1 ? '#FFD60A' : rank === 2 ? '#C0C0C0' : rank === 3 ? '#CD7F32' : 'rgba(255,255,255,0.3)'
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 14, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            {rank && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: rankColor, background: `${rankColor}18`, border: `1px solid ${rankColor}40`, borderRadius: 6, padding: '1px 7px', flexShrink: 0 }}>
+                TOP {rank}
+              </span>
+            )}
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {lead.nome || `Lead #${index + 1}`}
+            </span>
+          </div>
+          {lead.segmento && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--accent)', background: 'rgba(10,132,255,0.1)', border: '1px solid rgba(10,132,255,0.2)', borderRadius: 6, padding: '2px 8px' }}>
+              <Tag size={10} strokeWidth={2} /> {lead.segmento}
+            </span>
+          )}
+        </div>
+        <Star size={14} strokeWidth={1.5} style={{ color: rankColor, flexShrink: 0, marginTop: 3 }} />
+      </div>
+
+      {(handle || phone) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {handle && (
+            <a
+              href={`https://instagram.com/${handle.replace('@','')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#BF5AF2', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 8, padding: '5px 10px', textDecoration: 'none', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(191,90,242,0.18)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(191,90,242,0.1)' }}
+            >
+              <AtSign size={12} strokeWidth={2} /> {handle}
+            </a>
+          )}
+          {phone && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#30D158', background: 'rgba(48,209,88,0.08)', border: '1px solid rgba(48,209,88,0.2)', borderRadius: 8, padding: '5px 10px' }}>
+              <Phone size={12} strokeWidth={2} /> {phone}
+            </span>
+          )}
+          {lead.fonte && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 10px' }}>
+              Fonte: {lead.fonte}
+            </span>
+          )}
+        </div>
+      )}
+
+      {obs && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <MessageSquare size={13} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0, marginTop: 2 }} />
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{obs}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FileViewer({ filename, content, isJson }: { filename: string; content: string; isJson: boolean }) {
+  const [rawView, setRawView] = useState(false)
+
+  let leads: Lead[] | null = null
+  if (isJson) {
+    try {
+      const parsed = JSON.parse(content)
+      if (Array.isArray(parsed) && parsed.length > 0 && (parsed[0].nome || parsed[0].contato || parsed[0].segmento)) {
+        leads = parsed as Lead[]
+      }
+    } catch { /* not parseable */ }
+  }
+
+  const isLeads = leads !== null
+
+  return (
+    <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <FileIconComp name={filename} isDir={false} />
+        <span style={{ color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {filename}
+        </span>
+        {isLeads && (
+          <span style={{ fontSize: 11, color: '#30D158', background: 'rgba(48,209,88,0.1)', border: '1px solid rgba(48,209,88,0.2)', padding: '2px 8px', borderRadius: 6 }}>
+            {leads!.length} leads
+          </span>
+        )}
+        {isLeads && (
+          <button
+            onClick={() => setRawView(r => !r)}
+            title={rawView ? 'Ver cards' : 'Ver JSON'}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 7, background: rawView ? 'rgba(10,132,255,0.15)' : 'rgba(255,255,255,0.06)', border: `1px solid ${rawView ? 'rgba(10,132,255,0.3)' : 'rgba(255,255,255,0.1)'}`, color: rawView ? '#0A84FF' : 'rgba(255,255,255,0.4)', fontSize: 11.5, cursor: 'pointer' }}
+          >
+            <Code size={12} strokeWidth={2} /> {rawView ? 'Cards' : 'JSON'}
+          </button>
+        )}
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 6 }}>
+          {fileExt(filename).toUpperCase() || 'TXT'}
+        </span>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: isLeads && !rawView ? '16px 18px' : '16px 20px' }}>
+        {isLeads && !rawView ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {leads!.map((lead, i) => <LeadCard key={i} lead={lead} index={i} />)}
+          </div>
+        ) : (
+          <pre style={{ color: '#c9d1d9', fontSize: 12.5, whiteSpace: 'pre-wrap', wordBreak: 'break-words', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace", lineHeight: 1.75, margin: 0 }}>
+            {isJson ? (() => { try { return JSON.stringify(JSON.parse(content), null, 2) } catch { return content } })() : content}
+          </pre>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function hexToRgb(hex: string) {
@@ -266,24 +415,11 @@ export default function Workspace() {
       )}
 
       {!loading && fileContent && (
-        <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <FileIconComp name={pathStack[pathStack.length - 1]} isDir={false} />
-            <span style={{ color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {pathStack[pathStack.length - 1]}
-            </span>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 6 }}>
-              {fileExt(pathStack[pathStack.length - 1]).toUpperCase() || 'TXT'}
-            </span>
-          </div>
-          <div style={{ padding: '16px 20px', overflowX: 'auto', maxHeight: '60vh', overflowY: 'auto' }}>
-            <pre style={{ color: '#c9d1d9', fontSize: 12.5, whiteSpace: 'pre-wrap', wordBreak: 'break-words', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace", lineHeight: 1.75, margin: 0 }}>
-              {fileContent.isJson
-                ? (() => { try { return JSON.stringify(JSON.parse(fileContent.raw), null, 2) } catch { return fileContent.raw } })()
-                : fileContent.raw}
-            </pre>
-          </div>
-        </div>
+        <FileViewer
+          filename={pathStack[pathStack.length - 1] || ''}
+          content={fileContent.raw}
+          isJson={fileContent.isJson}
+        />
       )}
     </div>
   )
