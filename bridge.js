@@ -197,6 +197,23 @@ app.get('/workspace/:dir/:file', (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post('/cycle', (req, res) => {
+  const { cycle } = req.body;
+  if (!['segunda', 'diario', 'sexta'].includes(cycle)) {
+    return res.status(400).json({ error: 'Ciclo inválido' });
+  }
+  const { spawn } = require('child_process');
+  const schedulerPath = path.join(ROOT, 'studio-scheduler.js');
+  const child = spawn('node', [schedulerPath, `--cycle=${cycle}`], {
+    detached: true,
+    stdio: 'ignore',
+    cwd: ROOT,
+    env: { ...process.env },
+  });
+  child.unref();
+  res.json({ started: true, pid: child.pid, cycle });
+});
+
 app.post('/agents/:name/run', (req, res) => {
   const body = JSON.stringify(req.body);
   const options = {

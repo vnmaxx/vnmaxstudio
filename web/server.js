@@ -98,7 +98,7 @@ if (BRIDGE_URL) {
   });
 
   app.post('/api/cycle', async (req, res) => {
-    const { status, data } = await bridge('POST', `/agents/${req.body.cycle || 'diario'}/run`, req.body);
+    const { status, data } = await bridge('POST', '/cycle', req.body);
     res.status(status).json(data);
   });
 
