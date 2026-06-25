@@ -70,8 +70,16 @@ if (BRIDGE_URL) {
     for (const k of keys) delete CACHE[k];
   }
 
+  const lastAttempt = {};
+  const RETRY_COOLDOWN = 60000;
+
   function refreshInBackground(route) {
-    bridge('GET', route).then(r => { if (r.status === 200) setCache(route, r.data); }).catch(() => {});
+    const now = Date.now();
+    if (lastAttempt[route] && now - lastAttempt[route] < RETRY_COOLDOWN) return;
+    lastAttempt[route] = now;
+    bridge('GET', route).then(r => {
+      if (r.status === 200) { setCache(route, r.data); delete lastAttempt[route]; }
+    }).catch(() => {});
   }
 
   function bridgeCached(route) {
