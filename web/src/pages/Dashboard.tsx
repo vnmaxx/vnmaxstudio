@@ -12,23 +12,22 @@ import {
 type AgentsMap = Record<string, Agent>
 
 
-const AGENT_MASCOT_SVG: Record<string, string> = {
-  'studio-ceo':      `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">👑</text></svg>`,
-  'studio-growth':   `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">🚀</text></svg>`,
-  'studio-criacao':  `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">🎨</text></svg>`,
-  'studio-trafego':  `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">📊</text></svg>`,
-  'studio-clientes': `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">🤝</text></svg>`,
-  'studio-dados':    `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">📈</text></svg>`,
-  'code':            `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">💻</text></svg>`,
-  'design':          `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">✏️</text></svg>`,
-  'research':        `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">🔍</text></svg>`,
-  'general':         `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">⚡</text></svg>`,
+const AGENT_MASCOT_IMG: Record<string, string> = {
+  'code':            '/mascots/1.png',
+  'design':          '/mascots/2.png',
+  'research':        '/mascots/3.png',
+  'general':         '/mascots/4.png',
+  'studio-ceo':      '/mascots/5.png',
+  'studio-growth':   '/mascots/6.png',
+  'studio-clientes': '/mascots/7.png',
+  'studio-trafego':  '/mascots/8.png',
+  'studio-dados':    '/mascots/9.png',
+  'studio-criacao':  '/mascots/2.png',
 }
 
 function AgentMascot({ name, size = 48 }: { name: string; size?: number }) {
-  const svg = AGENT_MASCOT_SVG[name] || AGENT_MASCOT_SVG['general']
-  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-  return <img src={url} alt={name} width={size} height={size} style={{ borderRadius: 10, flexShrink: 0 }} />
+  const src = AGENT_MASCOT_IMG[name] || '/mascots/4.png'
+  return <img src={src} alt={name} width={size} height={size} style={{ flexShrink: 0, objectFit: 'contain' }} />
 }
 
 const MODEL_COLORS: Record<string, { bg: string; color: string; border: string }> = {
