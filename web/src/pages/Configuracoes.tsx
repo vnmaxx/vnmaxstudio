@@ -380,54 +380,121 @@ function AparenciaSection() {
 }
 
 function NotificacoesSection() {
-  const [cycleEnd, setCycleEnd] = useState(() => localStorage.getItem('notif_cycle') !== 'false')
-  const [pendentes, setPendentes] = useState(() => localStorage.getItem('notif_pend') !== 'false')
-  const [erros, setErros] = useState(() => localStorage.getItem('notif_err') !== 'false')
-  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+  const acc = () => document.documentElement.style.getPropertyValue('--accent') || '#0A84FF'
+
+  const [browser,   setBrowser]   = useState(() => localStorage.getItem('notif_browser')   === 'true')
+  const [cycleEnd,  setCycleEnd]  = useState(() => localStorage.getItem('notif_cycle')    !== 'false')
+  const [pendentes, setPendentes] = useState(() => localStorage.getItem('notif_pend')     !== 'false')
+  const [erros,     setErros]     = useState(() => localStorage.getItem('notif_err')      !== 'false')
+  const [aprovacoes, setAprovacoes] = useState(() => localStorage.getItem('notif_aprov')  !== 'false')
+  const [perm,      setPerm]      = useState<NotificationPermission>(typeof Notification !== 'undefined' ? Notification.permission : 'denied')
+  const [toast,     setToast]     = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+
+  const showToast = (msg: string, type: 'ok' | 'err') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+
+  const requestBrowserPerm = async () => {
+    if (typeof Notification === 'undefined') return showToast('Notificações não suportadas neste browser', 'err')
+    const result = await Notification.requestPermission()
+    setPerm(result)
+    if (result === 'granted') { setBrowser(true); showToast('Notificações do browser ativadas', 'ok') }
+    else showToast('Permissão negada pelo browser', 'err')
+  }
 
   const save = () => {
-    localStorage.setItem('notif_cycle', String(cycleEnd))
-    localStorage.setItem('notif_pend', String(pendentes))
-    localStorage.setItem('notif_err', String(erros))
-    setToast({ msg: 'Preferências salvas', type: 'ok' })
-    setTimeout(() => setToast(null), 3000)
+    localStorage.setItem('notif_browser',   String(browser))
+    localStorage.setItem('notif_cycle',     String(cycleEnd))
+    localStorage.setItem('notif_pend',      String(pendentes))
+    localStorage.setItem('notif_err',       String(erros))
+    localStorage.setItem('notif_aprov',     String(aprovacoes))
+    showToast('Preferências salvas', 'ok')
   }
 
-  const Toggle = ({ val, onChange, label, desc }: { val: boolean; onChange: (v: boolean) => void; label: string; desc: string }) => {
-    const acc = document.documentElement.style.getPropertyValue('--accent') || '#0A84FF'
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{label}</p>
-          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>{desc}</p>
-        </div>
-        <div
-          onClick={() => onChange(!val)}
-          style={{
-            width: 44, height: 26, borderRadius: 13, transition: 'background 0.2s',
-            background: val ? (acc || '#0A84FF') : 'rgba(255,255,255,0.12)',
-            position: 'relative', cursor: 'pointer', flexShrink: 0, marginLeft: 16,
-          }}
-        >
-          <div style={{
-            position: 'absolute', top: 3, left: val ? 21 : 3,
-            width: 20, height: 20, borderRadius: 10, background: '#fff',
-            transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
-          }} />
-        </div>
-      </div>
-    )
+  const testNotif = () => {
+    import('../components/NotificationBell').then(m => {
+      m.pushNotification({ type: 'info', title: 'Notificação de teste', body: 'Tudo funcionando corretamente!' })
+      showToast('Notificação de teste enviada', 'ok')
+    })
   }
+
+  const Toggle = ({ val, onChange, label, desc, disabled }: { val: boolean; onChange: (v: boolean) => void; label: string; desc: string; disabled?: boolean }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', opacity: disabled ? 0.4 : 1 }}>
+      <div>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{label}</p>
+        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>{desc}</p>
+      </div>
+      <div
+        onClick={() => !disabled && onChange(!val)}
+        style={{
+          width: 44, height: 26, borderRadius: 13, transition: 'background 0.2s',
+          background: val && !disabled ? acc() : 'rgba(255,255,255,0.12)',
+          position: 'relative', cursor: disabled ? 'not-allowed' : 'pointer', flexShrink: 0, marginLeft: 16,
+        }}
+      >
+        <div style={{
+          position: 'absolute', top: 3, left: val && !disabled ? 21 : 3,
+          width: 20, height: 20, borderRadius: 10, background: '#fff',
+          transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+        }} />
+      </div>
+    </div>
+  )
 
   return (
     <div>
       {toast && <Toast msg={toast.msg} type={toast.type} />}
-      <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>Notificações no dashboard</h3>
-      <Toggle val={cycleEnd} onChange={setCycleEnd} label="Fim de ciclo" desc="Notificar quando um ciclo manual terminar" />
-      <Toggle val={pendentes} onChange={setPendentes} label="Aprovações pendentes" desc="Badge com contagem na sidebar" />
-      <Toggle val={erros} onChange={setErros} label="Erros de agente" desc="Destacar erros na área de atividade recente" />
-      <div style={{ marginTop: 24 }}>
+
+      <div style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>Notificações do browser</h3>
+
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '14px 16px', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)' }}>
+                Permissão: <span style={{ color: perm === 'granted' ? '#30D158' : perm === 'denied' ? '#FF453A' : '#FFD60A', fontWeight: 600 }}>
+                  {perm === 'granted' ? 'Concedida' : perm === 'denied' ? 'Negada' : 'Pendente'}
+                </span>
+              </p>
+              <p style={{ margin: '4px 0 0', fontSize: 11.5, color: 'var(--text-tertiary)' }}>
+                {perm === 'granted' ? 'O browser pode enviar notificações' : perm === 'denied' ? 'Bloqueado nas configurações do browser' : 'Clique para solicitar permissão'}
+              </p>
+            </div>
+            {perm !== 'granted' && perm !== 'denied' && (
+              <button
+                onClick={requestBrowserPerm}
+                style={{ padding: '8px 14px', borderRadius: 8, background: 'rgba(10,132,255,0.15)', border: '1px solid rgba(10,132,255,0.3)', color: '#0A84FF', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                Solicitar
+              </button>
+            )}
+          </div>
+        </div>
+
+        <Toggle
+          val={browser} onChange={setBrowser}
+          label="Notificações push do browser"
+          desc="Receba alertas mesmo com a aba em segundo plano"
+          disabled={perm !== 'granted'}
+        />
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '4px 0 20px' }} />
+
+      <div style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>Sino de notificações</h3>
+        <Toggle val={cycleEnd}   onChange={setCycleEnd}   label="Ciclos manuais"       desc="Notificar ao iniciar ou concluir um ciclo" />
+        <Toggle val={erros}      onChange={setErros}      label="Erros de agente"      desc="Alerta quando um agente retornar erro" />
+        <Toggle val={aprovacoes} onChange={setAprovacoes} label="Aprovações"           desc="Alerta quando houver aprovações pendentes" />
+        <Toggle val={pendentes}  onChange={setPendentes}  label="Badge de pendentes"   desc="Exibir contagem na sidebar" />
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <SaveBtn loading={false} onClick={save} />
+        <button
+          onClick={testNotif}
+          style={{ padding: '10px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: 13.5, cursor: 'pointer', fontWeight: 500 }}
+        >
+          Testar notificação
+        </button>
       </div>
     </div>
   )

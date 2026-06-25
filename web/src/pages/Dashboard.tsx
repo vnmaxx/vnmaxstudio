@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import { pushNotification } from '../components/NotificationBell'
 import type { Agent, SystemStatus, Stats } from '../types'
 import {
   Terminal, Globe, Pencil, BookOpen,
-  Play, Pause, Loader2, X, Check,
+  Play, Loader2, X, Check,
   Users, FileText, Megaphone, Mail, Package,
   AlertCircle, Activity, TrendingUp, Clock,
 } from 'lucide-react'
@@ -228,23 +229,16 @@ export default function Dashboard() {
     return () => clearInterval(iv)
   }, [loadData])
 
-  const toggleDisabled = async () => {
-    try {
-      const res = await api.toggleDisabled()
-      setStatus(s => s ? { ...s, disabled: res.disabled } : null)
-      showToast(res.disabled ? 'Sistema pausado' : 'Sistema ativado')
-    } catch {
-      showToast('Erro ao alterar status', 'error')
-    }
-  }
-
   const runCycle = async (cycle: 'segunda' | 'diario' | 'sexta') => {
     setCycleLoading(cycle)
     try {
       const res = await api.runCycle(cycle)
       showToast(`Ciclo ${cycle} iniciado (PID ${res.pid})`)
+      pushNotification({ type: 'success', title: `Ciclo ${cycle} iniciado`, body: `PID ${res.pid}` })
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : 'Erro ao iniciar ciclo', 'error')
+      const msg = e instanceof Error ? e.message : 'Erro ao iniciar ciclo'
+      showToast(msg, 'error')
+      pushNotification({ type: 'error', title: 'Erro ao iniciar ciclo', body: msg })
     } finally {
       setCycleLoading(null)
     }
@@ -297,18 +291,12 @@ export default function Dashboard() {
             <Clock size={11} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} />
             <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{lastCycleLabel}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '5px 10px' }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: isOnline ? '#30D158' : '#FF453A', boxShadow: `0 0 6px ${isOnline ? '#30D158' : '#FF453A'}` }} />
             <span style={{ fontSize: 11, fontWeight: 600, color: isOnline ? '#30D158' : '#FF453A', letterSpacing: '0.05em' }}>
               {isOnline ? 'ATIVO' : 'PAUSADO'}
             </span>
           </div>
-          <button
-            onClick={toggleDisabled}
-            style={{ padding: '6px 14px', borderRadius: 980, fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', background: isOnline ? 'rgba(255,69,58,0.15)' : 'rgba(48,209,88,0.15)', border: isOnline ? '1px solid rgba(255,69,58,0.3)' : '1px solid rgba(48,209,88,0.3)', color: isOnline ? '#FF453A' : '#30D158', display: 'flex', alignItems: 'center', gap: 5 }}
-          >
-            {isOnline ? <><Pause size={11} strokeWidth={1.5} /> Pausar</> : <><Play size={11} strokeWidth={1.5} /> Ativar</>}
-          </button>
         </div>
       </div>
 

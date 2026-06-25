@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import { Bot, LayoutDashboard, CheckSquare, BarChart3, FolderOpen, ScrollText, Shield, LogOut, Settings } from 'lucide-react'
+import NotificationBell from './NotificationBell'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} strokeWidth={1.5} /> },
@@ -87,8 +88,9 @@ export default function Sidebar() {
       </nav>
 
       <div style={{ padding: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ padding: '6px 12px', marginBottom: 4 }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</p>
+        <div style={{ padding: '6px 12px', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{user?.email}</p>
+          <NotificationBell />
         </div>
         <NavLink
           to="/configuracoes"
