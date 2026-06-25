@@ -12,16 +12,29 @@ const BRIDGE_URL = process.env.LINUX_BRIDGE_URL || '';
 const BRIDGE_SECRET = process.env.BRIDGE_SECRET || '';
 
 async function bridge(method, route, body) {
-  const { default: fetch } = await import('node-fetch');
-  const url = `${BRIDGE_URL}${route}`;
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json', 'x-bridge-secret': BRIDGE_SECRET },
-  };
-  if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(url, opts);
-  const text = await r.text();
-  try { return { status: r.status, data: JSON.parse(text) }; } catch { return { status: r.status, data: text }; }
+  try {
+    const { default: fetch } = await import('node-fetch');
+    const url = `${BRIDGE_URL}${route}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json', 'x-bridge-secret': BRIDGE_SECRET },
+      signal: controller.signal,
+    };
+    if (body) opts.body = JSON.stringify(body);
+    try {
+      const r = await fetch(url, opts);
+      clearTimeout(timer);
+      const text = await r.text();
+      try { return { status: r.status, data: JSON.parse(text) }; } catch { return { status: r.status, data: text }; }
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.error(`bridge ${method} ${route} falhou:`, e.message);
+    return { status: 503, data: { error: `Bridge indisponível: ${e.message}` } };
+  }
 }
 
 if (BRIDGE_URL) {
@@ -254,6 +267,13 @@ if (BRIDGE_URL) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 }
+
+process.on('unhandledRejection', (reason) => {
+  console.error('unhandledRejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException:', err);
+});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
