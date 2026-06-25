@@ -227,7 +227,7 @@ app.get('/agents', (req, res) => {
   }
 });
 
-app.get('/workspace-browse/:path*', (req, res) => {
+app.get('/workspace-browse/:path(.*)', (req, res) => {
   try {
     const segments = req.params.path.split('/').filter(s => s && s !== '..' && s !== '.');
     const target = path.join(WORKSPACE, ...segments);
