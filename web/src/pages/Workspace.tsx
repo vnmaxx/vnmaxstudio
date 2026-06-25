@@ -100,7 +100,7 @@ export default function Workspace() {
   const filtered = items.filter(f => (f.name || '').toLowerCase().includes(search.toLowerCase()))
 
   return (
-    <div style={{ height: '100%', padding: '16px 20px', maxWidth: 1100, margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100%', padding: '20px 28px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -174,7 +174,7 @@ export default function Workspace() {
       )}
 
       {!loading && isRoot && result?.type === 'dir' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: '1fr', gap: 10, flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gridAutoRows: '1fr', gap: 14, flex: 1, overflow: 'hidden' }}>
           {filtered.map(d => {
             const meta = DIR_META[d.name] || { icon: <Folder size={22} strokeWidth={1.4} />, color: '#0A84FF' }
             const rgb = hexToRgb(meta.color)
@@ -184,8 +184,9 @@ export default function Workspace() {
                 onClick={() => goTo([d.name])}
                 style={{
                   background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: 14, padding: '14px 14px', textAlign: 'left', cursor: 'pointer', height: '100%', boxSizing: 'border-box',
-                  transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)', position: 'relative', overflow: 'hidden',
+                  borderRadius: 18, padding: '22px 20px', textAlign: 'left', cursor: 'pointer', height: '100%', boxSizing: 'border-box',
+                  display: 'flex', flexDirection: 'column',
+                  transition: 'all 0.22s cubic-bezier(0.4,0,0.2,1)', position: 'relative', overflow: 'hidden',
                 }}
                 onMouseEnter={e => {
                   const el = e.currentTarget
@@ -203,9 +204,9 @@ export default function Workspace() {
                 }}
               >
                 <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `radial-gradient(circle, rgba(${rgb},0.12) 0%, transparent 70%)`, pointerEvents: 'none' }} />
-                <div style={{ color: meta.color, marginBottom: 10, display: 'flex' }}>{meta.icon}</div>
-                <p style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 600, margin: '0 0 4px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 500, color: `rgba(${rgb},0.8)` }}>
+                <div style={{ color: meta.color, marginBottom: 'auto', display: 'flex', paddingBottom: 16 }}>{meta.icon}</div>
+                <p style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, margin: '0 0 5px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
+                <p style={{ margin: 0, fontSize: 11.5, fontWeight: 500, color: `rgba(${rgb},0.85)` }}>
                   {(d as WorkspaceFile & { count?: number }).count ?? 0} {((d as WorkspaceFile & { count?: number }).count ?? 0) === 1 ? 'item' : 'itens'}
                 </p>
               </button>

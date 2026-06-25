@@ -50,7 +50,7 @@ export default function Sidebar() {
   return (
     <aside style={{ background: 'rgba(12,12,14,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRight: '1px solid rgba(255,255,255,0.06)', width: 220, height: '100vh', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
       <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <img src="/favicon.png" alt="Studio IA" style={{ width: 26, height: 26, borderRadius: 6, objectFit: 'contain' }} />
+        <img src="/logo.png" alt="Studio IA" style={{ width: 32, height: 32, objectFit: 'contain' }} />
         <div>
           <h1 style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 15, lineHeight: 1, margin: 0 }}>Studio IA</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 11, margin: '3px 0 0 0' }}>Sistema Autônomo</p>
