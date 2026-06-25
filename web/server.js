@@ -40,28 +40,68 @@ async function bridge(method, route, body) {
 if (BRIDGE_URL) {
   console.log(`Modo Render — bridge: ${BRIDGE_URL}`);
 
+  const CACHE = {};
+  const TTL = {
+    '/status': 30000,
+    '/stats': 90000,
+    '/logs': 30000,
+    '/pendentes': 30000,
+    '/relatorios': 120000,
+    '/workspace': 120000,
+  };
+
+  function getCache(key) {
+    return CACHE[key] || null;
+  }
+
+  function setCache(key, data) {
+    CACHE[key] = { data, ts: Date.now() };
+  }
+
+  function invalidate(...keys) {
+    for (const k of keys) delete CACHE[k];
+  }
+
+  async function bridgeCached(route) {
+    const ttl = TTL[route] || 60000;
+    const entry = getCache(route);
+    const now = Date.now();
+    if (entry && now - entry.ts < ttl) {
+      return { status: 200, data: entry.data };
+    }
+    if (entry) {
+      bridge('GET', route).then(r => { if (r.status === 200) setCache(route, r.data); }).catch(() => {});
+      return { status: 200, data: entry.data };
+    }
+    const r = await bridge('GET', route);
+    if (r.status === 200) setCache(route, r.data);
+    return r;
+  }
+
   app.get('/api/logs', async (req, res) => {
-    const { status, data } = await bridge('GET', '/logs');
+    const { status, data } = await bridgeCached('/logs');
     res.status(status).json(data);
   });
 
   app.get('/api/stats', async (req, res) => {
-    const { status, data } = await bridge('GET', '/stats');
+    const { status, data } = await bridgeCached('/stats');
     res.status(status).json(data);
   });
 
   app.get('/api/status', async (req, res) => {
-    const { status, data } = await bridge('GET', '/status');
+    const { status, data } = await bridgeCached('/status');
     res.status(status).json(data);
   });
 
   app.post('/api/toggle-disabled', async (req, res) => {
+    invalidate('/status');
     const { status, data } = await bridge('POST', '/toggle-disabled');
+    if (status === 200) setCache('/status', data);
     res.status(status).json(data);
   });
 
   app.get('/api/relatorios', async (req, res) => {
-    const { status, data } = await bridge('GET', '/relatorios');
+    const { status, data } = await bridgeCached('/relatorios');
     res.status(status).json(data);
   });
 
@@ -71,7 +111,7 @@ if (BRIDGE_URL) {
   });
 
   app.get('/api/pendentes', async (req, res) => {
-    const { status, data } = await bridge('GET', '/pendentes');
+    const { status, data } = await bridgeCached('/pendentes');
     res.status(status).json(data);
   });
 
@@ -81,22 +121,25 @@ if (BRIDGE_URL) {
   });
 
   app.post('/api/aprovar/:id', async (req, res) => {
+    invalidate('/pendentes', '/stats');
     const { status, data } = await bridge('POST', `/aprovar/${req.params.id}`);
     res.status(status).json(data);
   });
 
   app.post('/api/rejeitar/:id', async (req, res) => {
+    invalidate('/pendentes', '/stats');
     const { status, data } = await bridge('POST', `/rejeitar/${req.params.id}`, req.body);
     res.status(status).json(data);
   });
 
   app.post('/api/aprovar-todos', async (req, res) => {
+    invalidate('/pendentes', '/stats');
     const { status, data } = await bridge('POST', '/aprovar-todos');
     res.status(status).json(data);
   });
 
   app.get('/api/workspace', async (req, res) => {
-    const { status, data } = await bridge('GET', '/workspace');
+    const { status, data } = await bridgeCached('/workspace');
     res.status(status).json(data);
   });
 
@@ -111,6 +154,7 @@ if (BRIDGE_URL) {
   });
 
   app.post('/api/cycle', async (req, res) => {
+    invalidate('/stats', '/logs');
     const { status, data } = await bridge('POST', '/cycle', req.body);
     res.status(status).json(data);
   });
