@@ -11,6 +11,26 @@ import {
 
 type AgentsMap = Record<string, Agent>
 
+
+const AGENT_MASCOT_SVG: Record<string, string> = {
+  'studio-ceo':      `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">👑</text></svg>`,
+  'studio-growth':   `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">🚀</text></svg>`,
+  'studio-criacao':  `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">🎨</text></svg>`,
+  'studio-trafego':  `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">📊</text></svg>`,
+  'studio-clientes': `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">🤝</text></svg>`,
+  'studio-dados':    `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">📈</text></svg>`,
+  'code':            `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">💻</text></svg>`,
+  'design':          `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">✏️</text></svg>`,
+  'research':        `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">🔍</text></svg>`,
+  'general':         `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><rect width="80" height="80" rx="16" fill="#1C1C1E"/><text y="52" x="50%" dominant-baseline="middle" text-anchor="middle" font-size="38">⚡</text></svg>`,
+}
+
+function AgentMascot({ name, size = 48 }: { name: string; size?: number }) {
+  const svg = AGENT_MASCOT_SVG[name] || AGENT_MASCOT_SVG['general']
+  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  return <img src={url} alt={name} width={size} height={size} style={{ borderRadius: 10, flexShrink: 0 }} />
+}
+
 const MODEL_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   opus:   { bg: 'rgba(255,159,10,0.15)',  color: '#FF9F0A', border: 'rgba(255,159,10,0.3)'  },
   sonnet: { bg: 'rgba(10,132,255,0.15)',  color: '#0A84FF', border: 'rgba(10,132,255,0.3)'  },
@@ -75,9 +95,12 @@ function AgentModal({ name, agent, onClose }: { name: string; agent: Agent; onCl
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2 style={{ color: 'var(--text-primary)', fontSize: 16, fontWeight: 600, margin: 0, textTransform: 'capitalize' }}>{name}</h2>
-            <ModelBadge model={agent.model} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <AgentMascot name={name} size={40} />
+            <div>
+              <h2 style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 600, margin: '0 0 2px 0', textTransform: 'capitalize' }}>{name.replace('studio-', '')}</h2>
+              <ModelBadge model={agent.model} />
+            </div>
           </div>
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <X size={14} strokeWidth={2} />
@@ -131,16 +154,21 @@ function AgentCard({ name, agent, onClick }: { name: string; agent: Agent; onCli
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{ background: hov ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px', textAlign: 'left', width: '100%', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)', transform: hov ? 'translateY(-1px)' : 'none', boxShadow: hov ? '0 4px 20px rgba(0,0,0,0.4)' : 'none' }}
+      style={{ background: hov ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '14px 12px', textAlign: 'left', width: '100%', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)', transform: hov ? 'translateY(-2px)' : 'none', boxShadow: hov ? '0 8px 24px rgba(0,0,0,0.5)' : 'none' }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <h3 style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 12, textTransform: 'capitalize', margin: 0 }}>{name.replace('studio-', '')}</h3>
-        <ModelBadge model={agent.model} />
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+        <AgentMascot name={name} size={44} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+            <h3 style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 12, textTransform: 'capitalize', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name.replace('studio-', '')}</h3>
+            <ModelBadge model={agent.model} />
+          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 10, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.5 }}>
+            {agent.system?.slice(0, 70) || 'Sem descrição'}
+          </p>
+        </div>
       </div>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 10.5, margin: '0 0 8px 0', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.5 }}>
-        {agent.system?.slice(0, 80) || 'Sem descrição'}
-      </p>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 8 }}>
         <div style={{ display: 'flex', gap: 5 }}>
           {(['shell', 'web', 'edit', 'read'] as const).map(t => (
             <ToolIcon key={t} label={t} active={!!(tools as Record<string, boolean>)[t]} />
