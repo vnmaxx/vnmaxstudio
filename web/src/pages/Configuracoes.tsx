@@ -7,7 +7,7 @@ import {
 } from 'firebase/auth'
 import { doc, updateDoc } from 'firebase/firestore'
 import {
-  User, Lock, Palette, Type, Monitor, Bell, ChevronRight,
+  User, Palette, Bell, ChevronRight,
   Check, Eye, EyeOff, Save, RefreshCw
 } from 'lucide-react'
 
@@ -34,7 +34,7 @@ const BG_COLORS = [
   { name: 'Marrom', value: '#0d0a08' },
 ]
 
-type Section = 'conta' | 'aparencia' | 'notificacoes' | 'sistema'
+type Section = 'conta' | 'aparencia' | 'notificacoes'
 
 function SectionBtn({ id, label, icon, active, onClick }: { id: Section; label: string; icon: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
@@ -227,10 +227,11 @@ function AparenciaSection() {
     document.documentElement.style.setProperty('--accent', a)
     document.documentElement.style.setProperty('--bg', b)
     document.documentElement.style.setProperty('--bg-primary', b)
+    document.documentElement.style.setProperty('--bg-secondary', `${b}80`)
     document.body.style.fontSize = f
   }
 
-  useEffect(() => { applyTheme(accent, bg, fontSize) }, [])
+  useEffect(() => { applyTheme(accent, bg, fontSize) }, [accent, bg, fontSize])
 
   const save = () => {
     localStorage.setItem('cfg_accent', accent)
@@ -238,7 +239,7 @@ function AparenciaSection() {
     localStorage.setItem('cfg_font', fontSize)
     localStorage.setItem('cfg_sidebar', sidebarCompact ? 'compact' : 'full')
     applyTheme(accent, bg, fontSize)
-    setToast({ msg: 'Aparência salva', type: 'ok' })
+    setToast({ msg: 'Tema aplicado em todo o projeto', type: 'ok' })
     setTimeout(() => setToast(null), 3000)
   }
 
@@ -248,7 +249,7 @@ function AparenciaSection() {
     localStorage.removeItem('cfg_accent'); localStorage.removeItem('cfg_bg')
     localStorage.removeItem('cfg_font'); localStorage.removeItem('cfg_sidebar')
     applyTheme(dA, dB, dF)
-    setToast({ msg: 'Tema resetado', type: 'ok' })
+    setToast({ msg: 'Tema resetado para o padrão', type: 'ok' })
     setTimeout(() => setToast(null), 3000)
   }
 
@@ -500,94 +501,17 @@ function NotificacoesSection() {
   )
 }
 
-function SistemaSection() {
-  const [bridgeUrl, setBridgeUrl] = useState(() => localStorage.getItem('cfg_bridge_url') || '')
-  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
-
-  const items = [
-    { label: 'Versão do sistema', value: '1.0.0' },
-    { label: 'Ambiente', value: import.meta.env.MODE },
-    { label: 'API URL', value: window.location.origin },
-    { label: 'Build', value: import.meta.env.VITE_BUILD_DATE || 'desenvolvimento' },
-  ]
-
-  const clearCache = () => {
-    Object.keys(localStorage).filter(k => k.startsWith('cfg_') || k.startsWith('notif_')).forEach(k => localStorage.removeItem(k))
-    document.documentElement.style.removeProperty('--accent')
-    document.documentElement.style.removeProperty('--bg')
-    document.documentElement.style.removeProperty('--bg-primary')
-    document.body.style.fontSize = ''
-    setToast({ msg: 'Cache de configurações limpo', type: 'ok' })
-    setTimeout(() => setToast(null), 3000)
-  }
-
-  const saveBridge = () => {
-    if (bridgeUrl) localStorage.setItem('cfg_bridge_url', bridgeUrl)
-    else localStorage.removeItem('cfg_bridge_url')
-    setToast({ msg: 'URL salva — recarregue para aplicar', type: 'ok' })
-    setTimeout(() => setToast(null), 3500)
-  }
-
-  return (
-    <div>
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
-
-      <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Informações</h3>
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden' }}>
-          {items.map((item, i) => (
-            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-              <span style={{ fontSize: 13.5, color: 'var(--text-secondary)' }}>{item.label}</span>
-              <span style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: "'SF Mono', monospace", fontWeight: 500 }}>{item.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
-
-      <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Bridge URL (override local)</h3>
-        <Field label="URL do bridge" hint="Deixe em branco para usar o padrão do servidor">
-          <Input value={bridgeUrl} onChange={setBridgeUrl} placeholder="https://bridge.nexusholding.xyz" />
-        </Field>
-        <SaveBtn loading={false} onClick={saveBridge} />
-      </div>
-
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
-
-      <div>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Manutenção</h3>
-        <button
-          onClick={clearCache}
-          style={{
-            padding: '10px 18px', borderRadius: 10,
-            background: 'rgba(255,69,58,0.1)', border: '1px solid rgba(255,69,58,0.25)',
-            color: '#FF453A', fontSize: 13.5, cursor: 'pointer', fontWeight: 500,
-          }}
-        >
-          Limpar cache de configurações
-        </button>
-      </div>
-    </div>
-  )
-}
-
 export default function Configuracoes() {
   const [section, setSection] = useState<Section>('conta')
 
   const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
-    { id: 'conta', label: 'Conta', icon: <User size={16} strokeWidth={1.5} /> },
-    { id: 'aparencia', label: 'Aparência', icon: <Palette size={16} strokeWidth={1.5} /> },
-    { id: 'notificacoes', label: 'Notificações', icon: <Bell size={16} strokeWidth={1.5} /> },
-    { id: 'sistema', label: 'Sistema', icon: <Monitor size={16} strokeWidth={1.5} /> },
+    { id: 'conta',        label: 'Conta',         icon: <User    size={16} strokeWidth={1.5} /> },
+    { id: 'aparencia',    label: 'Aparência',      icon: <Palette size={16} strokeWidth={1.5} /> },
+    { id: 'notificacoes', label: 'Notificações',   icon: <Bell    size={16} strokeWidth={1.5} /> },
   ]
 
   const titles: Record<Section, string> = {
-    conta: 'Conta',
-    aparencia: 'Aparência',
-    notificacoes: 'Notificações',
-    sistema: 'Sistema',
+    conta: 'Conta', aparencia: 'Aparência', notificacoes: 'Notificações',
   }
 
   return (
@@ -610,10 +534,9 @@ export default function Configuracoes() {
             <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{titles[section]}</h2>
           </div>
 
-          {section === 'conta' && <ContaSection />}
-          {section === 'aparencia' && <AparenciaSection />}
+          {section === 'conta'        && <ContaSection />}
+          {section === 'aparencia'    && <AparenciaSection />}
           {section === 'notificacoes' && <NotificacoesSection />}
-          {section === 'sistema' && <SistemaSection />}
         </div>
       </div>
     </div>
