@@ -183,6 +183,11 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
+  app.put('/api/agents/:name', async (req, res) => {
+    const { status, data } = await bridge('PUT', `/agents/${req.params.name}`, req.body);
+    res.status(status).json(data);
+  });
+
 } else {
   const STUDIO_ROOT = process.env.STUDIO_ROOT || path.join(__dirname, '..');
 
@@ -211,6 +216,19 @@ if (BRIDGE_URL) {
 
   app.get('/api/agents', (req, res) => {
     try { res.json(agentsModule.AGENTS || agentsModule.default || agentsModule); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.put('/api/agents/:name', (req, res) => {
+    try {
+      const overridesFile = path.join(STUDIO_ROOT, 'agents-overrides.json');
+      let overrides = {};
+      if (fs.existsSync(overridesFile)) {
+        try { overrides = JSON.parse(fs.readFileSync(overridesFile, 'utf8')); } catch {}
+      }
+      overrides[req.params.name] = { ...(overrides[req.params.name] || {}), ...req.body };
+      fs.writeFileSync(overridesFile, JSON.stringify(overrides, null, 2));
+      res.json({ ok: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
   app.get('/api/pendentes', async (req, res) => {

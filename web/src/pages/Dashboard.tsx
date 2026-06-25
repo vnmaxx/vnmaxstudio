@@ -5,7 +5,7 @@ import { pushNotification } from '../components/NotificationBell'
 import type { Agent, SystemStatus, Stats } from '../types'
 import {
   Terminal, Globe, Pencil, BookOpen,
-  Play, Loader2, X, Check,
+  Play, Loader2, X, Check, Save,
   Users, FileText, Megaphone, Mail, Package,
   AlertCircle, Activity, TrendingUp, Clock,
 } from 'lucide-react'
@@ -75,15 +75,40 @@ function ToolIcon({ label, active }: { label: string; active: boolean }) {
   )
 }
 
-function AgentModal({ name, agent, onClose }: { name: string; agent: Agent; onClose: () => void }) {
-  const tools = agent.tools || {}
-  const activeTools = (['shell', 'web', 'edit', 'read'] as const).filter(t => !!(tools as Record<string, boolean>)[t])
+function AgentModal({ name, agent, onClose, onSaved }: { name: string; agent: Agent; onClose: () => void; onSaved: (updated: Agent) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveErr, setSaveErr] = useState('')
+  const [form, setForm] = useState<Agent>({ ...agent })
+
   const toolIcons: Record<string, React.ReactNode> = {
     shell: <Terminal size={13} strokeWidth={1.5} />,
     web:   <Globe size={13} strokeWidth={1.5} />,
     edit:  <Pencil size={13} strokeWidth={1.5} />,
     read:  <BookOpen size={13} strokeWidth={1.5} />,
   }
+
+  const startEdit = () => { setForm({ ...agent }); setSaveErr(''); setEditing(true) }
+  const cancelEdit = () => { setEditing(false); setSaveErr('') }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveErr('')
+    try {
+      await api.updateAgent(name, form)
+      onSaved(form)
+      setEditing(false)
+    } catch (e: unknown) {
+      setSaveErr(e instanceof Error ? e.message : 'Erro ao salvar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const viewAgent = editing ? form : agent
+  const viewTools = viewAgent.tools || {}
+  const activeTools = (['shell', 'web', 'edit', 'read'] as const).filter(t => !!(viewTools as Record<string, boolean>)[t])
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -94,52 +119,145 @@ function AgentModal({ name, agent, onClose }: { name: string; agent: Agent; onCl
         style={{ background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, width: '100%', maxWidth: 580, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <AgentMascot name={name} size={40} />
             <div>
               <h2 style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 600, margin: '0 0 2px 0', textTransform: 'capitalize' }}>{name.replace('studio-', '')}</h2>
-              <ModelBadge model={agent.model} />
+              <ModelBadge model={viewAgent.model} />
             </div>
           </div>
-          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <X size={14} strokeWidth={2} />
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {editing ? (
+              <button
+                onClick={cancelEdit}
+                style={{ padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+            ) : (
+              <button
+                onClick={startEdit}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)', color: '#0A84FF', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+              >
+                <Pencil size={11} strokeWidth={2} />
+                Editar
+              </button>
+            )}
+            <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <X size={14} strokeWidth={2} />
+            </button>
+          </div>
         </div>
+
         <div className="overflow-y-auto" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-            {[
-              { value: agent.maxTurns, label: 'Max Turns' },
-              { value: activeTools.length, label: 'Ferramentas' },
-              { value: agent.model, label: 'Modelo', cap: true },
-            ].map((s, i) => (
-              <div key={i} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', textTransform: s.cap ? 'capitalize' : undefined }}>{s.value}</div>
-                <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 4 }}>{s.label}</div>
+          {editing ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6 }}>Modelo</label>
+                  <select
+                    value={form.model}
+                    onChange={e => setForm(f => ({ ...f, model: e.target.value as Agent['model'] }))}
+                    style={{ width: '100%', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 13, padding: '8px 10px', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
+                  >
+                    <option value="opus">opus</option>
+                    <option value="sonnet">sonnet</option>
+                    <option value="haiku">haiku</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6 }}>Max Turns</label>
+                  <input
+                    type="number" min={1} max={200}
+                    value={form.maxTurns}
+                    onChange={e => setForm(f => ({ ...f, maxTurns: Number(e.target.value) }))}
+                    style={{ width: '100%', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 13, padding: '8px 10px', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
               </div>
-            ))}
-          </div>
-          <div>
-            <p style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>Capacidades</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {(['shell', 'web', 'edit', 'read'] as const).map(t => {
-                const on = !!(tools as Record<string, boolean>)[t]
-                return (
-                  <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 980, fontSize: 12, fontWeight: 500, background: on ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.02)', border: on ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.04)', color: on ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
-                    <span style={{ opacity: on ? 1 : 0.3, display: 'flex' }}>{toolIcons[t]}</span>
-                    <span>{TOOL_META[t].label}</span>
-                    <span style={{ color: on ? '#30D158' : 'var(--text-tertiary)', display: 'flex' }}>{on ? <Check size={10} strokeWidth={2} /> : <X size={10} strokeWidth={2} />}</span>
-                  </span>
-                )
-              })}
-            </div>
-          </div>
-          <div>
-            <p style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>System Prompt</p>
-            <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: "'SF Mono', 'Fira Code', monospace" }}>
-              {agent.system || '(sem system prompt)'}
-            </div>
-          </div>
+
+              <div>
+                <label style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 8 }}>Capacidades</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(['shell', 'web', 'edit', 'read'] as const).map(t => {
+                    const on = !!(form.tools as Record<string, boolean>)[t]
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => setForm(f => ({ ...f, tools: { ...f.tools, [t]: !on } }))}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 980, fontSize: 12, fontWeight: 500, cursor: 'pointer', background: on ? 'rgba(10,132,255,0.15)' : 'rgba(255,255,255,0.04)', border: on ? '1px solid rgba(10,132,255,0.3)' : '1px solid rgba(255,255,255,0.08)', color: on ? '#0A84FF' : 'var(--text-tertiary)', transition: 'all 0.15s' }}
+                      >
+                        <span style={{ display: 'flex' }}>{toolIcons[t]}</span>
+                        {TOOL_META[t].label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 8 }}>System Prompt</label>
+                <textarea
+                  value={form.system}
+                  onChange={e => setForm(f => ({ ...f, system: e.target.value }))}
+                  style={{ width: '100%', minHeight: 220, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'var(--text-primary)', fontSize: 12, lineHeight: 1.7, padding: 14, fontFamily: "'SF Mono', 'Fira Code', monospace", resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              {saveErr && (
+                <p style={{ color: '#FF453A', fontSize: 12, margin: 0 }}>{saveErr}</p>
+              )}
+
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 11, borderRadius: 10, background: saving ? 'rgba(255,255,255,0.05)' : 'rgba(48,209,88,0.15)', border: saving ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(48,209,88,0.3)', color: saving ? 'var(--text-tertiary)' : '#30D158', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+              >
+                {saving
+                  ? <Loader2 size={14} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} />
+                  : <Save size={14} strokeWidth={2} />
+                }
+                {saving ? 'Salvando…' : 'Salvar alterações'}
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                {[
+                  { value: agent.maxTurns, label: 'Max Turns' },
+                  { value: activeTools.length, label: 'Ferramentas' },
+                  { value: agent.model, label: 'Modelo', cap: true },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', textTransform: s.cap ? 'capitalize' : undefined }}>{s.value}</div>
+                    <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 4 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <p style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>Capacidades</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(['shell', 'web', 'edit', 'read'] as const).map(t => {
+                    const on = !!(viewTools as Record<string, boolean>)[t]
+                    return (
+                      <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 980, fontSize: 12, fontWeight: 500, background: on ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.02)', border: on ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.04)', color: on ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+                        <span style={{ opacity: on ? 1 : 0.3, display: 'flex' }}>{toolIcons[t]}</span>
+                        <span>{TOOL_META[t].label}</span>
+                        <span style={{ color: on ? '#30D158' : 'var(--text-tertiary)', display: 'flex' }}>{on ? <Check size={10} strokeWidth={2} /> : <X size={10} strokeWidth={2} />}</span>
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+              <div>
+                <p style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>System Prompt</p>
+                <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: "'SF Mono', 'Fira Code', monospace" }}>
+                  {agent.system || '(sem system prompt)'}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -263,7 +381,16 @@ export default function Dashboard() {
     <div className="h-full flex flex-col overflow-hidden" style={{ padding: '18px 20px 16px', gap: 14 }}>
 
       {selectedAgent && (
-        <AgentModal name={selectedAgent.name} agent={selectedAgent.agent} onClose={() => setSelectedAgent(null)} />
+        <AgentModal
+          name={selectedAgent.name}
+          agent={selectedAgent.agent}
+          onClose={() => setSelectedAgent(null)}
+          onSaved={updated => {
+            setAgents(prev => ({ ...prev, [selectedAgent.name]: updated }))
+            setSelectedAgent(prev => prev ? { ...prev, agent: updated } : null)
+            showToast('Agente atualizado com sucesso')
+          }}
+        />
       )}
 
       {toast && (

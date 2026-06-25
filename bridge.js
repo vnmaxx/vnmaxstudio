@@ -214,14 +214,36 @@ app.post('/cycle', (req, res) => {
   res.json({ started: true, pid: child.pid, cycle });
 });
 
+const AGENTS_OVERRIDES_FILE = '/home/v/nxs-agents/lib/agents-overrides.json';
+
+function loadAgentOverrides() {
+  try { return JSON.parse(fs.readFileSync(AGENTS_OVERRIDES_FILE, 'utf8')); } catch { return {}; }
+}
+
 app.get('/agents', (req, res) => {
   try {
     const { AGENTS } = require('/home/v/nxs-agents/lib/agents.js');
+    const overrides = loadAgentOverrides();
     const normalized = {};
     for (const [name, agent] of Object.entries(AGENTS)) {
-      normalized[name] = { ...agent, system: agent.systemPrompt || agent.system || '' };
+      const over = overrides[name] || {};
+      const merged = { ...agent, ...over };
+      normalized[name] = { ...merged, system: merged.system || merged.systemPrompt || '' };
     }
     res.json(normalized);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/agents/:name', (req, res) => {
+  try {
+    const { name } = req.params;
+    const patch = req.body || {};
+    const overrides = loadAgentOverrides();
+    overrides[name] = { ...(overrides[name] || {}), ...patch };
+    fs.writeFileSync(AGENTS_OVERRIDES_FILE, JSON.stringify(overrides, null, 2));
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

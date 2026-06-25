@@ -12,6 +12,13 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 export const api = {
   getAgents: () => fetchJson<Record<string, import('./types').Agent>>('/agents'),
 
+  updateAgent: (name: string, patch: Partial<import('./types').Agent>) =>
+    fetchJson<{ ok: boolean }>(`/agents/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+
   getPendentes: () => fetchJson<import('./types').AprovacaoResumo[]>('/pendentes'),
 
   getPendente: (id: string) => fetchJson<import('./types').AprovacaoCompleta>(`/pendentes/${id}`),
