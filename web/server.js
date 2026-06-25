@@ -19,7 +19,7 @@ async function bridge(method, route, body) {
     const timer = setTimeout(() => controller.abort(), 15000);
     const opts = {
       method,
-      headers: { 'Content-Type': 'application/json', 'x-bridge-secret': BRIDGE_SECRET },
+      headers: { 'Content-Type': 'application/json', 'x-bridge-secret': BRIDGE_SECRET, 'User-Agent': 'StudioIA-Render/1.0' },
       signal: controller.signal,
     };
     if (body) opts.body = JSON.stringify(body);
