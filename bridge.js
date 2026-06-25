@@ -227,9 +227,9 @@ app.get('/agents', (req, res) => {
   }
 });
 
-app.get('/workspace-browse/*', (req, res) => {
+app.get('/workspace-browse/:path*', (req, res) => {
   try {
-    const segments = req.params[0].split('/').filter(s => s && s !== '..' && s !== '.');
+    const segments = req.params.path.split('/').filter(s => s && s !== '..' && s !== '.');
     const target = path.join(WORKSPACE, ...segments);
     if (!target.startsWith(WORKSPACE)) return res.status(403).json({ error: 'forbidden' });
     if (!fs.existsSync(target)) return res.status(404).json({ error: 'Not found' });
