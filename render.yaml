@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: studio-ia-api
+    runtime: node
+    rootDir: web
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: LINUX_BRIDGE_URL
+        sync: false
+      - key: BRIDGE_SECRET
+        sync: false
