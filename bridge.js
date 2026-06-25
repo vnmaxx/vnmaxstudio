@@ -217,7 +217,11 @@ app.post('/cycle', (req, res) => {
 app.get('/agents', (req, res) => {
   try {
     const { AGENTS } = require('/home/v/nxs-agents/lib/agents.js');
-    res.json(AGENTS);
+    const normalized = {};
+    for (const [name, agent] of Object.entries(AGENTS)) {
+      normalized[name] = { ...agent, system: agent.systemPrompt || agent.system || '' };
+    }
+    res.json(normalized);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
