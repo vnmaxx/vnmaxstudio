@@ -49,6 +49,14 @@ if (BRIDGE_URL) {
     '/relatorios': 120000,
     '/workspace': 120000,
   };
+  const DEFAULTS = {
+    '/status': { disabled: false },
+    '/stats': { counts: {}, lastCycle: null, lastError: null, totalErrors: 0, totalJobs: 0 },
+    '/logs': { lines: [] },
+    '/pendentes': [],
+    '/relatorios': [],
+    '/workspace': [],
+  };
 
   function getCache(key) {
     return CACHE[key] || null;
@@ -62,34 +70,32 @@ if (BRIDGE_URL) {
     for (const k of keys) delete CACHE[k];
   }
 
-  async function bridgeCached(route) {
-    const ttl = TTL[route] || 60000;
-    const entry = getCache(route);
-    const now = Date.now();
-    if (entry && now - entry.ts < ttl) {
-      return { status: 200, data: entry.data };
-    }
-    if (entry) {
-      bridge('GET', route).then(r => { if (r.status === 200) setCache(route, r.data); }).catch(() => {});
-      return { status: 200, data: entry.data };
-    }
-    const r = await bridge('GET', route);
-    if (r.status === 200) setCache(route, r.data);
-    return r;
+  function refreshInBackground(route) {
+    bridge('GET', route).then(r => { if (r.status === 200) setCache(route, r.data); }).catch(() => {});
   }
 
-  app.get('/api/logs', async (req, res) => {
-    const { status, data } = await bridgeCached('/logs');
+  function bridgeCached(route) {
+    const entry = getCache(route);
+    const ttl = TTL[route] || 60000;
+    const expired = !entry || Date.now() - entry.ts > ttl;
+    if (expired) refreshInBackground(route);
+    return { status: 200, data: entry ? entry.data : DEFAULTS[route] };
+  }
+
+  Object.keys(DEFAULTS).forEach(route => refreshInBackground(route));
+
+  app.get('/api/logs', (req, res) => {
+    const { status, data } = bridgeCached('/logs');
     res.status(status).json(data);
   });
 
-  app.get('/api/stats', async (req, res) => {
-    const { status, data } = await bridgeCached('/stats');
+  app.get('/api/stats', (req, res) => {
+    const { status, data } = bridgeCached('/stats');
     res.status(status).json(data);
   });
 
-  app.get('/api/status', async (req, res) => {
-    const { status, data } = await bridgeCached('/status');
+  app.get('/api/status', (req, res) => {
+    const { status, data } = bridgeCached('/status');
     res.status(status).json(data);
   });
 
@@ -100,8 +106,8 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
-  app.get('/api/relatorios', async (req, res) => {
-    const { status, data } = await bridgeCached('/relatorios');
+  app.get('/api/relatorios', (req, res) => {
+    const { status, data } = bridgeCached('/relatorios');
     res.status(status).json(data);
   });
 
@@ -110,8 +116,8 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
-  app.get('/api/pendentes', async (req, res) => {
-    const { status, data } = await bridgeCached('/pendentes');
+  app.get('/api/pendentes', (req, res) => {
+    const { status, data } = bridgeCached('/pendentes');
     res.status(status).json(data);
   });
 
@@ -138,8 +144,8 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
-  app.get('/api/workspace', async (req, res) => {
-    const { status, data } = await bridgeCached('/workspace');
+  app.get('/api/workspace', (req, res) => {
+    const { status, data } = bridgeCached('/workspace');
     res.status(status).json(data);
   });
 
