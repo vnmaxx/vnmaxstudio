@@ -251,7 +251,7 @@ app.get('/workspace-browse/*', (req, res) => {
         res.json({ type: 'file', raw: content, isJson: false });
       }
     }
-  } catch (e) { res.status(500).json({ error: (e as Error).message }); }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/agents/:name/run', (req, res) => {

@@ -9,6 +9,7 @@ import Logs from './pages/Logs'
 import Login from './pages/Login'
 import Aguardando from './pages/Aguardando'
 import Admin from './pages/Admin'
+import Configuracoes from './pages/Configuracoes'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -34,6 +35,7 @@ function AppRoutes() {
         <Route path="workspace" element={<Workspace />} />
         <Route path="logs" element={<Logs />} />
         {user.isAdmin && <Route path="admin" element={<Admin />} />}
+        <Route path="configuracoes" element={<Configuracoes />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

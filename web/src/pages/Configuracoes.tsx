@@ -1,0 +1,554 @@
+import { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import { auth, db } from '../firebase'
+import {
+  updatePassword, updateProfile, EmailAuthProvider,
+  reauthenticateWithCredential
+} from 'firebase/auth'
+import { doc, updateDoc } from 'firebase/firestore'
+import {
+  User, Lock, Palette, Type, Monitor, Bell, ChevronRight,
+  Check, Eye, EyeOff, Save, RefreshCw
+} from 'lucide-react'
+
+const ACCENT_COLORS = [
+  { name: 'Azul', value: '#0A84FF' },
+  { name: 'Verde', value: '#30D158' },
+  { name: 'Roxo', value: '#BF5AF2' },
+  { name: 'Laranja', value: '#FF9F0A' },
+  { name: 'Rosa', value: '#FF375F' },
+  { name: 'Ciano', value: '#32ADE6' },
+]
+
+const FONT_SIZES = [
+  { label: 'Pequeno', value: '13px' },
+  { label: 'Normal', value: '14px' },
+  { label: 'Grande', value: '15px' },
+  { label: 'Maior', value: '16px' },
+]
+
+const BG_COLORS = [
+  { name: 'Preto', value: '#08080a' },
+  { name: 'Grafite', value: '#0f0f12' },
+  { name: 'Azul escuro', value: '#070810' },
+  { name: 'Marrom', value: '#0d0a08' },
+]
+
+type Section = 'conta' | 'aparencia' | 'notificacoes' | 'sistema'
+
+function SectionBtn({ id, label, icon, active, onClick }: { id: Section; label: string; icon: React.ReactNode; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+        padding: '10px 14px', borderRadius: 10, background: active ? 'rgba(10,132,255,0.15)' : 'transparent',
+        border: active ? '1px solid rgba(10,132,255,0.3)' : '1px solid transparent',
+        color: active ? '#0A84FF' : 'rgba(255,255,255,0.55)', fontSize: 13.5, fontWeight: 500,
+        cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s',
+      }}
+      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+      onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)' } }}
+    >
+      {icon}
+      <span style={{ flex: 1 }}>{label}</span>
+      <ChevronRight size={14} strokeWidth={1.5} style={{ opacity: 0.4 }} />
+    </button>
+  )
+}
+
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</label>
+      {children}
+      {hint && <p style={{ margin: '6px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.28)' }}>{hint}</p>}
+    </div>
+  )
+}
+
+function Input({ value, onChange, type = 'text', placeholder, disabled }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string; disabled?: boolean }) {
+  const [show, setShow] = useState(false)
+  const isPassword = type === 'password'
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        type={isPassword && !show ? 'password' : 'text'}
+        placeholder={placeholder}
+        disabled={disabled}
+        style={{
+          width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 10, padding: isPassword ? '10px 44px 10px 14px' : '10px 14px',
+          fontSize: 14, color: disabled ? 'rgba(255,255,255,0.3)' : 'var(--text-primary)',
+          outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.18s',
+        }}
+        onFocus={e => { e.target.style.borderColor = 'rgba(10,132,255,0.5)' }}
+        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)' }}
+      />
+      {isPassword && (
+        <button
+          type="button"
+          onClick={() => setShow(s => !s)}
+          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: 0, display: 'flex' }}
+        >
+          {show ? <EyeOff size={16} strokeWidth={1.5} /> : <Eye size={16} strokeWidth={1.5} />}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Toast({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      background: type === 'ok' ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
+      border: `1px solid ${type === 'ok' ? 'rgba(48,209,88,0.35)' : 'rgba(255,69,58,0.35)'}`,
+      color: type === 'ok' ? '#30D158' : '#FF453A',
+      borderRadius: 12, padding: '12px 18px', fontSize: 13, fontWeight: 500,
+      display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+    }}>
+      {type === 'ok' ? <Check size={15} strokeWidth={2.5} /> : null}
+      {msg}
+    </div>
+  )
+}
+
+function SaveBtn({ loading, onClick }: { loading: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px',
+        background: 'rgba(10,132,255,0.9)', border: 'none', borderRadius: 10,
+        color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: loading ? 'default' : 'pointer',
+        opacity: loading ? 0.7 : 1, transition: 'all 0.18s',
+      }}
+    >
+      {loading ? <RefreshCw size={14} strokeWidth={2} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={14} strokeWidth={2} />}
+      {loading ? 'Salvando...' : 'Salvar'}
+    </button>
+  )
+}
+
+function ContaSection() {
+  const { user } = useAuth()
+  const [name, setName] = useState(user?.displayName || '')
+  const [currentPwd, setCurrentPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [loadingName, setLoadingName] = useState(false)
+  const [loadingPwd, setLoadingPwd] = useState(false)
+  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+
+  const showToast = (msg: string, type: 'ok' | 'err') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3500)
+  }
+
+  const saveName = async () => {
+    if (!auth.currentUser || !name.trim()) return
+    setLoadingName(true)
+    try {
+      await updateProfile(auth.currentUser, { displayName: name.trim() })
+      if (user) await updateDoc(doc(db, 'users', user.uid), { displayName: name.trim() })
+      showToast('Nome atualizado com sucesso', 'ok')
+    } catch (e: unknown) {
+      showToast((e as Error).message || 'Erro ao salvar nome', 'err')
+    } finally { setLoadingName(false) }
+  }
+
+  const savePwd = async () => {
+    if (!auth.currentUser || !auth.currentUser.email) return
+    if (newPwd.length < 6) return showToast('Senha deve ter pelo menos 6 caracteres', 'err')
+    if (newPwd !== confirmPwd) return showToast('As senhas não coincidem', 'err')
+    setLoadingPwd(true)
+    try {
+      const cred = EmailAuthProvider.credential(auth.currentUser.email, currentPwd)
+      await reauthenticateWithCredential(auth.currentUser, cred)
+      await updatePassword(auth.currentUser, newPwd)
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('')
+      showToast('Senha alterada com sucesso', 'ok')
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string }
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        showToast('Senha atual incorreta', 'err')
+      } else {
+        showToast(err.message || 'Erro ao alterar senha', 'err')
+      }
+    } finally { setLoadingPwd(false) }
+  }
+
+  return (
+    <div>
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
+
+      <div style={{ marginBottom: 32 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Perfil</h3>
+        <Field label="Email" hint="O email não pode ser alterado">
+          <Input value={user?.email || ''} onChange={() => {}} disabled />
+        </Field>
+        <Field label="Nome de exibição">
+          <Input value={name} onChange={setName} placeholder="Seu nome" />
+        </Field>
+        <SaveBtn loading={loadingName} onClick={saveName} />
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '28px 0' }} />
+
+      <div>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Alterar Senha</h3>
+        <Field label="Senha atual">
+          <Input value={currentPwd} onChange={setCurrentPwd} type="password" placeholder="••••••••" />
+        </Field>
+        <Field label="Nova senha" hint="Mínimo 6 caracteres">
+          <Input value={newPwd} onChange={setNewPwd} type="password" placeholder="••••••••" />
+        </Field>
+        <Field label="Confirmar nova senha">
+          <Input value={confirmPwd} onChange={setConfirmPwd} type="password" placeholder="••••••••" />
+        </Field>
+        <SaveBtn loading={loadingPwd} onClick={savePwd} />
+      </div>
+    </div>
+  )
+}
+
+function AparenciaSection() {
+  const [accent, setAccent] = useState(() => localStorage.getItem('cfg_accent') || '#0A84FF')
+  const [bg, setBg] = useState(() => localStorage.getItem('cfg_bg') || '#08080a')
+  const [fontSize, setFontSize] = useState(() => localStorage.getItem('cfg_font') || '14px')
+  const [sidebarCompact, setSidebarCompact] = useState(() => localStorage.getItem('cfg_sidebar') === 'compact')
+  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+
+  const applyTheme = (a: string, b: string, f: string) => {
+    document.documentElement.style.setProperty('--accent', a)
+    document.documentElement.style.setProperty('--bg', b)
+    document.documentElement.style.setProperty('--bg-primary', b)
+    document.body.style.fontSize = f
+  }
+
+  useEffect(() => { applyTheme(accent, bg, fontSize) }, [])
+
+  const save = () => {
+    localStorage.setItem('cfg_accent', accent)
+    localStorage.setItem('cfg_bg', bg)
+    localStorage.setItem('cfg_font', fontSize)
+    localStorage.setItem('cfg_sidebar', sidebarCompact ? 'compact' : 'full')
+    applyTheme(accent, bg, fontSize)
+    setToast({ msg: 'Aparência salva', type: 'ok' })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  const reset = () => {
+    const dA = '#0A84FF', dB = '#08080a', dF = '14px'
+    setAccent(dA); setBg(dB); setFontSize(dF); setSidebarCompact(false)
+    localStorage.removeItem('cfg_accent'); localStorage.removeItem('cfg_bg')
+    localStorage.removeItem('cfg_font'); localStorage.removeItem('cfg_sidebar')
+    applyTheme(dA, dB, dF)
+    setToast({ msg: 'Tema resetado', type: 'ok' })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  return (
+    <div>
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
+
+      <div style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Cor de destaque</h3>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {ACCENT_COLORS.map(c => (
+            <button
+              key={c.value}
+              onClick={() => setAccent(c.value)}
+              title={c.name}
+              style={{
+                width: 40, height: 40, borderRadius: 10, background: c.value, border: 'none',
+                cursor: 'pointer', outline: accent === c.value ? `3px solid ${c.value}` : '3px solid transparent',
+                outlineOffset: 3, transition: 'all 0.18s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              {accent === c.value && <Check size={18} strokeWidth={2.5} color="#fff" />}
+            </button>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
+            <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Personalizada:</label>
+            <input
+              type="color"
+              value={accent}
+              onChange={e => setAccent(e.target.value)}
+              style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', background: 'transparent', padding: 2 }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
+
+      <div style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Cor de fundo</h3>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {BG_COLORS.map(c => (
+            <button
+              key={c.value}
+              onClick={() => setBg(c.value)}
+              title={c.name}
+              style={{
+                width: 40, height: 40, borderRadius: 10, background: c.value,
+                border: bg === c.value ? `2px solid ${accent}` : '2px solid rgba(255,255,255,0.15)',
+                cursor: 'pointer', transition: 'all 0.18s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              {bg === c.value && <Check size={16} strokeWidth={2.5} color="rgba(255,255,255,0.7)" />}
+            </button>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
+            <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Personalizada:</label>
+            <input
+              type="color"
+              value={bg}
+              onChange={e => setBg(e.target.value)}
+              style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', background: 'transparent', padding: 2 }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
+
+      <div style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Tamanho da fonte</h3>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {FONT_SIZES.map(f => (
+            <button
+              key={f.value}
+              onClick={() => setFontSize(f.value)}
+              style={{
+                padding: '8px 16px', borderRadius: 10, fontSize: f.value,
+                background: fontSize === f.value ? `rgba(10,132,255,0.15)` : 'rgba(255,255,255,0.05)',
+                border: fontSize === f.value ? `1px solid ${accent}55` : '1px solid rgba(255,255,255,0.1)',
+                color: fontSize === f.value ? accent : 'var(--text-secondary)',
+                cursor: 'pointer', fontWeight: 500, transition: 'all 0.18s',
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
+
+      <div style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Sidebar</h3>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+          <div
+            onClick={() => setSidebarCompact(s => !s)}
+            style={{
+              width: 44, height: 26, borderRadius: 13, transition: 'background 0.2s',
+              background: sidebarCompact ? accent : 'rgba(255,255,255,0.12)',
+              position: 'relative', cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: 3, left: sidebarCompact ? 21 : 3,
+              width: 20, height: 20, borderRadius: 10, background: '#fff',
+              transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            }} />
+          </div>
+          <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Sidebar compacta (sem labels)</span>
+        </label>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <SaveBtn loading={false} onClick={save} />
+        <button
+          onClick={reset}
+          style={{
+            padding: '10px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)',
+            fontSize: 13.5, cursor: 'pointer', fontWeight: 500,
+          }}
+        >
+          Resetar padrão
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function NotificacoesSection() {
+  const [cycleEnd, setCycleEnd] = useState(() => localStorage.getItem('notif_cycle') !== 'false')
+  const [pendentes, setPendentes] = useState(() => localStorage.getItem('notif_pend') !== 'false')
+  const [erros, setErros] = useState(() => localStorage.getItem('notif_err') !== 'false')
+  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+
+  const save = () => {
+    localStorage.setItem('notif_cycle', String(cycleEnd))
+    localStorage.setItem('notif_pend', String(pendentes))
+    localStorage.setItem('notif_err', String(erros))
+    setToast({ msg: 'Preferências salvas', type: 'ok' })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  const Toggle = ({ val, onChange, label, desc }: { val: boolean; onChange: (v: boolean) => void; label: string; desc: string }) => {
+    const acc = document.documentElement.style.getPropertyValue('--accent') || '#0A84FF'
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{label}</p>
+          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>{desc}</p>
+        </div>
+        <div
+          onClick={() => onChange(!val)}
+          style={{
+            width: 44, height: 26, borderRadius: 13, transition: 'background 0.2s',
+            background: val ? (acc || '#0A84FF') : 'rgba(255,255,255,0.12)',
+            position: 'relative', cursor: 'pointer', flexShrink: 0, marginLeft: 16,
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: 3, left: val ? 21 : 3,
+            width: 20, height: 20, borderRadius: 10, background: '#fff',
+            transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+          }} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>Notificações no dashboard</h3>
+      <Toggle val={cycleEnd} onChange={setCycleEnd} label="Fim de ciclo" desc="Notificar quando um ciclo manual terminar" />
+      <Toggle val={pendentes} onChange={setPendentes} label="Aprovações pendentes" desc="Badge com contagem na sidebar" />
+      <Toggle val={erros} onChange={setErros} label="Erros de agente" desc="Destacar erros na área de atividade recente" />
+      <div style={{ marginTop: 24 }}>
+        <SaveBtn loading={false} onClick={save} />
+      </div>
+    </div>
+  )
+}
+
+function SistemaSection() {
+  const [bridgeUrl, setBridgeUrl] = useState(() => localStorage.getItem('cfg_bridge_url') || '')
+  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+
+  const items = [
+    { label: 'Versão do sistema', value: '1.0.0' },
+    { label: 'Ambiente', value: import.meta.env.MODE },
+    { label: 'API URL', value: window.location.origin },
+    { label: 'Build', value: import.meta.env.VITE_BUILD_DATE || 'desenvolvimento' },
+  ]
+
+  const clearCache = () => {
+    Object.keys(localStorage).filter(k => k.startsWith('cfg_') || k.startsWith('notif_')).forEach(k => localStorage.removeItem(k))
+    document.documentElement.style.removeProperty('--accent')
+    document.documentElement.style.removeProperty('--bg')
+    document.documentElement.style.removeProperty('--bg-primary')
+    document.body.style.fontSize = ''
+    setToast({ msg: 'Cache de configurações limpo', type: 'ok' })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  const saveBridge = () => {
+    if (bridgeUrl) localStorage.setItem('cfg_bridge_url', bridgeUrl)
+    else localStorage.removeItem('cfg_bridge_url')
+    setToast({ msg: 'URL salva — recarregue para aplicar', type: 'ok' })
+    setTimeout(() => setToast(null), 3500)
+  }
+
+  return (
+    <div>
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
+
+      <div style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Informações</h3>
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden' }}>
+          {items.map((item, i) => (
+            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+              <span style={{ fontSize: 13.5, color: 'var(--text-secondary)' }}>{item.label}</span>
+              <span style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: "'SF Mono', monospace", fontWeight: 500 }}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
+
+      <div style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Bridge URL (override local)</h3>
+        <Field label="URL do bridge" hint="Deixe em branco para usar o padrão do servidor">
+          <Input value={bridgeUrl} onChange={setBridgeUrl} placeholder="https://bridge.nexusholding.xyz" />
+        </Field>
+        <SaveBtn loading={false} onClick={saveBridge} />
+      </div>
+
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
+
+      <div>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Manutenção</h3>
+        <button
+          onClick={clearCache}
+          style={{
+            padding: '10px 18px', borderRadius: 10,
+            background: 'rgba(255,69,58,0.1)', border: '1px solid rgba(255,69,58,0.25)',
+            color: '#FF453A', fontSize: 13.5, cursor: 'pointer', fontWeight: 500,
+          }}
+        >
+          Limpar cache de configurações
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default function Configuracoes() {
+  const [section, setSection] = useState<Section>('conta')
+
+  const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
+    { id: 'conta', label: 'Conta', icon: <User size={16} strokeWidth={1.5} /> },
+    { id: 'aparencia', label: 'Aparência', icon: <Palette size={16} strokeWidth={1.5} /> },
+    { id: 'notificacoes', label: 'Notificações', icon: <Bell size={16} strokeWidth={1.5} /> },
+    { id: 'sistema', label: 'Sistema', icon: <Monitor size={16} strokeWidth={1.5} /> },
+  ]
+
+  const titles: Record<Section, string> = {
+    conta: 'Conta',
+    aparencia: 'Aparência',
+    notificacoes: 'Notificações',
+    sistema: 'Sistema',
+  }
+
+  return (
+    <div style={{ minHeight: '100%', padding: '16px', maxWidth: 900, margin: '0 auto', boxSizing: 'border-box' }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ color: 'var(--text-primary)', fontSize: 20, fontWeight: 700, margin: 0 }}>Configurações</h1>
+        <p style={{ color: 'var(--text-tertiary)', fontSize: 13, margin: '4px 0 0' }}>Personalize o Studio IA</p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+        <div style={{ width: 200, flexShrink: 0, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 8 }}>
+          {sections.map(s => (
+            <SectionBtn key={s.id} id={s.id} label={s.label} icon={s.icon} active={section === s.id} onClick={() => setSection(s.id)} />
+          ))}
+        </div>
+
+        <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '24px 28px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            {sections.find(s => s.id === section)?.icon}
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{titles[section]}</h2>
+          </div>
+
+          {section === 'conta' && <ContaSection />}
+          {section === 'aparencia' && <AparenciaSection />}
+          {section === 'notificacoes' && <NotificacoesSection />}
+          {section === 'sistema' && <SistemaSection />}
+        </div>
+      </div>
+    </div>
+  )
+}

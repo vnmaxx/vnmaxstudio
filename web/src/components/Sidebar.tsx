@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../contexts/AuthContext'
-import { Bot, LayoutDashboard, CheckSquare, BarChart3, FolderOpen, ScrollText, Shield, LogOut } from 'lucide-react'
+import { Bot, LayoutDashboard, CheckSquare, BarChart3, FolderOpen, ScrollText, Shield, LogOut, Settings } from 'lucide-react'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} strokeWidth={1.5} /> },
@@ -90,6 +90,15 @@ export default function Sidebar() {
         <div style={{ padding: '6px 12px', marginBottom: 4 }}>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</p>
         </div>
+        <NavLink
+          to="/configuracoes"
+          style={({ isActive }) => ({ ...linkStyle(isActive), marginBottom: 2 })}
+          onMouseEnter={e => { const el = e.currentTarget; if (!el.style.background.includes('0.18')) { el.style.background = 'rgba(255,255,255,0.08)'; el.style.color = 'var(--text-primary)' } }}
+          onMouseLeave={e => { const el = e.currentTarget; if (!el.style.background.includes('0.18')) { el.style.background = 'transparent'; el.style.color = 'rgba(255,255,255,0.5)' } }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center' }}><Settings size={16} strokeWidth={1.5} /></span>
+          <span style={{ flex: 1 }}>Configurações</span>
+        </NavLink>
         <button
           onClick={logout}
           style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 12px', background: 'transparent', border: '1px solid transparent', borderRadius: 10, color: 'rgba(255,255,255,0.4)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s' }}
