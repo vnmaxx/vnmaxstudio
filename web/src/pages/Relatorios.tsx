@@ -177,7 +177,7 @@ export default function Relatorios() {
                           color: selected === r.name ? 'rgba(10,132,255,0.7)' : 'var(--text-tertiary)',
                         }}
                       >
-                        {new Date(r.mtime).toLocaleDateString('pt-BR')}
+                        {new Date(r.mtime).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                       </p>
                     </button>
                   ))}

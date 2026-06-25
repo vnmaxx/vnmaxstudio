@@ -277,7 +277,7 @@ export default function Dashboard() {
         <div>
           <h1 style={{ color: 'var(--text-primary)', fontSize: 18, fontWeight: 700, margin: 0, lineHeight: 1 }}>Visão Geral</h1>
           <p style={{ color: 'var(--text-tertiary)', fontSize: 11, margin: '3px 0 0 0' }}>
-            {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+            {new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

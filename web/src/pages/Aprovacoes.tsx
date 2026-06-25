@@ -150,7 +150,7 @@ function AprovacaoItem({
               {item.resumo}
             </p>
             <p style={{ color: 'var(--text-tertiary)', fontSize: 11, margin: 0 }}>
-              {new Date(item.data).toLocaleString('pt-BR')}
+              {new Date(item.data).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
             </p>
           </div>
 
