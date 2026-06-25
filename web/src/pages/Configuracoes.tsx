@@ -7,7 +7,7 @@ import {
 } from 'firebase/auth'
 import { doc, updateDoc } from 'firebase/firestore'
 import {
-  User, Palette, Bell, ChevronRight,
+  User, Palette, Bell,
   Check, Eye, EyeOff, Save, RefreshCw
 } from 'lucide-react'
 
@@ -34,28 +34,6 @@ const BG_COLORS = [
   { name: 'Marrom', value: '#0d0a08' },
 ]
 
-type Section = 'conta' | 'aparencia' | 'notificacoes'
-
-function SectionBtn({ id, label, icon, active, onClick }: { id: Section; label: string; icon: React.ReactNode; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-        padding: '10px 14px', borderRadius: 10, background: active ? 'rgba(10,132,255,0.15)' : 'transparent',
-        border: active ? '1px solid rgba(10,132,255,0.3)' : '1px solid transparent',
-        color: active ? '#0A84FF' : 'rgba(255,255,255,0.55)', fontSize: 13.5, fontWeight: 500,
-        cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s',
-      }}
-      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
-      onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)' } }}
-    >
-      {icon}
-      <span style={{ flex: 1 }}>{label}</span>
-      <ChevronRight size={14} strokeWidth={1.5} style={{ opacity: 0.4 }} />
-    </button>
-  )
-}
 
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
@@ -501,44 +479,37 @@ function NotificacoesSection() {
   )
 }
 
-export default function Configuracoes() {
-  const [section, setSection] = useState<Section>('conta')
-
-  const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
-    { id: 'conta',        label: 'Conta',         icon: <User    size={16} strokeWidth={1.5} /> },
-    { id: 'aparencia',    label: 'Aparência',      icon: <Palette size={16} strokeWidth={1.5} /> },
-    { id: 'notificacoes', label: 'Notificações',   icon: <Bell    size={16} strokeWidth={1.5} /> },
-  ]
-
-  const titles: Record<Section, string> = {
-    conta: 'Conta', aparencia: 'Aparência', notificacoes: 'Notificações',
-  }
-
+function SectionCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100%', padding: '16px', maxWidth: 900, margin: '0 auto', boxSizing: 'border-box' }}>
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '24px 28px', marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, paddingBottom: 18, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        {icon}
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</h2>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+export default function Configuracoes() {
+  return (
+    <div style={{ minHeight: '100%', padding: '16px', maxWidth: 760, margin: '0 auto', boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ color: 'var(--text-primary)', fontSize: 20, fontWeight: 700, margin: 0 }}>Configurações</h1>
         <p style={{ color: 'var(--text-tertiary)', fontSize: 13, margin: '4px 0 0' }}>Personalize o Studio IA</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        <div style={{ width: 200, flexShrink: 0, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 8 }}>
-          {sections.map(s => (
-            <SectionBtn key={s.id} id={s.id} label={s.label} icon={s.icon} active={section === s.id} onClick={() => setSection(s.id)} />
-          ))}
-        </div>
+      <SectionCard icon={<User size={16} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />} title="Conta">
+        <ContaSection />
+      </SectionCard>
 
-        <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '24px 28px', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            {sections.find(s => s.id === section)?.icon}
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{titles[section]}</h2>
-          </div>
+      <SectionCard icon={<Palette size={16} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />} title="Aparência">
+        <AparenciaSection />
+      </SectionCard>
 
-          {section === 'conta'        && <ContaSection />}
-          {section === 'aparencia'    && <AparenciaSection />}
-          {section === 'notificacoes' && <NotificacoesSection />}
-        </div>
-      </div>
+      <SectionCard icon={<Bell size={16} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />} title="Notificações">
+        <NotificacoesSection />
+      </SectionCard>
     </div>
   )
 }
