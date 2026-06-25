@@ -5,7 +5,7 @@ import {
   RefreshCw, FolderOpen, FileText, ChevronRight, ArrowLeft, Home, Search,
   Users, PenLine, Package, Globe, Megaphone, Mail, Handshake, ClipboardList,
   BarChart3, CheckSquare, Folder, File, Braces, Terminal, LayoutGrid,
-  Phone, AtSign, Tag, MessageSquare, Star, Code,
+  Phone, AtSign, Tag, MessageSquare, Star, Code, MapPin, ExternalLink,
 } from 'lucide-react'
 
 type BrowseResult =
@@ -67,10 +67,30 @@ function extractRank(obs?: string) {
   return m ? parseInt(m[1]) : null
 }
 
+function extractRating(obs?: string) {
+  const m = obs?.match(/[Nn]ota\s+([\d,.]+)/)
+  return m ? m[1].replace(',', '.') : null
+}
+
+function extractReviews(obs?: string) {
+  const m = obs?.match(/([\d.,]+\+?)\s*avalia[çc][õo]es?/i)
+  return m ? m[1] : null
+}
+
+function mapsUrl(nome?: string) {
+  return `https://www.google.com/maps/search/${encodeURIComponent(nome || '')}`
+}
+
+function googleUrl(nome?: string) {
+  return `https://www.google.com/search?q=${encodeURIComponent(nome || '')}`
+}
+
 function LeadCard({ lead, index }: { lead: Lead; index: number }) {
   const { handle, phone } = parseContato(lead.contato)
-  const rank = extractRank(lead.observacao)
-  const obs = lead.observacao?.replace(/^TOP\s*\d+\s*[–-]\s*/i, '') || ''
+  const rank    = extractRank(lead.observacao)
+  const rating  = extractRating(lead.observacao)
+  const reviews = extractReviews(lead.observacao)
+  const obs     = lead.observacao?.replace(/^TOP\s*\d+\s*[–-]\s*/i, '') || ''
 
   const rankColor = rank === 1 ? '#FFD60A' : rank === 2 ? '#C0C0C0' : rank === 3 ? '#CD7F32' : 'rgba(255,255,255,0.3)'
 
@@ -81,7 +101,7 @@ function LeadCard({ lead, index }: { lead: Lead; index: number }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             {rank && (
               <span style={{ fontSize: 11, fontWeight: 700, color: rankColor, background: `${rankColor}18`, border: `1px solid ${rankColor}40`, borderRadius: 6, padding: '1px 7px', flexShrink: 0 }}>
                 TOP {rank}
@@ -91,45 +111,75 @@ function LeadCard({ lead, index }: { lead: Lead; index: number }) {
               {lead.nome || `Lead #${index + 1}`}
             </span>
           </div>
-          {lead.segmento && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--accent)', background: 'rgba(10,132,255,0.1)', border: '1px solid rgba(10,132,255,0.2)', borderRadius: 6, padding: '2px 8px' }}>
-              <Tag size={10} strokeWidth={2} /> {lead.segmento}
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {lead.segmento && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--accent)', background: 'rgba(10,132,255,0.1)', border: '1px solid rgba(10,132,255,0.2)', borderRadius: 6, padding: '2px 8px' }}>
+                <Tag size={10} strokeWidth={2} /> {lead.segmento}
+              </span>
+            )}
+            {rating && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: '#FFD60A', background: 'rgba(255,214,10,0.1)', border: '1px solid rgba(255,214,10,0.25)', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>
+                <Star size={10} strokeWidth={2.5} style={{ fill: '#FFD60A' }} /> {rating}
+                {reviews && <span style={{ fontWeight: 400, color: 'rgba(255,214,10,0.7)', fontSize: 10.5 }}>({reviews} avaliações)</span>}
+              </span>
+            )}
+          </div>
         </div>
-        <Star size={14} strokeWidth={1.5} style={{ color: rankColor, flexShrink: 0, marginTop: 3 }} />
+
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <a
+            href={mapsUrl(lead.nome)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Ver no Google Maps"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, background: 'rgba(234,67,53,0.1)', border: '1px solid rgba(234,67,53,0.25)', color: '#EA4335', fontSize: 11.5, textDecoration: 'none', fontWeight: 500, transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(234,67,53,0.18)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(234,67,53,0.1)' }}
+          >
+            <MapPin size={12} strokeWidth={2} /> Maps
+          </a>
+          <a
+            href={googleUrl(lead.nome)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Pesquisar no Google"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, background: 'rgba(66,133,244,0.1)', border: '1px solid rgba(66,133,244,0.25)', color: '#4285F4', fontSize: 11.5, textDecoration: 'none', fontWeight: 500, transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(66,133,244,0.18)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(66,133,244,0.1)' }}
+          >
+            <ExternalLink size={12} strokeWidth={2} /> Google
+          </a>
+        </div>
       </div>
 
-      {(handle || phone) && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {handle && (
-            <a
-              href={`https://instagram.com/${handle.replace('@','')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#BF5AF2', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 8, padding: '5px 10px', textDecoration: 'none', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(191,90,242,0.18)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(191,90,242,0.1)' }}
-            >
-              <AtSign size={12} strokeWidth={2} /> {handle}
-            </a>
-          )}
-          {phone && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#30D158', background: 'rgba(48,209,88,0.08)', border: '1px solid rgba(48,209,88,0.2)', borderRadius: 8, padding: '5px 10px' }}>
-              <Phone size={12} strokeWidth={2} /> {phone}
-            </span>
-          )}
-          {lead.fonte && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 10px' }}>
-              Fonte: {lead.fonte}
-            </span>
-          )}
-        </div>
-      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {handle && (
+          <a
+            href={`https://instagram.com/${handle.replace('@','')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#BF5AF2', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 8, padding: '5px 10px', textDecoration: 'none', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(191,90,242,0.18)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(191,90,242,0.1)' }}
+          >
+            <AtSign size={12} strokeWidth={2} /> {handle}
+          </a>
+        )}
+        {phone && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#30D158', background: 'rgba(48,209,88,0.08)', border: '1px solid rgba(48,209,88,0.2)', borderRadius: 8, padding: '5px 10px' }}>
+            <Phone size={12} strokeWidth={2} /> {phone}
+          </span>
+        )}
+        {(lead.fonte as string) && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 10px' }}>
+            Fonte: {lead.fonte as string}
+          </span>
+        )}
+      </div>
 
       {obs && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-          <MessageSquare size={13} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0, marginTop: 2 }} />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+          <MessageSquare size={13} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.2)', flexShrink: 0, marginTop: 2 }} />
           <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{obs}</p>
         </div>
       )}
