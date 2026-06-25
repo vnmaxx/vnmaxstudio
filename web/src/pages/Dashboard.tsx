@@ -49,7 +49,7 @@ function classifyLog(line: string): string {
   if (line.includes('AVISO') || line.includes('WARN'))  return '#FFD60A'
   if (line.includes('=== CICLO') || line.includes('CICLO ')) return '#0A84FF'
   if (line.includes('done') || line.includes('OK') || line.includes('sucesso')) return '#30D158'
-  return 'rgba(255,255,255,0.4)'
+  return 'rgba(255,255,255,0.75)'
 }
 
 function ModelBadge({ model }: { model: string }) {
@@ -356,12 +356,12 @@ export default function Dashboard() {
               <span style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>Atividade recente</span>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#30D158', boxShadow: '0 0 5px #30D158' }} />
             </div>
-            <div className="flex-1 overflow-y-auto" style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <div className="flex-1 overflow-y-auto" style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               {logLines.length === 0 ? (
-                <p style={{ color: 'var(--text-tertiary)', fontSize: 11, fontFamily: "'SF Mono', monospace" }}>Sem atividade ainda</p>
+                <p style={{ color: 'var(--text-tertiary)', fontSize: 12, fontFamily: "'SF Mono', monospace" }}>Sem atividade ainda</p>
               ) : (
                 logLines.slice().reverse().map((line, i) => (
-                  <div key={i} style={{ fontSize: 10.5, fontFamily: "'SF Mono', 'Fira Code', monospace", lineHeight: 1.6, color: classifyLog(line), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div key={i} style={{ fontSize: 12, fontFamily: "'SF Mono', 'Fira Code', monospace", lineHeight: 1.7, color: classifyLog(line), wordBreak: 'break-all', padding: '1px 0' }}>
                     {line}
                   </div>
                 ))
