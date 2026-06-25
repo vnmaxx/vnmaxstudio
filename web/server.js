@@ -152,6 +152,11 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
+  app.get('/api/workspace-browse/*', async (req, res) => {
+    const { status, data } = await bridge('GET', `/workspace-browse/${req.params[0]}`);
+    res.status(status).json(data);
+  });
+
   app.get('/api/workspace', (req, res) => {
     const { status, data } = bridgeCached('/workspace');
     res.status(status).json(data);

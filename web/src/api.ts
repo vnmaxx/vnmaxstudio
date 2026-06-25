@@ -38,6 +38,11 @@ export const api = {
 
   getWorkspace: () => fetchJson<import('./types').WorkspaceDir[]>('/workspace'),
 
+  browsePath: (pathSegments: string[]) => {
+    const encoded = pathSegments.map(s => encodeURIComponent(s)).join('/')
+    return fetchJson<{ type: 'dir'; items: import('./types').WorkspaceFile[] } | { type: 'file'; raw: string; isJson: boolean }>(`/workspace-browse/${encoded}`)
+  },
+
   getWorkspaceDir: (dir: string) =>
     fetchJson<import('./types').WorkspaceFile[]>(`/workspace/${encodeURIComponent(dir)}`),
 

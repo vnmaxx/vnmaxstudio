@@ -227,6 +227,33 @@ app.get('/agents', (req, res) => {
   }
 });
 
+app.get('/workspace-browse/*', (req, res) => {
+  try {
+    const segments = req.params[0].split('/').filter(s => s && s !== '..' && s !== '.');
+    const target = path.join(WORKSPACE, ...segments);
+    if (!target.startsWith(WORKSPACE)) return res.status(403).json({ error: 'forbidden' });
+    if (!fs.existsSync(target)) return res.status(404).json({ error: 'Not found' });
+    const stat = fs.statSync(target);
+    if (stat.isDirectory()) {
+      const items = safeReadDir(target).map(f => {
+        try {
+          const s = fs.statSync(path.join(target, f));
+          return { name: f, isDir: s.isDirectory(), size: s.size, mtime: s.mtime.toISOString() };
+        } catch { return { name: f, isDir: false, size: 0, mtime: '' }; }
+      });
+      res.json({ type: 'dir', items });
+    } else {
+      const content = fs.readFileSync(target, 'utf8');
+      if (target.endsWith('.json')) {
+        try { res.json({ type: 'file', raw: content, isJson: true }); }
+        catch { res.json({ type: 'file', raw: content, isJson: false }); }
+      } else {
+        res.json({ type: 'file', raw: content, isJson: false });
+      }
+    }
+  } catch (e) { res.status(500).json({ error: (e as Error).message }); }
+});
+
 app.post('/agents/:name/run', (req, res) => {
   const body = JSON.stringify(req.body);
   const options = {
