@@ -177,9 +177,11 @@ async function cicloSegunda() {
     ? fs.readFileSync(path.join(REPORTS, `plano-${data}.md`), 'utf8').slice(0, 3000)
     : '(plano ainda não gerado)';
 
+  const CIDADE = process.env.STUDIO_CIDADE || 'São Paulo';
+
   const rGrowth = await runJob('studio-growth',
-    `Você é o agente de Growth de uma agência de marketing. Gere 10 leads qualificados (negócios locais com potencial de melhoria em marketing digital) no formato JSON array, e 2 roteiros de vídeo viral. Retorne neste formato exato:\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"...","observacao":"..."}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[roteiro 1]\n---\n[roteiro 2]\n<<<FIM_ROTEIROS>>>\n\nPLANO DA SEMANA:\n${planoAtual}`,
-    { timeoutMs: 8 * 60 * 1000 });
+    `Use a ferramenta de busca web para pesquisar negócios locais REAIS em ${CIDADE} e região.\n\nPASSOS OBRIGATÓRIOS:\n1. Pesquise no Google Maps: "[segmento] ${CIDADE}" para cada segmento (nutricionista, dentista, personal trainer, clínica estética, coach, advogado)\n2. Para cada negócio encontrado: anote o telefone do Maps, pesquise o Instagram do negócio\n3. Acesse o site e confirme que tem problema de presença digital\n4. Registre SOMENTE dados reais que você encontrou — não invente contatos\n\nGere exatamente 10 leads com dados reais + 2 roteiros de vídeo viral.\n\nFormato de resposta:\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / (11) 99999-9999","observacao":"Nota X.X - NNN avaliações - problema identificado"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[roteiro 1]\n---\n[roteiro 2]\n<<<FIM_ROTEIROS>>>\n\nPLANO DA SEMANA:\n${planoAtual}`,
+    { timeoutMs: 12 * 60 * 1000 });
 
   if (rGrowth.status === 'done' && rGrowth.result) {
     const texto = typeof rGrowth.result === 'string' ? rGrowth.result : JSON.stringify(rGrowth.result);
