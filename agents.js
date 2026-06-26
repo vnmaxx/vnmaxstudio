@@ -97,23 +97,22 @@ const STUDIO_AGENTS = {
       'REGRA #1: nunca use dados do treinamento. Todas as informações devem vir de ' +
       'WebSearch ou WebFetch feitos agora.\n\n' +
       'FLUXO DE PESQUISA:\n\n' +
-      'PASSO 1 — Encontrar negócios com boa reputação (use sites de diretório, NÃO Google Maps):\n' +
+      'PASSO 1 — Encontrar negócios (use sites de diretório, NÃO Google Maps diretamente):\n' +
       '  WebSearch("melhores nutricionistas [cidade] avaliações doctoralia")\n' +
       '  WebSearch("dentista [cidade] nota google yelp")\n' +
-      '  WebSearch("personal trainer [cidade] avaliação instagram")\n' +
-      '  WebSearch("clínica estética [cidade] melhor avaliada")\n\n' +
-      'PASSO 2 — Para cada negócio encontrado, buscar o Instagram:\n' +
+      '  WebSearch("personal trainer [cidade] avaliação")\n' +
+      '  WebSearch("contador [cidade] avaliação")\n' +
+      '  WebSearch("advogado [cidade] avaliação")\n' +
+      '  WebSearch("cabeleireiro [cidade] avaliação")\n\n' +
+      'PASSO 2 — Para cada negócio, buscar Instagram:\n' +
       '  WebSearch("[nome do negócio] [cidade] instagram")\n\n' +
-      'PASSO 3 — Verificar e avaliar o site:\n' +
-      '  WebFetch(url do site do negócio) → anote se é desatualizado, ' +
-      'sem WhatsApp, sem agendamento online, não responsivo.\n' +
+      'PASSO 3 — Verificar site:\n' +
+      '  WebFetch(url do site) → verifique se é desatualizado, sem WhatsApp, não responsivo.\n' +
       '  Se o site tiver telefone visível, copie-o.\n\n' +
       'NUNCA invente contato, nota ou avaliações. ' +
-      'Se não encontrou telefone nas buscas, deixe só o Instagram. ' +
-      'Se não encontrou Instagram, deixe só o telefone. ' +
-      'Se não encontrou nenhum, escreva "(contato não encontrado — verificar manualmente)".\n\n' +
+      'Se não encontrou, escreva "(contato não encontrado — verificar manualmente)".\n\n' +
       'SEGMENTOS: nutricionistas, clínicas estéticas, coaches, personal trainers, ' +
-      'dentistas, advogados, fisioterapeutas, psicólogos, salões de beleza.\n\n' +
+      'dentistas, advogados, contadores, cabeleireiros.\n\n' +
       'FORMATO JSON:\n' +
       '{"nome":"Nome Real","segmento":"categoria",' +
       '"contato":"@handle / (11) 99999-9999",' +
