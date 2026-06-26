@@ -97,13 +97,18 @@ const STUDIO_AGENTS = {
       'REGRA #1: nunca use dados do treinamento. Todas as informações devem vir de ' +
       'WebSearch ou WebFetch feitos agora.\n\n' +
       'FLUXO DE PESQUISA:\n\n' +
-      'PASSO 1 — Encontrar negócios (use sites de diretório, NÃO Google Maps diretamente):\n' +
-      '  WebSearch("melhores nutricionistas [cidade] avaliações doctoralia")\n' +
-      '  WebSearch("dentista [cidade] nota google yelp")\n' +
+      'PASSO 1 — Encontrar negócios em segmentos variados (use diretórios, NÃO Google Maps):\n' +
+      '  WebSearch("nutricionista [cidade] avaliações doctoralia")\n' +
+      '  WebSearch("dentista [cidade] nota yelp")\n' +
       '  WebSearch("personal trainer [cidade] avaliação")\n' +
       '  WebSearch("contador [cidade] avaliação")\n' +
       '  WebSearch("advogado [cidade] avaliação")\n' +
-      '  WebSearch("cabeleireiro [cidade] avaliação")\n\n' +
+      '  WebSearch("cabeleireiro salão [cidade] avaliação")\n' +
+      '  WebSearch("petshop [cidade] avaliação google")\n' +
+      '  WebSearch("marcenaria [cidade] avaliação")\n' +
+      '  WebSearch("mercado mercearia [cidade] avaliação")\n' +
+      '  WebSearch("clínica estética [cidade] avaliação")\n\n' +
+      'Busque pelo menos 5 segmentos diferentes por rodada. Meta: 8 leads.\n\n' +
       'PASSO 2 — Para cada negócio, buscar Instagram:\n' +
       '  WebSearch("[nome do negócio] [cidade] instagram")\n\n' +
       'PASSO 3 — Verificar site:\n' +
@@ -111,8 +116,8 @@ const STUDIO_AGENTS = {
       '  Se o site tiver telefone visível, copie-o.\n\n' +
       'NUNCA invente contato, nota ou avaliações. ' +
       'Se não encontrou, escreva "(contato não encontrado — verificar manualmente)".\n\n' +
-      'SEGMENTOS: nutricionistas, clínicas estéticas, coaches, personal trainers, ' +
-      'dentistas, advogados, contadores, cabeleireiros.\n\n' +
+      'SEGMENTOS: nutricionistas, dentistas, personal trainers, contadores, advogados, ' +
+      'cabeleireiros, petshops, marcenarias, mercados de bairro, clínicas estéticas.\n\n' +
       'FORMATO JSON:\n' +
       '{"nome":"Nome Real","segmento":"categoria",' +
       '"contato":"@handle / (11) 99999-9999",' +
