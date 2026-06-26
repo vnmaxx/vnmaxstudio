@@ -190,7 +190,8 @@ async function cicloSegunda() {
     const roteirosBloco = extrairBloco(texto, '<<<ROTEIROS>>>', '<<<FIM_ROTEIROS>>>');
     if (leadsBloco) {
       const leadsPath = path.join(WORKSPACE, 'leads', `leads-${data}.json`);
-      if (salvarResultado(leadsPath, leadsBloco)) log(`leads salvos → ${leadsPath}`);
+      const cleanLeads = leadsBloco.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```[\s\S]*$/, '').trim();
+      if (salvarResultado(leadsPath, cleanLeads)) log(`leads salvos → ${leadsPath}`);
     }
     if (roteirosBloco) {
       const rotPath = path.join(WORKSPACE, 'conteudo', `roteiros-${data}.md`);

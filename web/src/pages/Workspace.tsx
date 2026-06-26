@@ -193,7 +193,8 @@ function FileViewer({ filename, content, isJson }: { filename: string; content: 
   let leads: Lead[] | null = null
   if (isJson) {
     try {
-      const parsed = JSON.parse(content)
+      const stripped = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```[\s\S]*$/, '').trim()
+      const parsed = JSON.parse(stripped)
       if (Array.isArray(parsed) && parsed.length > 0 && (parsed[0].nome || parsed[0].contato || parsed[0].segmento)) {
         leads = parsed as Lead[]
       }
@@ -235,7 +236,7 @@ function FileViewer({ filename, content, isJson }: { filename: string; content: 
           </div>
         ) : (
           <pre style={{ color: '#c9d1d9', fontSize: 12.5, whiteSpace: 'pre-wrap', wordBreak: 'break-words', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace", lineHeight: 1.75, margin: 0 }}>
-            {isJson ? (() => { try { return JSON.stringify(JSON.parse(content), null, 2) } catch { return content } })() : content}
+            {isJson ? (() => { try { const s = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```[\s\S]*$/, '').trim(); return JSON.stringify(JSON.parse(s), null, 2) } catch { return content } })() : content}
           </pre>
         )}
       </div>
