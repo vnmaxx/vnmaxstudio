@@ -178,10 +178,10 @@ async function cicloSegunda() {
     : '(plano ainda não gerado)';
 
   const CIDADE = process.env.STUDIO_CIDADE || 'São Paulo';
-  const planoResumo = planoAtual.slice(0, 800);
+  const planoResumo = planoAtual.slice(0, 600);
 
   const rGrowth = await runJob('studio-growth',
-    `Pesquise negócios locais reais em ${CIDADE} (nota 4.7+, site ruim). Gere 5 leads + 1 roteiro viral.\n\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / tel","observacao":"Nota X.X - N avaliações - problema no site"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[roteiro]\n<<<FIM_ROTEIROS>>>\n\nPRIORIDADE DA SEMANA:\n${planoResumo}`,
+    `Use WebSearch e WebFetch para encontrar 3 negócios locais reais em ${CIDADE} com boa reputação mas site ruim.\n\nPesquise em sites como doctoralia.com.br, yelp.com.br ou buscas Google. Para cada negócio: (1) anote nome, avaliação e fonte, (2) busque o Instagram com WebSearch "[nome] ${CIDADE} instagram", (3) acesse o site com WebFetch e verifique problemas.\n\nRetorne:\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / tel","observacao":"Nota X.X em [fonte] - [problema no site]"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[1 roteiro viral]\n<<<FIM_ROTEIROS>>>\n\nPRIORIDADE:\n${planoResumo}`,
     { timeoutMs: 12 * 60 * 1000 });
 
   if (rGrowth.status === 'done' && rGrowth.result) {
