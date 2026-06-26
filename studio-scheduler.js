@@ -178,9 +178,10 @@ async function cicloSegunda() {
     : '(plano ainda não gerado)';
 
   const CIDADE = process.env.STUDIO_CIDADE || 'São Paulo';
+  const planoResumo = planoAtual.slice(0, 800);
 
   const rGrowth = await runJob('studio-growth',
-    `Use a ferramenta de busca web para pesquisar negócios locais REAIS em ${CIDADE} e região.\n\nPASSOS OBRIGATÓRIOS:\n1. Pesquise no Google Maps: "[segmento] ${CIDADE}" para cada segmento (nutricionista, dentista, personal trainer, clínica estética, coach, advogado)\n2. Para cada negócio encontrado: anote o telefone do Maps, pesquise o Instagram do negócio\n3. Acesse o site e confirme que tem problema de presença digital\n4. Registre SOMENTE dados reais que você encontrou — não invente contatos\n\nGere exatamente 10 leads com dados reais + 2 roteiros de vídeo viral.\n\nFormato de resposta:\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / (11) 99999-9999","observacao":"Nota X.X - NNN avaliações - problema identificado"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[roteiro 1]\n---\n[roteiro 2]\n<<<FIM_ROTEIROS>>>\n\nPLANO DA SEMANA:\n${planoAtual}`,
+    `Pesquise negócios locais reais em ${CIDADE} (nota 4.7+, site ruim). Gere 5 leads + 1 roteiro viral.\n\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / tel","observacao":"Nota X.X - N avaliações - problema no site"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[roteiro]\n<<<FIM_ROTEIROS>>>\n\nPRIORIDADE DA SEMANA:\n${planoResumo}`,
     { timeoutMs: 12 * 60 * 1000 });
 
   if (rGrowth.status === 'done' && rGrowth.result) {
