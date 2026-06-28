@@ -190,6 +190,12 @@ if (BRIDGE_URL) {
 
 } else {
   const STUDIO_ROOT = process.env.STUDIO_ROOT || path.join(__dirname, '..');
+  
+  // Carrega módulos do core (apenas se existirem)
+  let orchestrator = null;
+  try {
+    orchestrator = require(path.join(STUDIO_ROOT, 'core', 'orchestrator'));
+  } catch { /* orchestrator ainda não existe */ }
 
   let aprovacoes;
   try { aprovacoes = require('../lib/aprovacoes'); } catch {
@@ -348,6 +354,42 @@ if (BRIDGE_URL) {
       const child = spawn('node', [schedulerPath, `--cycle=${cycle}`], { detached: true, stdio: 'ignore', cwd: STUDIO_ROOT });
       child.unref();
       res.json({ started: true, pid: child.pid, cycle });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // === ORCHESTRATOR API ===
+  app.get('/api/orchestrator/status', (req, res) => {
+    try {
+      if (!orchestrator) {
+        return res.json({ pipeline: [], historico: [], eventos: [], configurado: false });
+      }
+      res.json(orchestrator.status());
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/orchestrator/run', async (req, res) => {
+    try {
+      if (!orchestrator) {
+        return res.status(503).json({ error: 'Orchestrator não disponível' });
+      }
+      const { spawn } = require('child_process');
+      const orchPath = path.join(STUDIO_ROOT, 'core', 'orchestrator', 'run.js');
+      if (fs.existsSync(orchPath)) {
+        const child = spawn('node', [orchPath], { detached: true, stdio: 'ignore', cwd: STUDIO_ROOT });
+        child.unref();
+        res.json({ started: true, pid: child.pid });
+      } else {
+        // Executa inline (modo dev)
+        const result = await orchestrator.executarPipelineCompleto();
+        res.json({ ok: true, pipeline: result });
+      }
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get('/api/orchestrator/pipeline', (req, res) => {
+    try {
+      const memory = require(path.join(STUDIO_ROOT, 'core', 'memory'));
+      res.json(memory.listarPipeline());
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 }
