@@ -178,6 +178,21 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
+  app.get('/api/pipelines', async (req, res) => {
+    const { status, data } = await bridge('GET', '/pipelines');
+    res.status(status).json(data);
+  });
+
+  app.get('/api/pipelines/metrics', async (req, res) => {
+    const { status, data } = await bridge('GET', '/pipelines/metrics');
+    res.status(status).json(data);
+  });
+
+  app.get('/api/pipelines/:id', async (req, res) => {
+    const { status, data } = await bridge('GET', `/pipelines/${req.params.id}`);
+    res.status(status).json(data);
+  });
+
   app.get('/api/agents', async (req, res) => {
     const { status, data } = await bridge('GET', '/agents');
     res.status(status).json(data);
@@ -215,6 +230,49 @@ if (BRIDGE_URL) {
   const LOGS_FILE = path.join(STUDIO_ROOT, 'logs', 'scheduler.log');
   const WORKSPACE_DIR = path.join(STUDIO_ROOT, 'workspace');
   const DISABLED_FILE = path.join(STUDIO_ROOT, 'DISABLED');
+  const PIPELINES_DIR = path.join(WORKSPACE_DIR, 'pipelines');
+
+  function readLocalPipelines() {
+    try {
+      if (!fs.existsSync(PIPELINES_DIR)) return [];
+      return fs.readdirSync(PIPELINES_DIR)
+        .filter(f => f.startsWith('pipeline-') && f.endsWith('.json'))
+        .map(f => { try { return JSON.parse(fs.readFileSync(path.join(PIPELINES_DIR, f), 'utf8')); } catch { return null; } })
+        .filter(Boolean)
+        .sort((a, b) => (b.startedAt || '').localeCompare(a.startedAt || ''));
+    } catch { return []; }
+  }
+
+  app.get('/api/pipelines', (req, res) => {
+    const all = readLocalPipelines();
+    res.json({
+      running: all.filter(p => ['RUNNING', 'WAITING', 'RETRY'].includes(p.state)),
+      history: all.filter(p => ['COMPLETED', 'FAILED', 'CANCELLED'].includes(p.state)).slice(0, 50),
+    });
+  });
+
+  app.get('/api/pipelines/metrics', (req, res) => {
+    const all = readLocalPipelines();
+    const completed = all.filter(p => p.state === 'COMPLETED');
+    const failed = all.filter(p => p.state === 'FAILED');
+    const durations = completed.filter(p => p.metrics && p.metrics.totalDurationMs).map(p => p.metrics.totalDurationMs);
+    const avgDurationMs = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0;
+    res.json({
+      total: all.length, completed: completed.length, failed: failed.length,
+      running: all.filter(p => p.state === 'RUNNING').length,
+      avgDurationMs, totalRetries: all.reduce((s, p) => s + (p.metrics ? p.metrics.retries || 0 : 0), 0),
+      successRate: all.length > 0 ? Math.round(completed.length / all.length * 100) : 0,
+      stepStats: {},
+    });
+  });
+
+  app.get('/api/pipelines/:id', (req, res) => {
+    try {
+      const file = path.join(PIPELINES_DIR, `pipeline-${req.params.id}.json`);
+      if (!fs.existsSync(file)) return res.status(404).json({ error: 'Not found' });
+      res.json(JSON.parse(fs.readFileSync(file, 'utf8')));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
 
   function safeReadDir(dir) {
     try { if (!fs.existsSync(dir)) return []; return fs.readdirSync(dir); } catch { return []; }

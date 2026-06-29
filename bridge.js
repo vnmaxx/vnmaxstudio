@@ -276,6 +276,68 @@ app.get(/^\/workspace-browse\/(.*)$/, (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+const PIPELINES_DIR = path.join(WORKSPACE, 'pipelines');
+
+function readPipelineFiles(limit) {
+  try {
+    if (!fs.existsSync(PIPELINES_DIR)) return [];
+    return fs.readdirSync(PIPELINES_DIR)
+      .filter(f => f.startsWith('pipeline-') && f.endsWith('.json'))
+      .map(f => {
+        try { return JSON.parse(fs.readFileSync(path.join(PIPELINES_DIR, f), 'utf8')); } catch { return null; }
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        const ta = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+        const tb = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+        return tb - ta;
+      })
+      .slice(0, limit || 200);
+  } catch { return []; }
+}
+
+app.get('/pipelines', (req, res) => {
+  const all = readPipelineFiles(200);
+  res.json({
+    running: all.filter(p => p.state === 'RUNNING' || p.state === 'WAITING' || p.state === 'RETRY'),
+    history: all.filter(p => ['COMPLETED', 'FAILED', 'CANCELLED'].includes(p.state)).slice(0, 50),
+  });
+});
+
+app.get('/pipelines/metrics', (req, res) => {
+  const all = readPipelineFiles(200);
+  const completed = all.filter(p => p.state === 'COMPLETED');
+  const failed = all.filter(p => p.state === 'FAILED');
+  const durations = completed.filter(p => p.metrics && p.metrics.totalDurationMs).map(p => p.metrics.totalDurationMs);
+  const avgDurationMs = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0;
+  const totalRetries = all.reduce((s, p) => s + (p.metrics ? p.metrics.retries || 0 : 0), 0);
+  const last24h = all.filter(p => p.startedAt && Date.now() - new Date(p.startedAt).getTime() < 86400000);
+  const stepStats = {};
+  for (const p of all) {
+    for (const s of (p.steps || [])) {
+      if (!stepStats[s.name]) stepStats[s.name] = { total: 0, completed: 0, failed: 0, totalMs: 0 };
+      stepStats[s.name].total++;
+      if (s.state === 'COMPLETED') { stepStats[s.name].completed++; stepStats[s.name].totalMs += s.durationMs || 0; }
+      if (s.state === 'FAILED') stepStats[s.name].failed++;
+    }
+  }
+  res.json({
+    total: all.length, completed: completed.length, failed: failed.length,
+    running: all.filter(p => p.state === 'RUNNING').length,
+    last24h: last24h.length, avgDurationMs, totalRetries,
+    successRate: all.length > 0 ? Math.round(completed.length / all.length * 100) : 0,
+    stepStats,
+  });
+});
+
+app.get('/pipelines/:id', (req, res) => {
+  try {
+    const file = path.join(PIPELINES_DIR, `pipeline-${req.params.id}.json`);
+    if (!fs.existsSync(file)) return res.status(404).json({ error: 'Not found' });
+    res.json(JSON.parse(fs.readFileSync(file, 'utf8')));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/agents/:name/run', (req, res) => {
   const body = JSON.stringify(req.body);
   const options = {

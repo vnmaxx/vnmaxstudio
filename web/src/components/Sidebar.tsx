@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../contexts/AuthContext'
-import { LayoutDashboard, CheckSquare, BarChart3, FolderOpen, ScrollText, Shield, LogOut, Settings } from 'lucide-react'
+import { LayoutDashboard, CheckSquare, BarChart3, FolderOpen, ScrollText, Shield, LogOut, Settings, Zap } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/relatorios', label: 'Relatórios', icon: <BarChart3 size={16} strokeWidth={1.5} /> },
   { to: '/workspace', label: 'Workspace', icon: <FolderOpen size={16} strokeWidth={1.5} /> },
   { to: '/logs', label: 'Logs', icon: <ScrollText size={16} strokeWidth={1.5} /> },
+  { to: '/pipelines', label: 'Pipelines', icon: <Zap size={16} strokeWidth={1.5} /> },
 ]
 
 export default function Sidebar() {

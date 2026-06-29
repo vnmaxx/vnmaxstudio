@@ -11,6 +11,7 @@ import Aguardando from './pages/Aguardando'
 import Admin from './pages/Admin'
 import Configuracoes from './pages/Configuracoes'
 import CEO from './pages/CEO'
+import Pipelines from './pages/Pipelines'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -35,6 +36,7 @@ function AppRoutes() {
         <Route path="relatorios" element={<Relatorios />} />
         <Route path="workspace" element={<Workspace />} />
         <Route path="logs" element={<Logs />} />
+        <Route path="pipelines" element={<Pipelines />} />
         {user.isAdmin && <Route path="admin" element={<Admin />} />}
         <Route path="configuracoes" element={<Configuracoes />} />
         {user.isAdmin && <Route path="ceo" element={<CEO />} />}

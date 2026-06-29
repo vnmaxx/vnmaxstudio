@@ -58,6 +58,12 @@ export const api = {
       `/workspace/${encodeURIComponent(dir)}/${encodeURIComponent(file)}`
     ),
 
+  getPipelines: () => fetchJson<{ running: import('./types').PipelineRecord[]; history: import('./types').PipelineRecord[] }>('/pipelines'),
+
+  getPipelineMetrics: () => fetchJson<import('./types').PipelineMetrics>('/pipelines/metrics'),
+
+  getPipeline: (id: string) => fetchJson<import('./types').PipelineRecord>(`/pipelines/${id}`),
+
   getStats: () => fetchJson<import('./types').Stats>('/stats'),
 
   getStatus: () => fetchJson<import('./types').SystemStatus>('/status'),

@@ -9,6 +9,8 @@ const ROOT = process.env.STUDIO_ROOT || path.join(__dirname);
 process.env.STUDIO_ROOT = ROOT;
 
 const aprovacoes = require(path.join(ROOT, 'lib', 'aprovacoes.js'));
+const { LoopEngine, STATES } = require(path.join(ROOT, 'lib', 'loop-engine.js'));
+const { WatcherManager } = require(path.join(ROOT, 'lib', 'watchers.js'));
 
 const WORKSPACE = path.join(ROOT, 'workspace');
 const REPORTS = path.join(WORKSPACE, 'reports');
@@ -31,6 +33,24 @@ function loadEnv() {
 }
 
 loadEnv();
+
+const PIPELINES_DIR = path.join(WORKSPACE, 'pipelines');
+
+const engine = new LoopEngine({ storageDir: PIPELINES_DIR, maxConcurrent: 1 });
+engine.on('log', ({ msg }) => log(msg));
+
+function runPipeline(def, opts) {
+  return new Promise((resolve) => {
+    const id = engine.submit(def, { skipDedup: true, ...opts });
+    if (!id) return resolve(null);
+    const onDone = (rec) => {
+      if (rec.id !== id) return;
+      engine.off('pipeline:done', onDone);
+      resolve(rec);
+    };
+    engine.on('pipeline:done', onDone);
+  });
+}
 
 function ensureDirs() {
   for (const d of [WORKSPACE, REPORTS, LOGS]) fs.mkdirSync(d, { recursive: true });
@@ -163,91 +183,134 @@ async function cicloSegunda() {
   const contextoWorkspace = resumoWorkspace();
   const leadsExistentes = lerDiretorio(path.join(WORKSPACE, 'leads'), { maxArquivos: 5 });
   const produtosExistentes = lerDiretorio(path.join(WORKSPACE, 'produtos'), { maxArquivos: 5 });
-
-  const rCeo = await runJob('studio-ceo',
-    `Você é o CEO de uma agência de marketing digital. Com base no estado atual do workspace abaixo, escreva o plano da semana com 3 prioridades + instruções claras para cada agente (Growth, Criação, Tráfego, Clientes, Dados). Retorne SOMENTE o texto do plano em markdown.\n\nESTADO DO WORKSPACE:\n${contextoWorkspace}\n\nSAMPLE DE LEADS:\n${leadsExistentes}\n\nPRODUTOS EXISTENTES:\n${produtosExistentes}`,
-    { timeoutMs: 8 * 60 * 1000 });
-
-  if (rCeo.status === 'done' && rCeo.result) {
-    const planoPath = path.join(REPORTS, `plano-${data}.md`);
-    if (salvarResultado(planoPath, rCeo.result)) log(`plano da semana salvo → ${planoPath}`);
-  }
-
-  const planoAtual = fs.existsSync(path.join(REPORTS, `plano-${data}.md`))
-    ? fs.readFileSync(path.join(REPORTS, `plano-${data}.md`), 'utf8').slice(0, 3000)
-    : '(plano ainda não gerado)';
-
   const CIDADE = process.env.STUDIO_CIDADE || 'São Paulo';
-  const planoResumo = planoAtual.slice(0, 600);
 
-  const rGrowth = await runJob('studio-growth',
-    `Use WebSearch e WebFetch para encontrar 8 negócios locais reais em ${CIDADE} com boa reputação mas presença digital fraca.\n\nPesquise em pelo menos 5 segmentos diferentes: nutricionistas (doctoralia.com.br), dentistas (yelp.com.br), personal trainers, contadores, advogados, cabeleireiros, petshops, marcenarias, mercados de bairro. Para cada negócio: (1) anote nome, avaliação e fonte, (2) busque o Instagram com WebSearch "[nome] ${CIDADE} instagram", (3) acesse o site com WebFetch e verifique problemas.\n\nRetorne:\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / tel","observacao":"Nota X.X em [fonte] - [problema no site]"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[2 roteiros virais]\n<<<FIM_ROTEIROS>>>\n\nPRIORIDADE:\n${planoResumo}`,
-    { timeoutMs: 12 * 60 * 1000 });
-
-  if (rGrowth.status === 'done' && rGrowth.result) {
-    const texto = typeof rGrowth.result === 'string' ? rGrowth.result : JSON.stringify(rGrowth.result);
-    const leadsBloco = extrairBloco(texto, '<<<LEADS>>>', '<<<FIM_LEADS>>>');
-    const roteirosBloco = extrairBloco(texto, '<<<ROTEIROS>>>', '<<<FIM_ROTEIROS>>>');
-    if (leadsBloco) {
-      const leadsPath = path.join(WORKSPACE, 'leads', `leads-${data}.json`);
-      const cleanLeads = leadsBloco.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```[\s\S]*$/, '').trim();
-      if (salvarResultado(leadsPath, cleanLeads)) log(`leads salvos → ${leadsPath}`);
-    }
-    if (roteirosBloco) {
-      const rotPath = path.join(WORKSPACE, 'conteudo', `roteiros-${data}.md`);
-      if (salvarResultado(rotPath, roteirosBloco)) log(`roteiros salvos → ${rotPath}`);
-    }
-  }
-
-  const rCriacao = await runJob('studio-criacao',
-    `Você é o agente de Criação de uma agência de marketing digital. Com base no plano da semana, crie o esboço de um produto digital ou landing page prioritária. Retorne o conteúdo completo em markdown.\n\nPLANO DA SEMANA:\n${planoAtual}`,
-    { timeoutMs: 8 * 60 * 1000 });
-
-  if (rCriacao.status === 'done' && rCriacao.result) {
-    const criacaoPath = path.join(WORKSPACE, 'produtos', `criacao-${data}.md`);
-    if (salvarResultado(criacaoPath, rCriacao.result)) log(`criação salva → ${criacaoPath}`);
-  }
+  await runPipeline({
+    name: 'ciclo-segunda',
+    cycle: 'segunda',
+    steps: [
+      {
+        name: 'CEO — Plano Semanal',
+        maxRetries: 1,
+        timeoutMs: 9 * 60 * 1000,
+        fn: async (ctx) => {
+          const r = await runJob('studio-ceo',
+            `Você é o CEO de uma agência de marketing digital. Com base no estado atual do workspace abaixo, escreva o plano da semana com 3 prioridades + instruções claras para cada agente (Growth, Criação, Tráfego, Clientes, Dados). Retorne SOMENTE o texto do plano em markdown.\n\nESTADO DO WORKSPACE:\n${contextoWorkspace}\n\nSAMPLE DE LEADS:\n${leadsExistentes}\n\nPRODUTOS EXISTENTES:\n${produtosExistentes}`,
+            { timeoutMs: 8 * 60 * 1000 });
+          if (r.status === 'error') throw new Error(String(r.result || 'CEO falhou'));
+          if (r.result) {
+            const planoPath = path.join(REPORTS, `plano-${data}.md`);
+            if (salvarResultado(planoPath, r.result)) log(`plano da semana salvo → ${planoPath}`);
+            ctx.plano = r.result;
+          }
+          return r.result;
+        },
+      },
+      {
+        name: 'Growth — Leads',
+        maxRetries: 2,
+        timeoutMs: 13 * 60 * 1000,
+        fn: async (ctx) => {
+          const planoResumo = (ctx.plano || '').slice(0, 600);
+          const r = await runJob('studio-growth',
+            `Use WebSearch e WebFetch para encontrar 8 negócios locais reais em ${CIDADE} com boa reputação mas presença digital fraca.\n\nPesquise em pelo menos 5 segmentos diferentes: nutricionistas (doctoralia.com.br), dentistas (yelp.com.br), personal trainers, contadores, advogados, cabeleireiros, petshops, marcenarias, mercados de bairro. Para cada negócio: (1) anote nome, avaliação e fonte, (2) busque o Instagram com WebSearch "[nome] ${CIDADE} instagram", (3) acesse o site com WebFetch e verifique problemas.\n\nRetorne:\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / tel","observacao":"Nota X.X em [fonte] - [problema no site]"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[2 roteiros virais]\n<<<FIM_ROTEIROS>>>\n\nPRIORIDADE:\n${planoResumo}`,
+            { timeoutMs: 12 * 60 * 1000 });
+          if (r.status === 'error') throw new Error(String(r.result || 'Growth falhou'));
+          if (r.result) {
+            const texto = typeof r.result === 'string' ? r.result : JSON.stringify(r.result);
+            const leadsBloco = extrairBloco(texto, '<<<LEADS>>>', '<<<FIM_LEADS>>>');
+            const roteirosBloco = extrairBloco(texto, '<<<ROTEIROS>>>', '<<<FIM_ROTEIROS>>>');
+            if (leadsBloco) {
+              const leadsPath = path.join(WORKSPACE, 'leads', `leads-${data}.json`);
+              const cleanLeads = leadsBloco.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```[\s\S]*$/, '').trim();
+              if (salvarResultado(leadsPath, cleanLeads)) log(`leads salvos → ${leadsPath}`);
+            }
+            if (roteirosBloco) {
+              const rotPath = path.join(WORKSPACE, 'conteudo', `roteiros-${data}.md`);
+              if (salvarResultado(rotPath, roteirosBloco)) log(`roteiros salvos → ${rotPath}`);
+            }
+          }
+          return r.result;
+        },
+      },
+      {
+        name: 'Criação — Produto',
+        maxRetries: 1,
+        timeoutMs: 9 * 60 * 1000,
+        fn: async (ctx) => {
+          const planoAtual = ctx.plano || '(sem plano)';
+          const r = await runJob('studio-criacao',
+            `Você é o agente de Criação de uma agência de marketing digital. Com base no plano da semana, crie o esboço de um produto digital ou landing page prioritária. Retorne o conteúdo completo em markdown.\n\nPLANO DA SEMANA:\n${planoAtual}`,
+            { timeoutMs: 8 * 60 * 1000 });
+          if (r.status === 'error') throw new Error(String(r.result || 'Criação falhou'));
+          if (r.result) {
+            const criacaoPath = path.join(WORKSPACE, 'produtos', `criacao-${data}.md`);
+            if (salvarResultado(criacaoPath, r.result)) log(`criação salva → ${criacaoPath}`);
+          }
+          return r.result;
+        },
+      },
+    ],
+  }, { priority: 7 });
 
   log('=== CICLO SEGUNDA concluído ===');
 }
 
 async function cicloDiario() {
   ensureDirs();
+  const data = hojeISO();
   log('=== CICLO DIÁRIO 09:00 ===');
 
   const campanhas = lerDiretorio(path.join(WORKSPACE, 'campanhas'));
   const leads = lerDiretorio(path.join(WORKSPACE, 'leads'), { maxArquivos: 10 });
 
-  const rTrafego = await runJob('studio-trafego',
-    `Você é o agente de Tráfego de uma agência de marketing digital. Analise as campanhas abaixo e gere recomendações de otimização (CTR/CPC/ROAS) seguindo as regras de decisão. Retorne as recomendações em markdown.\n\nCAMPANHAS:\n${campanhas}`,
-    { timeoutMs: 6 * 60 * 1000 });
-
-  if (rTrafego.status === 'done' && rTrafego.result) {
-    const data = hojeISO();
-    const trafPath = path.join(REPORTS, `trafego-${data}.md`);
-    if (salvarResultado(trafPath, rTrafego.result)) log(`recomendações de tráfego salvas → ${trafPath}`);
-  }
-
-  const r = await runJob('studio-clientes',
-    `Você é o agente de Clientes de uma agência de marketing digital. Com base nos leads abaixo, rascunhe emails de prospecção personalizados (sem mencionar preço no primeiro contato) para os 5 primeiros leads. Para CADA email, retorne um bloco delimitado por <<<EMAIL>>> e <<<FIM>>> com JSON {para, assunto, corpo}. NÃO invente dados. Use apenas os leads fornecidos.\n\nLEADS:\n${leads}`,
-    { timeoutMs: 6 * 60 * 1000 });
-
-  if (r.status === 'done' && r.result) {
-    const texto = typeof r.result === 'string' ? r.result : JSON.stringify(r.result);
-    const blocos = extrairBlocos(texto, '<<<EMAIL>>>', '<<<FIM>>>');
-    let n = 0;
-    for (const bloco of blocos) {
-      let conteudo;
-      try { conteudo = JSON.parse(bloco); } catch (_) { conteudo = { corpo: bloco }; }
-      const id = aprovacoes.salvar('email', conteudo);
-      n++;
-      log(`email rascunhado → aprovação pendente ${id}`);
-    }
-    if (n > 0) log(`${n} email(s) salvos como PENDENTES de aprovação.`);
-    else log('studio-clientes não retornou rascunhos utilizáveis.');
-  } else {
-    log('studio-clientes não retornou rascunhos utilizáveis.');
-  }
+  await runPipeline({
+    name: 'ciclo-diario',
+    cycle: 'diario',
+    steps: [
+      {
+        name: 'Tráfego — Campanhas',
+        maxRetries: 1,
+        timeoutMs: 7 * 60 * 1000,
+        fn: async (ctx) => {
+          const r = await runJob('studio-trafego',
+            `Você é o agente de Tráfego de uma agência de marketing digital. Analise as campanhas abaixo e gere recomendações de otimização (CTR/CPC/ROAS) seguindo as regras de decisão. Retorne as recomendações em markdown.\n\nCAMPANHAS:\n${campanhas}`,
+            { timeoutMs: 6 * 60 * 1000 });
+          if (r.status === 'error') throw new Error(String(r.result || 'Tráfego falhou'));
+          if (r.result) {
+            const trafPath = path.join(REPORTS, `trafego-${data}.md`);
+            if (salvarResultado(trafPath, r.result)) log(`recomendações de tráfego salvas → ${trafPath}`);
+          }
+          return r.result;
+        },
+      },
+      {
+        name: 'Clientes — Emails',
+        maxRetries: 1,
+        timeoutMs: 7 * 60 * 1000,
+        fn: async (ctx) => {
+          const r = await runJob('studio-clientes',
+            `Você é o agente de Clientes de uma agência de marketing digital. Com base nos leads abaixo, rascunhe emails de prospecção personalizados (sem mencionar preço no primeiro contato) para os 5 primeiros leads. Para CADA email, retorne um bloco delimitado por <<<EMAIL>>> e <<<FIM>>> com JSON {para, assunto, corpo}. NÃO invente dados. Use apenas os leads fornecidos.\n\nLEADS:\n${leads}`,
+            { timeoutMs: 6 * 60 * 1000 });
+          if (r.status === 'error') throw new Error(String(r.result || 'Clientes falhou'));
+          if (r.result) {
+            const texto = typeof r.result === 'string' ? r.result : JSON.stringify(r.result);
+            const blocos = extrairBlocos(texto, '<<<EMAIL>>>', '<<<FIM>>>');
+            let n = 0;
+            for (const bloco of blocos) {
+              let conteudo;
+              try { conteudo = JSON.parse(bloco); } catch (_) { conteudo = { corpo: bloco }; }
+              aprovacoes.salvar('email', conteudo);
+              n++;
+            }
+            if (n > 0) log(`${n} email(s) salvos como PENDENTES de aprovação.`);
+            else log('studio-clientes não retornou rascunhos utilizáveis.');
+          }
+          return r.result;
+        },
+      },
+    ],
+  }, { priority: 5 });
 
   log('=== CICLO DIÁRIO concluído ===');
 }
@@ -262,29 +325,50 @@ async function cicloSexta() {
   const campanhasData = lerDiretorio(path.join(WORKSPACE, 'campanhas'), { maxArquivos: 5 });
   const reportsData = lerDiretorio(REPORTS, { maxArquivos: 3, maxCharsArquivo: 2000 });
 
-  const rDados = await runJob('studio-dados',
-    `Você é o agente de Dados de uma agência de marketing. Compile o relatório de dados da semana com base nas informações abaixo. Retorne no formato markdown com seções: RECEITA, CUSTOS, RESULTADO, INTELIGÊNCIA.\n\nWORKSPACE:\n${ws}\n\nLEADS:\n${leadsData}\n\nCAMPANHAS:\n${campanhasData}\n\nRELATÓRIOS ANTERIORES:\n${reportsData}`,
-    { timeoutMs: 8 * 60 * 1000 });
-
-  let dadosSemana = '(sem dados compilados)';
-  if (rDados.status === 'done' && rDados.result) {
-    const dadosPath = path.join(REPORTS, `dados-semana-${data}.md`);
-    dadosSemana = typeof rDados.result === 'string' ? rDados.result : JSON.stringify(rDados.result);
-    if (salvarResultado(dadosPath, dadosSemana)) log(`dados da semana salvos → ${dadosPath}`);
-    dadosSemana = dadosSemana.slice(0, 4000);
-  }
-
-  const rCeo = await runJob('studio-ceo',
-    `Você é o CEO de uma agência de marketing digital. Com base nos dados da semana abaixo, escreva o relatório final do fundador (máx. 1 página) com: resultado da semana, o que funcionou, o que muda, plano próxima semana e no máximo 3 perguntas binárias. Retorne somente o markdown do relatório.\n\nDADOS DA SEMANA:\n${dadosSemana}`,
-    { timeoutMs: 8 * 60 * 1000 });
-
-  if (rCeo.status === 'done' && rCeo.result) {
-    const relPath = path.join(REPORTS, `relatorio-${data}.md`);
-    if (salvarResultado(relPath, rCeo.result)) {
-      log(`relatório do fundador salvo → ${relPath}`);
-      mostrarRelatorio(relPath);
-    }
-  }
+  await runPipeline({
+    name: 'ciclo-sexta',
+    cycle: 'sexta',
+    steps: [
+      {
+        name: 'Dados — Relatório Semanal',
+        maxRetries: 1,
+        timeoutMs: 9 * 60 * 1000,
+        fn: async (ctx) => {
+          const r = await runJob('studio-dados',
+            `Você é o agente de Dados de uma agência de marketing. Compile o relatório de dados da semana com base nas informações abaixo. Retorne no formato markdown com seções: RECEITA, CUSTOS, RESULTADO, INTELIGÊNCIA.\n\nWORKSPACE:\n${ws}\n\nLEADS:\n${leadsData}\n\nCAMPANHAS:\n${campanhasData}\n\nRELATÓRIOS ANTERIORES:\n${reportsData}`,
+            { timeoutMs: 8 * 60 * 1000 });
+          if (r.status === 'error') throw new Error(String(r.result || 'Dados falhou'));
+          if (r.result) {
+            const dadosPath = path.join(REPORTS, `dados-semana-${data}.md`);
+            const dadosSemana = typeof r.result === 'string' ? r.result : JSON.stringify(r.result);
+            if (salvarResultado(dadosPath, dadosSemana)) log(`dados da semana salvos → ${dadosPath}`);
+            ctx.dadosSemana = dadosSemana.slice(0, 4000);
+          }
+          return r.result;
+        },
+      },
+      {
+        name: 'CEO — Relatório do Fundador',
+        maxRetries: 1,
+        timeoutMs: 9 * 60 * 1000,
+        fn: async (ctx) => {
+          const dadosSemana = ctx.dadosSemana || '(sem dados compilados)';
+          const r = await runJob('studio-ceo',
+            `Você é o CEO de uma agência de marketing digital. Com base nos dados da semana abaixo, escreva o relatório final do fundador (máx. 1 página) com: resultado da semana, o que funcionou, o que muda, plano próxima semana e no máximo 3 perguntas binárias. Retorne somente o markdown do relatório.\n\nDADOS DA SEMANA:\n${dadosSemana}`,
+            { timeoutMs: 8 * 60 * 1000 });
+          if (r.status === 'error') throw new Error(String(r.result || 'CEO falhou'));
+          if (r.result) {
+            const relPath = path.join(REPORTS, `relatorio-${data}.md`);
+            if (salvarResultado(relPath, r.result)) {
+              log(`relatório do fundador salvo → ${relPath}`);
+              mostrarRelatorio(relPath);
+            }
+          }
+          return r.result;
+        },
+      },
+    ],
+  }, { priority: 8 });
 
   log('=== CICLO SEXTA concluído ===');
 }
@@ -387,10 +471,97 @@ function parseArgs(argv) {
   return args;
 }
 
+function iniciarDaemon() {
+  ensureDirs();
+  log('=== DAEMON (watchers + event-driven) iniciado ===');
+
+  const watchers = new WatcherManager();
+  engine.dedupWindowMs = 10 * 60 * 1000;
+
+  watchers.on('error', ({ error }) => log(`AVISO watcher: ${error}`));
+
+  watchers.watchFileCount(path.join(WORKSPACE, 'leads'), {
+    intervalMs: 30000,
+    label: 'leads',
+    onIncrease: ({ added }) => {
+      if (fs.existsSync(path.join(ROOT, 'DISABLED'))) return;
+      log(`watcher: ${added} novo(s) lead(s) detectado(s) → disparando pipeline de prospecção`);
+      const leads = lerDiretorio(path.join(WORKSPACE, 'leads'), { maxArquivos: 10 });
+      runPipeline({
+        name: 'evento-novos-leads',
+        cycle: 'evento',
+        steps: [{
+          name: 'Clientes — Prospecção automática',
+          maxRetries: 1,
+          timeoutMs: 7 * 60 * 1000,
+          fn: async () => {
+            const r = await runJob('studio-clientes',
+              `Novos leads chegaram. Rascunhe emails de prospecção (sem preço no primeiro contato) para os leads abaixo. Para CADA email retorne bloco <<<EMAIL>>>{"para","assunto","corpo"}<<<FIM>>>. Use apenas os dados fornecidos.\n\nLEADS:\n${leads}`,
+              { timeoutMs: 6 * 60 * 1000 });
+            if (r.status === 'error') throw new Error(String(r.result || 'Clientes falhou'));
+            if (r.result) {
+              const texto = typeof r.result === 'string' ? r.result : JSON.stringify(r.result);
+              const blocos = extrairBlocos(texto, '<<<EMAIL>>>', '<<<FIM>>>');
+              let n = 0;
+              for (const bloco of blocos) {
+                let conteudo;
+                try { conteudo = JSON.parse(bloco); } catch (_) { conteudo = { corpo: bloco }; }
+                aprovacoes.salvar('email', conteudo);
+                n++;
+              }
+              if (n > 0) log(`${n} email(s) gerado(s) por evento → pendentes de aprovação.`);
+            }
+            return r.result;
+          },
+        }],
+      }, { dedupKey: 'evento-novos-leads', priority: 6 });
+    },
+  });
+
+  watchers.watchDir(path.join(WORKSPACE, 'campanhas'), {
+    label: 'campanhas',
+    debounceMs: 3000,
+    onChange: () => {
+      if (fs.existsSync(path.join(ROOT, 'DISABLED'))) return;
+      log('watcher: mudança em campanhas detectada → reanálise de tráfego');
+      const campanhas = lerDiretorio(path.join(WORKSPACE, 'campanhas'));
+      runPipeline({
+        name: 'evento-campanhas',
+        cycle: 'evento',
+        steps: [{
+          name: 'Tráfego — Reanálise automática',
+          maxRetries: 1,
+          timeoutMs: 7 * 60 * 1000,
+          fn: async () => {
+            const r = await runJob('studio-trafego',
+              `As campanhas mudaram. Reanalise (CTR/CPC/ROAS) e gere recomendações em markdown.\n\nCAMPANHAS:\n${campanhas}`,
+              { timeoutMs: 6 * 60 * 1000 });
+            if (r.status === 'error') throw new Error(String(r.result || 'Tráfego falhou'));
+            if (r.result) {
+              const trafPath = path.join(REPORTS, `trafego-evento-${hojeISO()}.md`);
+              salvarResultado(trafPath, r.result);
+            }
+            return r.result;
+          },
+        }],
+      }, { dedupKey: 'evento-campanhas', priority: 6 });
+    },
+  });
+
+  log(`watchers ativos: ${JSON.stringify(watchers.snapshot())}`);
+
+  process.on('SIGTERM', () => { watchers.stopAll(); process.exit(0); });
+  process.on('SIGINT', () => { watchers.stopAll(); process.exit(0); });
+
+  setInterval(() => {}, 1 << 30);
+}
+
 async function main() {
   ensureDirs();
   const disabled = fs.existsSync(path.join(ROOT, 'DISABLED'));
   const args = parseArgs(process.argv);
+
+  if (args.daemon) return iniciarDaemon();
 
   if (args.pendentes) return cmdPendentes();
   if (args.relatorio) return cmdRelatorio();
@@ -416,7 +587,8 @@ async function main() {
 
   console.log(`Studio IA — scheduler
 Uso:
-  --cycle=segunda|diario|sexta     roda um ciclo
+  --cycle=segunda|diario|sexta     roda um ciclo (via Loop Engine)
+  --daemon                         modo contínuo: watchers + pipelines por evento
   --agent=<nome> --task="..."      tarefa ad-hoc
   --pendentes                      lista fila de aprovação
   --aprovar=<id>                   aprova e exibe o conteúdo

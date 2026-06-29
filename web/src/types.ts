@@ -46,6 +46,48 @@ export interface ReportFile {
   size: number
 }
 
+export type PipelineState = 'WAITING' | 'RUNNING' | 'RETRY' | 'FAILED' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
+
+export interface PipelineStep {
+  name: string
+  state: PipelineState
+  startedAt: string | null
+  completedAt: string | null
+  attempt: number
+  maxRetries: number
+  timeoutMs: number
+  error: string | null
+  durationMs: number | null
+}
+
+export interface PipelineRecord {
+  id: string
+  name: string
+  cycle: string
+  priority: number
+  state: PipelineState
+  startedAt: string | null
+  completedAt: string | null
+  steps: PipelineStep[]
+  logs: string[]
+  metrics: {
+    totalDurationMs: number
+    retries: number
+  }
+}
+
+export interface PipelineMetrics {
+  total: number
+  completed: number
+  failed: number
+  running: number
+  last24h: number
+  avgDurationMs: number
+  totalRetries: number
+  successRate: number
+  stepStats: Record<string, { total: number; completed: number; failed: number; totalMs: number }>
+}
+
 export interface SystemStatus {
   disabled: boolean
   cycle_running: boolean
