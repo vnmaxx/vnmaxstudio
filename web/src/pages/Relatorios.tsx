@@ -43,7 +43,8 @@ export default function Relatorios() {
   const downloadReport = async (name: string) => { try { downloadText(name, await reportContent(name), 'text/markdown') } catch {} }
 
   const deleteReport = async (name: string) => {
-    if (!confirm(`Excluir o relatório "${name}"? Esta ação não pode ser desfeita.`)) return
+    const ok = await menu.confirm({ title: 'Excluir relatório', message: `Excluir "${humanName(name)}"? Esta ação não pode ser desfeita.`, danger: true, confirmLabel: 'Excluir' })
+    if (!ok) return
     try {
       await api.deleteWorkspacePath(['reports', name])
       if (selected === name) { setSelected(null); setContent(null) }

@@ -227,7 +227,8 @@ function FileViewer({ filename, content, isJson, fullPath, onDeleted }: { filena
   const isLeads = leads !== null
 
   const handleDelete = async () => {
-    if (!confirm(`Excluir o arquivo "${filename}"? Esta ação não pode ser desfeita.`)) return
+    const ok = await menu.confirm({ title: 'Excluir arquivo', message: `Excluir "${filename}"? Esta ação não pode ser desfeita.`, danger: true, confirmLabel: 'Excluir' })
+    if (!ok) return
     try {
       await api.deleteWorkspacePath(fullPath)
       menu.flash('Arquivo excluído')
@@ -251,9 +252,9 @@ function FileViewer({ filename, content, isJson, fullPath, onDeleted }: { filena
     items.push({
       label: 'Renomear', icon: <PenLine size={15} strokeWidth={1.8} />,
       onClick: async () => {
-        const novo = window.prompt('Novo nome do arquivo:', filename)
-        if (!novo || novo.trim() === '' || novo === filename) return
-        try { await api.renameWorkspacePath(fullPath, novo.trim()); menu.flash('Arquivo renomeado'); onDeleted() }
+        const novo = await menu.prompt({ title: 'Renomear arquivo', defaultValue: filename, placeholder: 'Novo nome', confirmLabel: 'Renomear' })
+        if (!novo || novo === filename) return
+        try { await api.renameWorkspacePath(fullPath, novo); menu.flash('Arquivo renomeado'); onDeleted() }
         catch (e: unknown) { menu.flash(e instanceof Error ? e.message : 'Erro ao renomear') }
       },
     })
@@ -487,9 +488,9 @@ export default function Workspace() {
                 if (!f.isDir) items.push({
                   label: 'Renomear', icon: <PenLine size={15} strokeWidth={1.8} />,
                   onClick: async () => {
-                    const novo = window.prompt('Novo nome do arquivo:', f.name)
-                    if (!novo || novo.trim() === '' || novo === f.name) return
-                    try { await api.renameWorkspacePath([...pathStack, f.name], novo.trim()); menu.flash('Arquivo renomeado'); navigate(pathStack) }
+                    const novo = await menu.prompt({ title: 'Renomear arquivo', defaultValue: f.name, placeholder: 'Novo nome', confirmLabel: 'Renomear' })
+                    if (!novo || novo === f.name) return
+                    try { await api.renameWorkspacePath([...pathStack, f.name], novo); menu.flash('Arquivo renomeado'); navigate(pathStack) }
                     catch (e: unknown) { menu.flash(e instanceof Error ? e.message : 'Erro ao renomear') }
                   },
                 })
@@ -498,7 +499,8 @@ export default function Workspace() {
                 if (!f.isDir) items.push({
                   label: 'Excluir', icon: <Trash2 size={15} strokeWidth={1.8} />, danger: true,
                   onClick: async () => {
-                    if (!confirm(`Excluir "${f.name}"? Esta ação não pode ser desfeita.`)) return
+                    const ok = await menu.confirm({ title: 'Excluir arquivo', message: `Excluir "${f.name}"? Esta ação não pode ser desfeita.`, danger: true, confirmLabel: 'Excluir' })
+                    if (!ok) return
                     try { await api.deleteWorkspacePath([...pathStack, f.name]); menu.flash('Arquivo excluído'); navigate(pathStack) }
                     catch (e: unknown) { menu.flash(e instanceof Error ? e.message : 'Erro ao excluir') }
                   },

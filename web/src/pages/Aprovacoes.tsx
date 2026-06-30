@@ -15,14 +15,6 @@ import {
   Copy,
 } from 'lucide-react'
 
-function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
-  return (
-    <div className="toast-wrap">
-      <div className={'toast toast--' + type + ' anim-rise'}>{msg}</div>
-    </div>
-  )
-}
-
 function AprovacaoItem({
   item,
   onAprovar,
@@ -60,7 +52,8 @@ function AprovacaoItem({
   }
 
   const handleAprovar = async () => {
-    if (!confirm(`Aprovar "${item.resumo}"?`)) return
+    const ok = await menu.confirm({ title: 'Aprovar', message: `Aprovar "${item.resumo}"?`, confirmLabel: 'Aprovar' })
+    if (!ok) return
     setAprovando(true)
     try {
       await onAprovar(item.id)
@@ -299,13 +292,10 @@ export default function Aprovacoes() {
   const [items, setItems] = useState<AprovacaoResumo[]>([])
   const [loading, setLoading] = useState(true)
   const [aprovandoTodos, setAprovandoTodos] = useState(false)
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const isMobile = useIsMobile()
+  const menu = useContextMenu()
 
-  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => menu.toast(msg, type)
 
   const loadItems = useCallback(async () => {
     try {
@@ -345,7 +335,8 @@ export default function Aprovacoes() {
   }
 
   const handleAprovarTodos = async () => {
-    if (!confirm(`Aprovar todos os ${items.length} itens pendentes?`)) return
+    const ok = await menu.confirm({ title: 'Aprovar todos', message: `Aprovar todos os ${items.length} itens pendentes?`, confirmLabel: 'Aprovar todos' })
+    if (!ok) return
     setAprovandoTodos(true)
     try {
       await api.aprovarTodos()
@@ -360,8 +351,6 @@ export default function Aprovacoes() {
 
   return (
     <div className="page page--flush">
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
-
       <div className="page-head">
         <div>
           <h1 className="page-title">Aprovações</h1>

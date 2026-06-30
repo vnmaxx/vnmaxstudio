@@ -24,6 +24,7 @@ const AGENT_MASCOT_IMG: Record<string, string> = {
   'studio-trafego':  '/mascots/8.png',
   'studio-dados':    '/mascots/9.png',
   'studio-criacao':  '/mascots/2.png',
+  'studio-sdr':      '/mascots/3.png',
 }
 
 function AgentMascot({ name, size = 48 }: { name: string; size?: number }) {
@@ -283,13 +284,11 @@ export default function Dashboard() {
   const [logLines,      setLogLines]      = useState<string[]>([])
   const [loading,       setLoading]       = useState(true)
   const [cycleLoading,  setCycleLoading]  = useState<string | null>(null)
-  const [toast,         setToast]         = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<{ name: string; agent: Agent } | null>(null)
+  const menu = useContextMenu()
+  const navigate = useNavigate()
 
-  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => menu.toast(msg, type)
 
   const loadData = useCallback(async () => {
     try {
@@ -331,8 +330,6 @@ export default function Dashboard() {
     }
   }
 
-  const menu = useContextMenu()
-  const navigate = useNavigate()
   const agentEntries = Object.entries(agents)
   const isOnline = !status?.disabled
 
@@ -361,12 +358,6 @@ export default function Dashboard() {
             showToast('Agente atualizado com sucesso')
           }}
         />
-      )}
-
-      {toast && (
-        <div className="toast-wrap">
-          <div className={`toast toast--${toast.type}`}>{toast.msg}</div>
-        </div>
       )}
 
       <div className="page-head">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useContextMenu } from '../components/ContextMenu'
 import { auth, db } from '../firebase'
 import {
   updatePassword, updateProfile, EmailAuthProvider,
@@ -76,19 +77,6 @@ function Input({ value, onChange, type = 'text', placeholder, disabled }: { valu
   )
 }
 
-function Toast({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
-  return (
-    <div className="toast-wrap">
-      <div className={'toast toast--' + (type === 'ok' ? 'success' : 'error')}>
-        <div className="row gap-3">
-          {type === 'ok' ? <Check size={15} strokeWidth={2.5} style={{ color: 'var(--accent-green)' }} /> : null}
-          <span>{msg}</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function SaveBtn({ loading, onClick }: { loading: boolean; onClick: () => void }) {
   return (
     <button className="btn btn--primary" onClick={onClick} disabled={loading}>
@@ -112,12 +100,9 @@ function ContaSection() {
   const [confirmPwd, setConfirmPwd] = useState('')
   const [loadingName, setLoadingName] = useState(false)
   const [loadingPwd, setLoadingPwd] = useState(false)
-  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+  const menu = useContextMenu()
 
-  const showToast = (msg: string, type: 'ok' | 'err') => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3500)
-  }
+  const showToast = (msg: string, type: 'ok' | 'err') => menu.toast(msg, type === 'ok' ? 'success' : 'error')
 
   const saveName = async () => {
     if (!auth.currentUser || !name.trim()) return
@@ -154,8 +139,6 @@ function ContaSection() {
 
   return (
     <div className="col gap-6">
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
-
       <div className="card card--pad">
         <SectionTitle>Perfil</SectionTitle>
         <Field label="Email" hint="O email não pode ser alterado">
@@ -193,7 +176,7 @@ function AparenciaSection() {
   const [bg, setBg] = useState(() => localStorage.getItem('cfg_bg') || '#08080a')
   const [fontSize, setFontSize] = useState(() => localStorage.getItem('cfg_font') || '14px')
   const [sidebarCompact, setSidebarCompact] = useState(() => localStorage.getItem('cfg_sidebar') === 'compact')
-  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+  const menu = useContextMenu()
 
   const applyTheme = (a: string, b: string, f: string) => {
     document.documentElement.style.setProperty('--accent', a)
@@ -211,8 +194,7 @@ function AparenciaSection() {
     localStorage.setItem('cfg_font', fontSize)
     localStorage.setItem('cfg_sidebar', sidebarCompact ? 'compact' : 'full')
     applyTheme(accent, bg, fontSize)
-    setToast({ msg: 'Tema aplicado em todo o projeto', type: 'ok' })
-    setTimeout(() => setToast(null), 3000)
+    menu.toast('Tema aplicado em todo o projeto')
   }
 
   const reset = () => {
@@ -221,8 +203,7 @@ function AparenciaSection() {
     localStorage.removeItem('cfg_accent'); localStorage.removeItem('cfg_bg')
     localStorage.removeItem('cfg_font'); localStorage.removeItem('cfg_sidebar')
     applyTheme(dA, dB, dF)
-    setToast({ msg: 'Tema resetado para o padrão', type: 'ok' })
-    setTimeout(() => setToast(null), 3000)
+    menu.toast('Tema resetado para o padrão')
   }
 
   const swatch: React.CSSProperties = {
@@ -232,8 +213,6 @@ function AparenciaSection() {
 
   return (
     <div className="col gap-6">
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
-
       <div className="card card--pad">
         <SectionTitle>Cor de destaque</SectionTitle>
         <div className="row wrap" style={{ gap: 10 }}>
@@ -345,9 +324,9 @@ function NotificacoesSection() {
   const [erros,     setErros]     = useState(() => localStorage.getItem('notif_err')      !== 'false')
   const [aprovacoes, setAprovacoes] = useState(() => localStorage.getItem('notif_aprov')  !== 'false')
   const [perm,      setPerm]      = useState<NotificationPermission>(typeof Notification !== 'undefined' ? Notification.permission : 'denied')
-  const [toast,     setToast]     = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+  const menu = useContextMenu()
 
-  const showToast = (msg: string, type: 'ok' | 'err') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  const showToast = (msg: string, type: 'ok' | 'err') => menu.toast(msg, type === 'ok' ? 'success' : 'error')
 
   const requestBrowserPerm = async () => {
     if (typeof Notification === 'undefined') return showToast('Notificações não suportadas neste browser', 'err')
@@ -394,7 +373,6 @@ function NotificacoesSection() {
 
   return (
     <div className="col gap-6">
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
 
       <div className="card card--pad">
         <SectionTitle>Notificações do browser</SectionTitle>
