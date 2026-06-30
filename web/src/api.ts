@@ -165,6 +165,21 @@ export const api = {
     fetchJson<import('./types').Blueprint>('/conteudo/blueprints', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clienteId, blueprint }) }),
   deleteBlueprint: (id: string) => fetchJson<{ ok: boolean }>(`/conteudo/blueprints/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
+  uploadVideoJob: async (files: File[], roteiro: unknown, clienteId?: string) => {
+    const fd = new FormData()
+    files.forEach(f => fd.append('clips', f))
+    fd.append('roteiro', JSON.stringify(roteiro || {}))
+    if (clienteId) fd.append('clienteId', clienteId)
+    const res = await fetch(BASE + '/video/jobs', { method: 'POST', body: fd })
+    if (!res.ok) { const e = await res.json().catch(() => ({ error: res.statusText })); throw new Error(e.error || `HTTP ${res.status}`) }
+    return res.json() as Promise<{ jobId: string }>
+  },
+  getVideoJob: (id: string) => fetchJson<import('./types').VideoJob>(`/video/jobs/${encodeURIComponent(id)}`),
+  getVideoJobs: (clienteId?: string) => fetchJson<{ jobs: import('./types').VideoJob[] }>('/video/jobs' + (clienteId ? `?clienteId=${encodeURIComponent(clienteId)}` : '')),
+  deleteVideoJob: (id: string) => fetchJson<{ ok: boolean }>(`/video/jobs/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  videoFinalUrl: (id: string) => BASE + `/video/jobs/${encodeURIComponent(id)}/final.mp4`,
+  getVideoStorage: () => fetchJson<{ dir: string; freeGB: number; totalGB: number }>('/video/storage'),
+
   getStats: () => fetchJson<import('./types').Stats>('/stats'),
 
   getStatus: () => fetchJson<import('./types').SystemStatus>('/status'),

@@ -1,13 +1,15 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
-import type { CrmLead, Roteiro, RoteiroVariation, CalendarioItem, ConteudoPost, Blueprint, ConteudoPerfil } from '../types'
+import type { CrmLead, Roteiro, RoteiroVariation, CalendarioItem, ConteudoPost, Blueprint, ConteudoPerfil, VideoJob } from '../types'
 import { useContextMenu } from '../components/ContextMenu'
 import {
   Wand2, Calendar, Megaphone, Lightbulb, Sparkles, Copy, Trash2, Plus, Loader2,
   Check, RefreshCw, Send, Eye, Heart, MessageCircle, Share2, Rocket, Film, Save,
-  Download, X, Clapperboard,
+  Download, X, Clapperboard, Upload, Server,
 } from 'lucide-react'
 import { hyperframesComposition, videoUseBrief, downloadText } from '../lib/videoStudio'
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 const TABS = [
   { id: 'roteiros', label: 'Roteiros', icon: <Film size={15} strokeWidth={1.7} /> },
@@ -71,11 +73,42 @@ function VariationCard({ v, onSalvar, onAgendar, onPublicar, onVideo }: {
   )
 }
 
-function VideoStudioModal({ v, cliente, onClose }: { v: RoteiroVariation; cliente: string | null; onClose: () => void }) {
+function VideoStudioModal({ v, cliente, clienteId, onClose }: { v: RoteiroVariation; cliente: string | null; clienteId: string; onClose: () => void }) {
   const menu = useContextMenu()
-  const [tab, setTab] = useState<'grafismo' | 'edicao'>('grafismo')
+  const [tab, setTab] = useState<'servidor' | 'grafismo' | 'edicao'>('servidor')
   const comp = hyperframesComposition(v, { cliente: cliente || undefined })
   const brief = videoUseBrief(v, cliente || undefined)
+
+  const [files, setFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [job, setJob] = useState<VideoJob | null>(null)
+  const [storage, setStorage] = useState<{ dir: string; freeGB: number } | null>(null)
+  useEffect(() => { api.getVideoStorage().then(setStorage).catch(() => {}) }, [])
+
+  const enviar = async () => {
+    if (!files.length) { menu.toast('Selecione ao menos um vídeo', 'error'); return }
+    setUploading(true); setJob({ id: '', state: 'queued', step: 'enviando…' })
+    try {
+      const { jobId } = await api.uploadVideoJob(files, v, clienteId || undefined)
+      for (let i = 0; i < 240; i++) {
+        await sleep(3000)
+        let st: VideoJob
+        try { st = await api.getVideoJob(jobId) } catch { continue }
+        setJob(st)
+        if (st.state === 'done' || st.state === 'error') break
+      }
+    } catch (e: unknown) {
+      menu.toast(e instanceof Error ? e.message : 'Erro no upload', 'error'); setJob(null)
+    } finally { setUploading(false) }
+  }
+
+  const publicar = async () => {
+    try { await api.publicarPost({ clienteId: clienteId || null, plataforma: 'instagram', legenda: v.title || v.hook || '', retencao: v.retencao_3s, viralScore: v.viral_score }); menu.toast('Publicação registrada') }
+    catch { menu.toast('Erro', 'error') }
+  }
+
+  const fmtMB = (n?: number) => n ? `${(n / 1048576).toFixed(1)} MB` : ''
+  const done = job?.state === 'done'
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -88,13 +121,53 @@ function VideoStudioModal({ v, cliente, onClose }: { v: RoteiroVariation; client
           <button onClick={onClose} className="btn-icon btn-icon--sm" style={{ borderRadius: '50%' }}><X size={14} strokeWidth={2} /></button>
         </div>
 
-        <div className="row" style={{ gap: 6, padding: '12px 20px 0' }}>
+        <div className="row wrap" style={{ gap: 6, padding: '12px 20px 0' }}>
+          <button className={'btn btn--pill btn--sm' + (tab === 'servidor' ? ' btn--accent-soft' : '')} onClick={() => setTab('servidor')}><Server size={13} /> Editar no servidor</button>
           <button className={'btn btn--pill btn--sm' + (tab === 'grafismo' ? ' btn--accent-soft' : '')} onClick={() => setTab('grafismo')}><Film size={13} /> Grafismo (HyperFrames)</button>
           <button className={'btn btn--pill btn--sm' + (tab === 'edicao' ? ' btn--accent-soft' : '')} onClick={() => setTab('edicao')}><Wand2 size={13} /> Edição (video-use)</button>
         </div>
 
         <div className="scroll" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {tab === 'grafismo' ? (
+          {tab === 'servidor' && (
+            <>
+              <p className="dim" style={{ fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>
+                Suba o material bruto — o servidor corta pra <b>9:16</b>, normaliza o áudio e <b>queima as legendas deste roteiro</b>, devolvendo o <b>final.mp4</b>. (Sem avatar; ideal pra clipes curtos.)
+              </p>
+              {storage && storage.freeGB > 0 && (
+                <p className="dim" style={{ fontSize: 11, margin: '-4px 0 0' }}>Armazenamento: <code>{storage.dir}</code> · {storage.freeGB} GB livres</p>
+              )}
+              {!done && (
+                <>
+                  <label className="card card--pad" style={{ cursor: 'pointer', textAlign: 'center', borderStyle: 'dashed' }}>
+                    <input type="file" accept="video/*" multiple style={{ display: 'none' }} onChange={e => setFiles(Array.from(e.target.files || []))} />
+                    <Upload size={22} style={{ color: 'var(--text-tertiary)' }} />
+                    <p style={{ margin: '6px 0 0', fontSize: 12.5 }}>{files.length ? `${files.length} arquivo(s): ${files.map(f => f.name).join(', ').slice(0, 60)}` : 'Clique para escolher os vídeos (até 8, 200MB cada)'}</p>
+                  </label>
+                  <button className="btn btn--primary" onClick={enviar} disabled={uploading || !files.length} style={{ justifyContent: 'center' }}>
+                    {uploading ? <Loader2 size={15} className="spin" /> : <Server size={15} />}
+                    {uploading ? (job?.step || 'Processando…') : 'Enviar e editar'}
+                  </button>
+                </>
+              )}
+              {job && job.state !== 'done' && job.state !== 'error' && (
+                <div className="row" style={{ gap: 8, fontSize: 12.5, color: 'var(--text-secondary)' }}><Loader2 size={14} className="spin" /> {job.step || job.state}…</div>
+              )}
+              {job?.state === 'error' && (
+                <div className="card card--pad" style={{ background: 'color-mix(in srgb, var(--accent-red) 12%, transparent)', color: 'var(--accent-red)', fontSize: 12.5 }}>Falhou: {job.error}</div>
+              )}
+              {done && (
+                <>
+                  <video src={api.videoFinalUrl(job!.id)} controls playsInline style={{ width: '100%', maxHeight: 420, borderRadius: 12, background: '#000' }} />
+                  <div className="row wrap" style={{ gap: 7 }}>
+                    <a className="btn btn--primary btn--sm" href={api.videoFinalUrl(job!.id)} download={`${job!.id}.mp4`}><Download size={13} /> Baixar {fmtMB(job!.size)}</a>
+                    <button className="btn btn--ghost btn--sm" onClick={publicar}><Megaphone size={13} /> Registrar publicação</button>
+                    <button className="btn btn--ghost btn--sm" onClick={() => { setJob(null); setFiles([]) }}><Upload size={13} /> Editar outro</button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          {tab === 'grafismo' && (
             <>
               <p className="dim" style={{ fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>
                 Composição 9:16 gerada do roteiro (intro + legendas animadas via GSAP). Baixe o <b>.html</b>, jogue num projeto HyperFrames e renderize: <code>npx hyperframes render</code>.
@@ -107,7 +180,8 @@ function VideoStudioModal({ v, cliente, onClose }: { v: RoteiroVariation; client
                 <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(comp.html, 'HTML copiado')}><Copy size={13} /> Copiar HTML</button>
               </div>
             </>
-          ) : (
+          )}
+          {tab === 'edicao' && (
             <>
               <p className="dim" style={{ fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>
                 Briefing pronto para o <b>video-use</b> (skill do Claude Code). Salve o <b>project.md</b> na pasta dos vídeos brutos e rode os comandos abaixo.
@@ -194,7 +268,7 @@ function RoteirosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLe
 
   return (
     <div className="col gap-6">
-      {videoFor && <VideoStudioModal v={videoFor} cliente={cliente?.nome || null} onClose={() => setVideoFor(null)} />}
+      {videoFor && <VideoStudioModal v={videoFor} cliente={cliente?.nome || null} clienteId={clienteId} onClose={() => setVideoFor(null)} />}
       <div className="card card--pad col" style={{ gap: 12 }}>
         <div className="row wrap" style={{ gap: 10, alignItems: 'flex-end' }}>
           <div style={{ flex: 2, minWidth: 220 }}>

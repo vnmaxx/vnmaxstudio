@@ -59,6 +59,65 @@ let viral = null, bp = null;
 try { viral = require(path.join(ROOT, 'lib', 'viral-engine.js')); } catch (e) { console.error('viral-engine indisponível:', e.message); }
 try { bp = require(path.join(ROOT, 'lib', 'blueprint.js')); } catch (e) { console.error('blueprint indisponível:', e.message); }
 
+let vp = null;
+try { vp = require(path.join(ROOT, 'lib', 'video-pipeline.js')); } catch (e) { console.error('video-pipeline indisponível:', e.message); }
+let multerLib = null;
+try { multerLib = require(path.join(ROOT, 'node_modules', 'multer')); } catch { try { multerLib = require('multer'); } catch (e) { console.error('multer indisponível (rode o setup):', e.message); } }
+
+function autoDetectStorage() {
+  const bases = ['/mnt', '/media', path.join('/media', process.env.USER || 'v'), '/srv', '/media/usb'];
+  const seen = new Set();
+  const cands = [];
+  let rootDev = '';
+  try { rootDev = String(fs.statSync('/').dev); } catch {}
+  for (const base of bases) {
+    let entries = [];
+    try { entries = fs.readdirSync(base); } catch { continue; }
+    for (const e of entries) {
+      const p = path.join(base, e);
+      if (seen.has(p)) continue; seen.add(p);
+      try {
+        const st = fs.statSync(p);
+        if (!st.isDirectory()) continue;
+        if (rootDev && String(st.dev) === rootDev) continue;
+        const f = fs.statfsSync(p);
+        const total = f.blocks * f.bsize, free = f.bavail * f.bsize;
+        if (total > 1e9) cands.push({ p, free, total });
+      } catch {}
+    }
+  }
+  cands.sort((a, b) => b.free - a.free);
+  for (const c of cands) { try { fs.accessSync(c.p, fs.constants.W_OK); return c.p; } catch {} }
+  return null;
+}
+
+function resolveVideoDir() {
+  const env = readEnvKey('VIDEO_STORAGE_DIR');
+  if (env) return env;
+  const sd = autoDetectStorage();
+  if (sd) return path.join(sd, 'studio-video');
+  return path.join(WORKSPACE, 'video');
+}
+
+const VIDEO_DIR = resolveVideoDir();
+try { fs.mkdirSync(VIDEO_DIR, { recursive: true }); } catch (e) { console.error('VIDEO_DIR mkdir:', e.message); }
+console.log('Video storage:', VIDEO_DIR);
+try { if (vp && vp.pruneOldJobs) vp.pruneOldJobs(VIDEO_DIR, 40); } catch {}
+
+let videoUpload = null;
+if (multerLib) {
+  const storage = multerLib.diskStorage({
+    destination: (req, file, cb) => {
+      if (!req._vjid) req._vjid = 'vid-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+      const dir = path.join(VIDEO_DIR, req._vjid, 'src');
+      try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + String(file.originalname || 'clip').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-50)),
+  });
+  videoUpload = multerLib({ storage, limits: { fileSize: 200 * 1024 * 1024, files: 8 } });
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function nxsRequest(method, pathname, body) {
@@ -728,6 +787,60 @@ app.post('/conteudo/blueprints', (req, res) => {
 app.delete('/conteudo/blueprints/:id', (req, res) => {
   if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
   res.json({ ok: conteudo.removeBlueprint(req.params.id) });
+});
+
+app.post('/video/jobs', (req, res) => {
+  if (!videoUpload || !vp) return res.status(503).json({ error: 'Edição de vídeo indisponível — rode o setup (npm i multer ffmpeg-static)' });
+  if (vp.freeBytes(VIDEO_DIR) < 800 * 1024 * 1024) return res.status(507).json({ error: 'Pouco espaço em disco no armazenamento de vídeo' });
+  videoUpload.array('clips', 8)(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    const jid = req._vjid;
+    if (!jid) return res.status(400).json({ error: 'Nenhum vídeo enviado' });
+    let roteiro = {};
+    try { roteiro = req.body && req.body.roteiro ? JSON.parse(req.body.roteiro) : {}; } catch {}
+    const meta = { id: jid, clienteId: (req.body && req.body.clienteId) || null, titulo: roteiro.title || roteiro.hook || '', criadoEm: new Date().toISOString() };
+    try { fs.writeFileSync(path.join(VIDEO_DIR, jid, 'meta.json'), JSON.stringify(meta, null, 2)); } catch {}
+    vp.enqueue(path.join(VIDEO_DIR, jid), roteiro);
+    res.json({ jobId: jid });
+  });
+});
+
+app.get('/video/jobs', (req, res) => {
+  if (!vp) return res.json({ jobs: [] });
+  try {
+    const ids = safeReadDir(VIDEO_DIR).filter(d => { try { return fs.statSync(path.join(VIDEO_DIR, d)).isDirectory(); } catch { return false; } });
+    const jobs = ids.map(id => {
+      const st = vp.readStatus(path.join(VIDEO_DIR, id)) || {};
+      let meta = {}; try { meta = JSON.parse(fs.readFileSync(path.join(VIDEO_DIR, id, 'meta.json'), 'utf8')); } catch {}
+      return { id, ...meta, ...st };
+    }).filter(j => !req.query.clienteId || j.clienteId === req.query.clienteId)
+      .sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
+    res.json({ jobs });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/video/jobs/:id', (req, res) => {
+  if (!vp) return res.status(503).json({ error: 'indisponível' });
+  const st = vp.readStatus(path.join(VIDEO_DIR, path.basename(req.params.id)));
+  if (!st) return res.status(404).json({ error: 'Not found' });
+  res.json(st);
+});
+
+app.get('/video/jobs/:id/final.mp4', (req, res) => {
+  const f = path.join(VIDEO_DIR, path.basename(req.params.id), 'final.mp4');
+  if (!fs.existsSync(f)) return res.status(404).json({ error: 'Not found' });
+  res.sendFile(f);
+});
+
+app.delete('/video/jobs/:id', (req, res) => {
+  try { fs.rmSync(path.join(VIDEO_DIR, path.basename(req.params.id)), { recursive: true, force: true }); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/video/storage', (req, res) => {
+  let free = 0, total = 0;
+  try { const f = fs.statfsSync(VIDEO_DIR); free = f.bavail * f.bsize; total = f.blocks * f.bsize; } catch {}
+  res.json({ dir: VIDEO_DIR, freeGB: +(free / 1e9).toFixed(1), totalGB: +(total / 1e9).toFixed(1) });
 });
 
 app.post('/crm/:id/descartar-rascunho', (req, res) => {

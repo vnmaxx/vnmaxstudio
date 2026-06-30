@@ -296,6 +296,47 @@ if (BRIDGE_URL) {
   app.post('/api/conteudo/blueprints', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/blueprints', req.body); res.status(status).json(data); });
   app.delete('/api/conteudo/blueprints/:id', async (req, res) => { const { status, data } = await bridge('DELETE', `/conteudo/blueprints/${req.params.id}`); res.status(status).json(data); });
 
+  app.post('/api/video/jobs', async (req, res) => {
+    try {
+      const { default: fetch } = await import('node-fetch');
+      const r = await fetch(`${BRIDGE_URL}/video/jobs`, {
+        method: 'POST',
+        headers: { 'content-type': req.headers['content-type'] || 'application/octet-stream', 'x-bridge-secret': BRIDGE_SECRET },
+        body: req,
+      });
+      const text = await r.text();
+      res.status(r.status).type('application/json').send(text);
+    } catch (e) { res.status(502).json({ error: `Upload falhou: ${e.message}` }); }
+  });
+  app.get('/api/video/jobs', async (req, res) => {
+    const route = '/video/jobs' + (req.query.clienteId ? `?clienteId=${encodeURIComponent(req.query.clienteId)}` : '');
+    const { status, data } = await bridge('GET', route);
+    res.status(status).json(data);
+  });
+  app.get('/api/video/jobs/:id/final.mp4', async (req, res) => {
+    try {
+      const { default: fetch } = await import('node-fetch');
+      const r = await fetch(`${BRIDGE_URL}/video/jobs/${encodeURIComponent(req.params.id)}/final.mp4`, { headers: { 'x-bridge-secret': BRIDGE_SECRET } });
+      if (!r.ok) return res.status(r.status).json({ error: 'Not found' });
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Accept-Ranges', 'bytes');
+      const len = r.headers.get('content-length'); if (len) res.setHeader('Content-Length', len);
+      r.body.pipe(res);
+    } catch (e) { res.status(502).json({ error: e.message }); }
+  });
+  app.get('/api/video/jobs/:id', async (req, res) => {
+    const { status, data } = await bridge('GET', `/video/jobs/${req.params.id}`);
+    res.status(status).json(data);
+  });
+  app.delete('/api/video/jobs/:id', async (req, res) => {
+    const { status, data } = await bridge('DELETE', `/video/jobs/${req.params.id}`);
+    res.status(status).json(data);
+  });
+  app.get('/api/video/storage', async (req, res) => {
+    const { status, data } = await bridge('GET', '/video/storage');
+    res.status(status).json(data);
+  });
+
 } else {
   const STUDIO_ROOT = process.env.STUDIO_ROOT || path.join(__dirname, '..');
   
@@ -530,6 +571,13 @@ if (BRIDGE_URL) {
   app.get('/api/conteudo/blueprints', (req, res) => { if (!guard(res)) return; res.json({ blueprints: conteudoLocal.listBlueprints(req.query.clienteId) }); });
   app.post('/api/conteudo/blueprints', (req, res) => { if (!guard(res)) return; const { clienteId, blueprint } = req.body || {}; if (!blueprint) return res.status(400).json({ error: 'blueprint vazio' }); res.json(conteudoLocal.addBlueprint(clienteId || null, blueprint)); });
   app.delete('/api/conteudo/blueprints/:id', (req, res) => { if (!guard(res)) return; res.json({ ok: conteudoLocal.removeBlueprint(req.params.id) }); });
+
+  app.post('/api/video/jobs', (req, res) => res.status(503).json({ error: 'Edição de vídeo disponível apenas via bridge' }));
+  app.get('/api/video/jobs', (req, res) => res.json({ jobs: [] }));
+  app.get('/api/video/jobs/:id', (req, res) => res.status(503).json({ error: 'Edição de vídeo disponível apenas via bridge' }));
+  app.get('/api/video/jobs/:id/final.mp4', (req, res) => res.status(503).json({ error: 'indisponível' }));
+  app.delete('/api/video/jobs/:id', (req, res) => res.status(503).json({ error: 'indisponível' }));
+  app.get('/api/video/storage', (req, res) => res.json({ dir: '(local)', freeGB: 0, totalGB: 0 }));
 
   app.get('/api/crm', (req, res) => {
     try {

@@ -175,6 +175,19 @@ export interface ConteudoPerfil {
   handle?: string
 }
 
+export interface VideoJob {
+  id: string
+  state?: 'queued' | 'running' | 'done' | 'error'
+  step?: string
+  error?: string
+  final?: string
+  size?: number
+  clienteId?: string | null
+  titulo?: string
+  criadoEm?: string
+  atualizadoEm?: string
+}
+
 export type PipelineState = 'WAITING' | 'RUNNING' | 'RETRY' | 'FAILED' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
 
 export interface PipelineStep {
