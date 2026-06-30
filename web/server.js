@@ -237,6 +237,26 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('DELETE', `/crm/${req.params.id}`);
     res.status(status).json(data);
   });
+  app.post('/api/crm/:id/sugerir', async (req, res) => {
+    const { status, data } = await bridge('POST', `/crm/${req.params.id}/sugerir`, req.body);
+    res.status(status).json(data);
+  });
+  app.get('/api/crm/sugestao/:jobId', async (req, res) => {
+    const { status, data } = await bridge('GET', `/crm/sugestao/${req.params.jobId}`);
+    res.status(status).json(data);
+  });
+  app.post('/api/crm/:id/enviar', async (req, res) => {
+    const { status, data } = await bridge('POST', `/crm/${req.params.id}/enviar`, req.body);
+    res.status(status).json(data);
+  });
+  app.post('/api/crm/:id/descartar-rascunho', async (req, res) => {
+    const { status, data } = await bridge('POST', `/crm/${req.params.id}/descartar-rascunho`, req.body);
+    res.status(status).json(data);
+  });
+  app.post('/api/crm/sdr-lote', async (req, res) => {
+    const { status, data } = await bridge('POST', '/crm/sdr-lote', req.body);
+    res.status(status).json(data);
+  });
 
 } else {
   const STUDIO_ROOT = process.env.STUDIO_ROOT || path.join(__dirname, '..');
@@ -454,6 +474,13 @@ if (BRIDGE_URL) {
   app.delete('/api/crm/:id', (req, res) => {
     try { res.json({ ok: crmLocal ? crmLocal.remove(req.params.id) : false }); } catch (e) { res.status(500).json({ error: e.message }); }
   });
+  app.post('/api/crm/sdr-lote', (req, res) => res.status(503).json({ error: 'Geração em lote disponível apenas via bridge' }));
+  app.post('/api/crm/:id/sugerir', (req, res) => res.status(503).json({ error: 'Sugestão disponível apenas via bridge' }));
+  app.get('/api/crm/sugestao/:jobId', (req, res) => res.status(503).json({ error: 'Sugestão disponível apenas via bridge' }));
+  app.post('/api/crm/:id/descartar-rascunho', (req, res) => {
+    try { const lead = crmLocal && crmLocal.clearRascunho(req.params.id); if (!lead) return res.status(404).json({ error: 'Not found' }); res.json(lead); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/crm/:id/enviar', (req, res) => res.status(503).json({ error: 'Envio disponível apenas via bridge' }));
 
   app.get('/api/workspace/:dir', (req, res) => {
     try {

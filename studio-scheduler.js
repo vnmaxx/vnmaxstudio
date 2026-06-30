@@ -250,6 +250,31 @@ async function cicloSegunda() {
           return r.result;
         },
       },
+      {
+        name: 'SDR — Primeiras mensagens',
+        maxRetries: 1,
+        timeoutMs: 14 * 60 * 1000,
+        fn: async () => {
+          let crm, sdr;
+          try {
+            crm = new (require(path.join(ROOT, 'lib', 'crm.js')).Crm)(WORKSPACE);
+            sdr = require(path.join(ROOT, 'lib', 'sdr.js'));
+          } catch (e) { log(`SDR indisponível: ${e.message}`); return '(SDR indisponível)'; }
+          crm.syncFromLeads();
+          const novos = crm.list().filter(l => l.stage === 'NOVO' && !l.rascunho && (!l.historico || l.historico.length === 0)).slice(0, 8);
+          if (novos.length === 0) { log('SDR: nenhum lead novo sem mensagem.'); return 'sem novos'; }
+          let n = 0;
+          for (const lead of novos) {
+            const r = await runJob('studio-sdr', sdr.sdrTask(lead), { timeoutMs: 3 * 60 * 1000 });
+            if (r.status === 'done') {
+              const msg = sdr.firstDraft(r.result);
+              if (msg && msg.mensagem) { crm.setRascunho(lead.id, { ...msg, origem: 'ciclo' }); n++; }
+            }
+          }
+          log(`SDR: ${n} primeira(s) mensagem(ns) gerada(s) — rascunhos prontos em Conversas.`);
+          return `${n} rascunhos gerados`;
+        },
+      },
     ],
   }, { priority: 7 });
 

@@ -6,6 +6,7 @@ import { useContextMenu, type CtxItem } from '../components/ContextMenu'
 import {
   RefreshCw, Plus, Download, Users, AtSign, Phone, Mail, Globe, X, Copy,
   Trash2, ArrowRightLeft, MessageSquarePlus, Clock, ExternalLink, MapPin, MessageCircle,
+  Sparkles, Send, Loader2, Check,
 } from 'lucide-react'
 
 const STAGE_META: Record<CrmStage, { label: string; color: string }> = {
@@ -25,6 +26,13 @@ function parseContato(raw?: string) {
   const phone = (String(raw || '').match(/\(?\d{2}\)?[\s-]?\d{4,5}[-\s]?\d{4}/) || [''])[0]
   const email = (String(raw || '').match(/[\w.+-]+@[\w-]+\.[\w.]+/) || [''])[0]
   return { handle, phone, email }
+}
+
+function waLink(contato?: string, texto?: string) {
+  const d = String(contato || '').replace(/\D/g, '')
+  if (!d) return ''
+  const phone = d.length > 11 ? d : '55' + d
+  return `https://wa.me/${phone}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`
 }
 
 function CanalIcon({ canal, size = 13 }: { canal: string; size?: number }) {
@@ -60,6 +68,11 @@ function LeadCard({ lead, onOpen, menuItems }: { lead: CrmLead; onOpen: () => vo
       <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
         <CanalIcon canal={lead.canal} size={14} />
         <span className="truncate" style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{lead.nome}</span>
+        {lead.rascunho?.mensagem && (
+          <span className="row" title="Mensagem pronta para enviar" style={{ gap: 3, flexShrink: 0, fontSize: 10, fontWeight: 700, color: 'var(--accent-text)', background: 'var(--accent-soft)', padding: '1px 6px', borderRadius: 999 }}>
+            <Sparkles size={10} /> pronta
+          </span>
+        )}
       </div>
       {lead.segmento && <span className="dim truncate" style={{ fontSize: 11.5 }}>{lead.segmento}</span>}
       <div className="row--between" style={{ marginTop: 2 }}>
@@ -72,12 +85,79 @@ function LeadCard({ lead, onOpen, menuItems }: { lead: CrmLead; onOpen: () => vo
   )
 }
 
-function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove }: {
+interface Sugestao { canal?: string; etapa?: string; assunto?: string; mensagem: string; objetivo?: string; proximo_passo?: string }
+
+function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove, onLeadUpdate }: {
   lead: CrmLead; stages: CrmStage[]; onClose: () => void
   onMove: (s: CrmStage) => void; onContato: () => void; onRemove: () => void
+  onLeadUpdate: (lead: CrmLead) => void
 }) {
   const menu = useContextMenu()
   const { handle, phone, email } = parseContato(lead.contato)
+  const [suggesting, setSuggesting] = useState(false)
+  const [sugestoes, setSugestoes] = useState<Sugestao[]>([])
+  const [sendingIdx, setSendingIdx] = useState<number | null>(null)
+
+  const sugerir = async () => {
+    setSuggesting(true)
+    setSugestoes([])
+    try {
+      const { jobId } = await api.sugerirMensagem(lead.id)
+      for (let i = 0; i < 25; i++) {
+        await new Promise(r => setTimeout(r, 2500))
+        const r = await api.getSugestao(jobId)
+        if (r.status === 'done') { setSugestoes(r.mensagens || []); break }
+        if (r.status === 'error') { menu.toast(r.error || 'Erro ao gerar', 'error'); break }
+      }
+    } catch (e: unknown) {
+      menu.toast(e instanceof Error ? e.message : 'Erro ao sugerir', 'error')
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
+  const registrar = async (texto: string) => {
+    try { const l = await api.addCrmContato(lead.id, { tipo: 'mensagem', canal: lead.canal, texto }); onLeadUpdate(l); menu.toast('Registrada como enviada') }
+    catch { menu.toast('Erro ao registrar', 'error') }
+  }
+
+  const enviar = async (texto: string, idx: number) => {
+    setSendingIdx(idx)
+    try {
+      const r = await api.enviarMensagem(lead.id, { texto, modo: 'dm' })
+      if (r.lead) onLeadUpdate(r.lead)
+      menu.toast(r.ok ? 'Enviada via Ayrshare' : 'Registrada (Ayrshare não confirmou o envio)', r.ok ? 'success' : 'info')
+    } catch (e: unknown) {
+      menu.toast(e instanceof Error ? e.message : 'Erro ao enviar', 'error')
+    } finally {
+      setSendingIdx(null)
+    }
+  }
+
+  const temTelefone = !!waLink(lead.contato)
+
+  const enviarWhatsApp = (texto: string) => {
+    const link = waLink(lead.contato, texto)
+    if (!link) { menu.toast('Lead sem telefone para WhatsApp', 'error'); return }
+    window.open(link, '_blank', 'noopener')
+    api.enviarMensagem(lead.id, { texto, modo: 'whatsapp' })
+      .then(r => { if (r.lead) onLeadUpdate(r.lead) })
+      .catch(() => {})
+    menu.toast('Abrindo no WhatsApp e registrando…')
+  }
+
+  const registrarRascunho = async (texto: string) => {
+    try {
+      await api.addCrmContato(lead.id, { tipo: 'mensagem', canal: lead.canal, texto })
+      const l = await api.descartarRascunho(lead.id)
+      onLeadUpdate(l); menu.toast('Registrada como enviada')
+    } catch { menu.toast('Erro ao registrar', 'error') }
+  }
+
+  const descartarRascunho = async () => {
+    try { const l = await api.descartarRascunho(lead.id); onLeadUpdate(l); menu.toast('Rascunho descartado') }
+    catch { menu.toast('Erro ao descartar', 'error') }
+  }
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -96,6 +176,37 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove }: {
         </div>
 
         <div className="scroll" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {lead.rascunho?.mensagem && (
+            <div className="card card--pad anim-fade" style={{ background: 'var(--accent-softer)', borderColor: 'var(--accent-line)' }}>
+              <div className="row--between" style={{ marginBottom: 8 }}>
+                <span className="row" style={{ gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--accent-text)' }}>
+                  <Sparkles size={14} /> Mensagem pronta {lead.rascunho.origem === 'auto' ? '· gerada automaticamente' : '· IA'}
+                </span>
+                <button className="btn-icon btn-icon--sm" title="Descartar rascunho" onClick={descartarRascunho}><X size={13} strokeWidth={2} /></button>
+              </div>
+              <div className="row wrap" style={{ gap: 6, marginBottom: 8 }}>
+                {lead.rascunho.etapa && <span className="badge" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>{lead.rascunho.etapa}</span>}
+                {lead.rascunho.canal && <span className="chip" style={{ fontSize: 10.5, padding: '2px 7px' }}>{lead.rascunho.canal}</span>}
+              </div>
+              {lead.rascunho.assunto && <p style={{ margin: '0 0 6px', fontSize: 12.5, fontWeight: 600 }}>Assunto: {lead.rascunho.assunto}</p>}
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{lead.rascunho.mensagem}</p>
+              {lead.rascunho.objetivo && <p className="dim" style={{ fontSize: 11, margin: '8px 0 0' }}>🎯 {lead.rascunho.objetivo}</p>}
+              <div className="row wrap" style={{ gap: 6, marginTop: 10 }}>
+                {temTelefone && (
+                  <button className="btn btn--sm" style={{ background: 'color-mix(in srgb, var(--accent-green) 16%, transparent)', borderColor: 'var(--accent-green)', color: 'var(--accent-green)' }} onClick={() => enviarWhatsApp(lead.rascunho!.mensagem)}>
+                    <MessageCircle size={12} /> Enviar no WhatsApp
+                  </button>
+                )}
+                {(lead.canal === 'instagram' || lead.canal === 'email' || lead.canal === 'facebook') && (
+                  <button className="btn btn--primary btn--sm" onClick={() => enviar(lead.rascunho!.mensagem, -1)} disabled={sendingIdx === -1}>
+                    {sendingIdx === -1 ? <Loader2 size={12} className="spin" /> : <Send size={12} />} Enviar via Ayrshare
+                  </button>
+                )}
+                <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(lead.rascunho!.mensagem, 'Mensagem copiada')}><Copy size={12} /> Copiar</button>
+                <button className="btn btn--ghost btn--sm" onClick={() => registrarRascunho(lead.rascunho!.mensagem)}><Check size={12} /> Registrar como enviada</button>
+              </div>
+            </div>
+          )}
           <div className="row wrap" style={{ gap: 8 }}>
             {handle && <a className="chip" href={`https://instagram.com/${handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-purple)', textDecoration: 'none' }}><AtSign size={12} /> {handle}</a>}
             {phone && (() => { const d = phone.replace(/\D/g, ''); const wa = d.length > 11 ? d : '55' + d; return <a className="chip" href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-green)', textDecoration: 'none' }}><Phone size={12} /> {phone}</a> })()}
@@ -129,6 +240,48 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove }: {
             <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(lead.contato, 'Contato copiado')}><Copy size={14} /> Copiar contato</button>
             <div style={{ flex: 1 }} />
             <button className="btn btn--danger btn--sm" onClick={onRemove}><Trash2 size={14} /> Excluir</button>
+          </div>
+
+          <div>
+            <div className="row--between" style={{ marginBottom: 8 }}>
+              <label className="label" style={{ margin: 0 }}>Mensagens sugeridas (IA)</label>
+              <button className="btn btn--accent-soft btn--sm" onClick={sugerir} disabled={suggesting}>
+                {suggesting ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
+                {suggesting ? 'Gerando…' : 'Sugerir mensagem'}
+              </button>
+            </div>
+            {suggesting && sugestoes.length === 0 && (
+              <p className="dim" style={{ fontSize: 12.5, margin: 0 }}>O agente SDR está escrevendo a mensagem ideal para este lead… (~10-30s)</p>
+            )}
+            {sugestoes.length > 0 && (
+              <div className="col" style={{ gap: 10 }}>
+                {sugestoes.map((s, i) => (
+                  <div key={i} className="card card--pad" style={{ background: 'var(--accent-softer)', borderColor: 'var(--accent-line)' }}>
+                    <div className="row wrap" style={{ gap: 6, marginBottom: 8 }}>
+                      {s.etapa && <span className="badge" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>{s.etapa}</span>}
+                      {s.canal && <span className="chip" style={{ fontSize: 10.5, padding: '2px 7px' }}>{s.canal}</span>}
+                    </div>
+                    {s.assunto && <p style={{ margin: '0 0 6px', fontSize: 12.5, fontWeight: 600 }}>Assunto: {s.assunto}</p>}
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{s.mensagem}</p>
+                    {s.objetivo && <p className="dim" style={{ fontSize: 11, margin: '8px 0 0' }}>🎯 {s.objetivo}</p>}
+                    <div className="row wrap" style={{ gap: 6, marginTop: 10 }}>
+                      {temTelefone && (
+                        <button className="btn btn--sm" style={{ background: 'color-mix(in srgb, var(--accent-green) 16%, transparent)', borderColor: 'var(--accent-green)', color: 'var(--accent-green)' }} onClick={() => enviarWhatsApp(s.mensagem)}>
+                          <MessageCircle size={12} /> WhatsApp
+                        </button>
+                      )}
+                      <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(s.mensagem, 'Mensagem copiada')}><Copy size={12} /> Copiar</button>
+                      <button className="btn btn--ghost btn--sm" onClick={() => registrar(s.mensagem)}><Check size={12} /> Registrar como enviada</button>
+                      {(lead.canal === 'instagram' || lead.canal === 'email' || lead.canal === 'facebook') && (
+                        <button className="btn btn--primary btn--sm" onClick={() => enviar(s.mensagem, i)} disabled={sendingIdx === i}>
+                          {sendingIdx === i ? <Loader2 size={12} className="spin" /> : <Send size={12} />} Ayrshare
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
@@ -252,6 +405,21 @@ export default function Conversas() {
     catch { menu.toast('Erro ao adicionar', 'error') }
   }
 
+  const gerarLote = async () => {
+    try {
+      const r = await api.sdrLote()
+      if (r.queued > 0) menu.toast(`${r.queued} mensagem(ns) sendo gerada(s) — aparecem em instantes`)
+      else menu.toast(r.jaNaFila > 0 ? 'Os novos já estão na fila de geração' : 'Nenhum lead novo sem mensagem')
+    } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao gerar em lote', 'error') }
+  }
+
+  const novosSemRascunho = leads.filter(l => l.stage === 'NOVO' && !l.rascunho).length
+
+  const onLeadUpdate = (lead: CrmLead) => {
+    setLeads(prev => prev.map(l => l.id === lead.id ? lead : l))
+    setSelected(s => s && s.id === lead.id ? lead : s)
+  }
+
   const cardMenu = (lead: CrmLead) => (): CtxItem[] => [
     { header: lead.nome },
     { label: 'Abrir', icon: <ExternalLink size={15} strokeWidth={1.8} />, onClick: () => setSelected(lead) },
@@ -269,7 +437,7 @@ export default function Conversas() {
     <div className="page page--flush page--fit">
       {selected && (
         <DetailModal lead={selected} stages={visibleStages} onClose={() => setSelected(null)}
-          onMove={s => moveStage(selected.id, s)} onContato={() => registrarContato(selected.id)} onRemove={() => removeLead(selected.id, selected.nome)} />
+          onMove={s => moveStage(selected.id, s)} onContato={() => registrarContato(selected.id)} onRemove={() => removeLead(selected.id, selected.nome)} onLeadUpdate={onLeadUpdate} />
       )}
       {addOpen && <AddModal onClose={() => setAddOpen(false)} onAdd={addLead} />}
 
@@ -280,6 +448,11 @@ export default function Conversas() {
         </div>
         <div className="page-head-actions">
           <button className="btn btn--ghost" onClick={importLeads}><Download size={14} /> Importar leads</button>
+          {novosSemRascunho > 0 && (
+            <button className="btn btn--accent-soft" onClick={gerarLote} title="Gera a 1ª mensagem do SDR para todos os leads novos">
+              <Sparkles size={14} /> Gerar 1ª msg ({novosSemRascunho})
+            </button>
+          )}
           <button className="btn btn--accent-soft" onClick={() => setAddOpen(true)}><Plus size={14} /> Adicionar</button>
           <button className="btn-icon" onClick={load} title="Atualizar"><RefreshCw size={15} strokeWidth={1.7} /></button>
         </div>

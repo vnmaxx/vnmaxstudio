@@ -56,6 +56,18 @@ export interface CrmEvent {
   em: string
 }
 
+export interface CrmRascunho {
+  canal?: string
+  etapa?: string
+  assunto?: string
+  mensagem: string
+  objetivo?: string
+  proximo_passo?: string
+  status?: string
+  origem?: string
+  geradoEm?: string
+}
+
 export interface CrmLead {
   id: string
   nome: string
@@ -68,6 +80,7 @@ export interface CrmLead {
   criadoEm: string
   atualizadoEm: string
   historico: CrmEvent[]
+  rascunho?: CrmRascunho
 }
 
 export type PipelineState = 'WAITING' | 'RUNNING' | 'RETRY' | 'FAILED' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'

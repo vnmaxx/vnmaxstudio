@@ -28,6 +28,118 @@ try {
   CRM_STAGES = mod.STAGES;
 } catch (e) { console.error('CRM indisponível:', e.message); }
 
+function readEnvKey(name) {
+  if (process.env[name]) return process.env[name];
+  try {
+    const env = fs.readFileSync(path.join(ROOT, '.env'), 'utf8');
+    const m = env.match(new RegExp('^' + name + '=(.*)$', 'm'));
+    if (m) return m[1].trim().replace(/^["']|["']$/g, '');
+  } catch {}
+  return '';
+}
+
+const NXS_KEY = readEnvKey('NXS_STUDIO_KEY');
+
+let ayrshare = null;
+let waLink = () => '';
+try {
+  const mod = require(path.join(ROOT, 'lib', 'ayrshare.js'));
+  ayrshare = new mod.Ayrshare(readEnvKey('AYRSHARE_API_KEY'));
+  if (typeof mod.whatsappLink === 'function') waLink = mod.whatsappLink;
+} catch (e) { console.error('Ayrshare indisponível:', e.message); }
+
+let sdr = { sdrTask: () => '', parseMsgBlocks: () => [], firstDraft: () => null };
+try { sdr = require(path.join(ROOT, 'lib', 'sdr.js')); } catch (e) { console.error('SDR helpers indisponíveis:', e.message); }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function nxsRequest(method, pathname, body) {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null;
+    const options = {
+      hostname: AGENTS_HOST, port: AGENTS_PORT, path: pathname, method,
+      headers: { 'Authorization': `Bearer ${NXS_KEY}`, 'Content-Type': 'application/json' },
+      timeout: 30000,
+    };
+    if (payload) options.headers['Content-Length'] = Buffer.byteLength(payload);
+    const r = http.request(options, (resp) => {
+      let data = '';
+      resp.on('data', c => (data += c));
+      resp.on('end', () => {
+        let parsed = null;
+        try { parsed = data ? JSON.parse(data) : {}; } catch { parsed = { raw: data }; }
+        if (resp.statusCode >= 200 && resp.statusCode < 300) resolve(parsed);
+        else reject(new Error(`nxs HTTP ${resp.statusCode}: ${data.slice(0, 200)}`));
+      });
+    });
+    r.on('error', reject);
+    r.on('timeout', () => r.destroy(new Error('nxs timeout')));
+    if (payload) r.write(payload);
+    r.end();
+  });
+}
+
+const AUTO_DRAFT_ENABLED = readEnvKey('AUTO_DRAFT') !== '0';
+const draftQueue = [];
+const draftAttempts = new Map();
+const DRAFT_COOLDOWN_MS = 15 * 60 * 1000;
+const DRAFT_TICK_MS = 20 * 1000;
+let draftBusy = false;
+
+async function generateDraftFor(lead) {
+  const r = await nxsRequest('POST', '/v1/jobs', { agent: 'studio-sdr', task: sdr.sdrTask(lead) });
+  const jobId = r.jobId || r.id;
+  if (!jobId) throw new Error('sem jobId');
+  const started = Date.now();
+  while (Date.now() - started < 150000) {
+    await sleep(5000);
+    let s;
+    try { s = await nxsRequest('GET', `/v1/jobs/${jobId}`); } catch { continue; }
+    if (s.status === 'done') return sdr.firstDraft(s.result);
+    if (s.status === 'error') throw new Error(String(s.result || 'erro no job'));
+  }
+  throw new Error('timeout');
+}
+
+function nextDraftCandidate() {
+  if (!crm) return null;
+  let leads;
+  try { leads = crm.list(); } catch { return null; }
+  while (draftQueue.length) {
+    const id = draftQueue.shift();
+    const lead = leads.find(l => l.id === id);
+    if (lead && lead.stage === 'NOVO' && !lead.rascunho) return lead;
+  }
+  const now = Date.now();
+  return leads.find(l =>
+    l.stage === 'NOVO' && !l.rascunho && (!l.historico || l.historico.length === 0) &&
+    (!draftAttempts.has(l.id) || now - draftAttempts.get(l.id) > DRAFT_COOLDOWN_MS)
+  ) || null;
+}
+
+async function draftTick() {
+  if (draftBusy || !AUTO_DRAFT_ENABLED || !crm || !NXS_KEY) return;
+  const lead = nextDraftCandidate();
+  if (!lead) return;
+  draftBusy = true;
+  draftAttempts.set(lead.id, Date.now());
+  try {
+    const msg = await generateDraftFor(lead);
+    if (msg && msg.mensagem) {
+      crm.setRascunho(lead.id, { ...msg, origem: 'auto' });
+      console.log(`auto-draft: rascunho gerado para ${lead.id}`);
+    }
+  } catch (e) {
+    console.error(`auto-draft ${lead.id}: ${e.message}`);
+  } finally {
+    draftBusy = false;
+  }
+}
+
+if (AUTO_DRAFT_ENABLED) {
+  setInterval(() => { draftTick().catch(() => {}); }, DRAFT_TICK_MS);
+}
+
 function auth(req, res, next) {
   if (SECRET && req.headers['x-bridge-secret'] !== SECRET) {
     return res.status(401).json({ error: 'unauthorized' });
@@ -407,6 +519,79 @@ app.delete('/crm/:id', (req, res) => {
   try {
     if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
     res.json({ ok: crm.remove(req.params.id) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/crm/:id/sugerir', async (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    const lead = crm.list().find(l => l.id === req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
+    const r = await nxsRequest('POST', '/v1/jobs', { agent: 'studio-sdr', task: sdr.sdrTask(lead) });
+    res.json({ jobId: r.jobId || r.id });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+app.get('/crm/sugestao/:jobId', async (req, res) => {
+  try {
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    const r = await nxsRequest('GET', `/v1/jobs/${req.params.jobId}`);
+    if (r.status === 'done') {
+      const texto = typeof r.result === 'string' ? r.result : JSON.stringify(r.result);
+      return res.json({ status: 'done', mensagens: sdr.parseMsgBlocks(texto) });
+    }
+    if (r.status === 'error') return res.json({ status: 'error', error: String(r.result || 'erro') });
+    res.json({ status: r.status || 'pending' });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+app.post('/crm/:id/enviar', async (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    const lead = crm.list().find(l => l.id === req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
+    const { texto, modo, recipient } = req.body || {};
+    if (!texto) return res.status(400).json({ error: 'texto obrigatório' });
+    const alvo = recipient || lead.contato;
+
+    if (modo === 'whatsapp') {
+      const link = waLink(alvo, texto);
+      if (!link) return res.status(400).json({ error: 'Lead sem telefone válido para WhatsApp' });
+      crm.recordContact(lead.id, { tipo: 'mensagem', canal: 'whatsapp', etapa: 'enviado', texto });
+      const atualizado = crm.clearRascunho(lead.id) || crm.list().find(l => l.id === lead.id);
+      return res.json({ ok: true, modo: 'whatsapp', link, lead: atualizado });
+    }
+
+    let resultadoAyr = { ok: false, error: 'Ayrshare não configurado' };
+    if (ayrshare && ayrshare.enabled()) {
+      resultadoAyr = await ayrshare.sendForLead({ canal: lead.canal, recipient: alvo, texto, modo: modo || 'dm' });
+    }
+    crm.recordContact(lead.id, { tipo: 'mensagem', canal: lead.canal, etapa: 'enviado', texto });
+    const atualizado = crm.clearRascunho(lead.id) || crm.list().find(l => l.id === lead.id);
+    res.json({ ok: resultadoAyr.ok, ayrshare: resultadoAyr, lead: atualizado });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/crm/:id/descartar-rascunho', (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    const lead = crm.clearRascunho(req.params.id);
+    if (!lead) return res.status(404).json({ error: 'Not found' });
+    res.json(lead);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/crm/sdr-lote', (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    const eligiveis = crm.list().filter(l => l.stage === 'NOVO' && !l.rascunho && (!l.historico || l.historico.length === 0));
+    let queued = 0;
+    for (const lead of eligiveis) {
+      if (!draftQueue.includes(lead.id)) { draftQueue.push(lead.id); queued++; }
+    }
+    res.json({ ok: true, queued, jaNaFila: eligiveis.length - queued });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

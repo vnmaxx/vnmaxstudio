@@ -98,6 +98,23 @@ export const api = {
   deleteCrmLead: (id: string) =>
     fetchJson<{ ok: boolean }>(`/crm/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
+  sugerirMensagem: (id: string) =>
+    fetchJson<{ jobId: string }>(`/crm/${encodeURIComponent(id)}/sugerir`, { method: 'POST' }),
+
+  getSugestao: (jobId: string) =>
+    fetchJson<{ status: string; mensagens?: Array<{ canal?: string; etapa?: string; assunto?: string; mensagem: string; objetivo?: string; proximo_passo?: string }>; error?: string }>(`/crm/sugestao/${encodeURIComponent(jobId)}`),
+
+  enviarMensagem: (id: string, payload: { texto: string; modo?: string; recipient?: string }) =>
+    fetchJson<{ ok: boolean; modo?: string; link?: string; ayrshare?: unknown; lead: import('./types').CrmLead }>(`/crm/${encodeURIComponent(id)}/enviar`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    }),
+
+  descartarRascunho: (id: string) =>
+    fetchJson<import('./types').CrmLead>(`/crm/${encodeURIComponent(id)}/descartar-rascunho`, { method: 'POST' }),
+
+  sdrLote: () =>
+    fetchJson<{ ok: boolean; queued: number; jaNaFila: number }>('/crm/sdr-lote', { method: 'POST' }),
+
   getStats: () => fetchJson<import('./types').Stats>('/stats'),
 
   getStatus: () => fetchJson<import('./types').SystemStatus>('/status'),
