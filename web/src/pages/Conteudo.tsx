@@ -1,17 +1,18 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, type ReactNode } from 'react'
 import { api } from '../api'
 import type { CrmLead, Roteiro, RoteiroVariation, CalendarioItem, ConteudoPost, Blueprint, ConteudoPerfil, VideoJob, Produto } from '../types'
 import { useContextMenu } from '../components/ContextMenu'
 import {
   Wand2, Calendar, Megaphone, Lightbulb, Sparkles, Copy, Trash2, Plus, Loader2,
   Check, RefreshCw, Send, Eye, Heart, MessageCircle, Share2, Rocket, Film, Save,
-  Download, X, Clapperboard, Upload, Server, Package, ExternalLink,
+  Download, X, Clapperboard, Upload, Server, Package, ExternalLink, User,
 } from 'lucide-react'
 import { hyperframesComposition, videoUseBrief, downloadText } from '../lib/videoStudio'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 const TABS = [
+  { id: 'perfil', label: 'Perfil', icon: <User size={15} strokeWidth={1.7} /> },
   { id: 'roteiros', label: 'Roteiros', icon: <Film size={15} strokeWidth={1.7} /> },
   { id: 'calendario', label: 'Calendário', icon: <Calendar size={15} strokeWidth={1.7} /> },
   { id: 'produtos', label: 'Produtos', icon: <Package size={15} strokeWidth={1.7} /> },
@@ -672,12 +673,24 @@ function ProdutosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLe
     setGerando(true); setAtual(null)
     try {
       const { jobId } = await api.gerarProduto({ cliente: { nome: cliente.nome, segmento: cliente.segmento, contato: cliente.contato, observacao: cliente.observacao }, tipo, tema: tema.trim() || undefined })
-      for (let i = 0; i < 90; i++) {
+      if (!jobId) { menu.toast('O servidor não iniciou a geração (verifique o deploy do bridge)', 'error'); return }
+      let done = false
+      for (let i = 0; i < 160; i++) {
         await sleep(2500)
-        const r = await api.getProdutoJob(jobId, tipo)
-        if (r.status === 'done') { if (r.produto) setAtual(r.produto); else menu.toast('Não consegui gerar — tente de novo', 'info'); break }
-        if (r.status === 'error') { menu.toast(r.error || 'Erro', 'error'); break }
+        let r
+        try { r = await api.getProdutoJob(jobId, tipo) } catch { continue }
+        if (r.status === 'done') {
+          done = true
+          if (r.produto) {
+            setAtual(r.produto)
+            try { await api.saveProduto(clienteId || null, { tipo, titulo: `${tipoMeta.label} — ${cliente.nome}`, formato: r.produto.formato, conteudo: r.produto.conteudo, tema: tema || undefined }); load() } catch {}
+            menu.toast('Produto pronto e salvo no perfil do cliente')
+          } else menu.toast('A IA respondeu mas não veio um arquivo válido — tente de novo', 'info')
+          break
+        }
+        if (r.status === 'error' || r.status === 'interrupted') { done = true; menu.toast(r.error || 'A geração falhou no servidor', 'error'); break }
       }
+      if (!done) menu.toast('Está demorando mais que o normal. Pode aparecer salvo em instantes — clique em Atualizar.', 'info')
     } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro', 'error') }
     finally { setGerando(false) }
   }
@@ -764,10 +777,108 @@ function ProdutosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLe
   )
 }
 
+function StatCard({ icon, label, n, onClick }: { icon: ReactNode; label: string; n: number; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="card card--hover card--pad" style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span className="row dim" style={{ gap: 7, fontSize: 12 }}>{icon} {label}</span>
+      <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{n}</span>
+    </button>
+  )
+}
+
+function PerfilTab({ clienteId, cliente, goTab }: { clienteId: string; cliente: CrmLead | null; goTab: (t: TabId) => void }) {
+  const menu = useContextMenu()
+  const [d, setD] = useState<{ roteiros: Roteiro[]; produtos: Produto[]; calendario: CalendarioItem[]; posts: ConteudoPost[]; videos: VideoJob[]; blueprints: Blueprint[] }>({ roteiros: [], produtos: [], calendario: [], posts: [], videos: [], blueprints: [] })
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!clienteId) { setD({ roteiros: [], produtos: [], calendario: [], posts: [], videos: [], blueprints: [] }); return }
+    setLoading(true)
+    try {
+      const [roteiros, produtos, calendario, posts, videos, blueprints] = await Promise.all([
+        api.getRoteiros(clienteId).then(r => r.roteiros).catch(() => [] as Roteiro[]),
+        api.getProdutos(clienteId).then(r => r.produtos).catch(() => [] as Produto[]),
+        api.getCalendario(clienteId).then(r => r.calendario).catch(() => [] as CalendarioItem[]),
+        api.getPosts(clienteId).then(r => r.posts).catch(() => [] as ConteudoPost[]),
+        api.getVideoJobs(clienteId).then(r => r.jobs).catch(() => [] as VideoJob[]),
+        api.getBlueprints(clienteId).then(r => r.blueprints).catch(() => [] as Blueprint[]),
+      ])
+      setD({ roteiros, produtos, calendario, posts, videos, blueprints })
+    } finally { setLoading(false) }
+  }, [clienteId])
+  useEffect(() => { load() }, [load])
+
+  if (!cliente) return <div className="empty"><User size={42} strokeWidth={1} /><p className="muted">Selecione um cliente acima para ver o perfil com todo o conteúdo dele.</p></div>
+
+  const views = d.posts.reduce((s, p) => s + (p.metrics?.views || 0), 0)
+  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
+
+  return (
+    <div className="col gap-6">
+      <div className="card card--pad row--between wrap" style={{ gap: 12 }}>
+        <div className="row" style={{ gap: 12, minWidth: 0 }}>
+          <div className="row" style={{ width: 46, height: 46, borderRadius: 12, background: 'var(--accent-soft)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={22} style={{ color: 'var(--accent-text)' }} /></div>
+          <div style={{ minWidth: 0 }}>
+            <h2 className="truncate" style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{cliente.nome}</h2>
+            <p className="dim truncate" style={{ margin: '2px 0 0', fontSize: 12.5 }}>{cliente.segmento || '—'}{cliente.contato ? ` · ${cliente.contato}` : ''}</p>
+          </div>
+        </div>
+        <button className="btn-icon" onClick={load} title="Atualizar"><RefreshCw size={15} className={loading ? 'spin' : ''} strokeWidth={1.7} /></button>
+      </div>
+
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+        <StatCard icon={<Film size={14} />} label="Roteiros" n={d.roteiros.length} onClick={() => goTab('roteiros')} />
+        <StatCard icon={<Package size={14} />} label="Produtos" n={d.produtos.length} onClick={() => goTab('produtos')} />
+        <StatCard icon={<Calendar size={14} />} label="Calendário" n={d.calendario.length} onClick={() => goTab('calendario')} />
+        <StatCard icon={<Megaphone size={14} />} label="Publicações" n={d.posts.length} onClick={() => goTab('publicacoes')} />
+        <StatCard icon={<Clapperboard size={14} />} label="Vídeos" n={d.videos.length} onClick={() => goTab('videos')} />
+        <StatCard icon={<Lightbulb size={14} />} label="Blueprints" n={d.blueprints.length} onClick={() => goTab('blueprint')} />
+      </div>
+
+      {d.posts.length > 0 && <p className="dim" style={{ fontSize: 12.5, margin: 0 }}>📈 {fmt(views)} views somadas nas publicações deste cliente.</p>}
+
+      {d.produtos.length > 0 && (
+        <div>
+          <label className="label">Produtos prontos ({d.produtos.length})</label>
+          <div className="col" style={{ gap: 8 }}>
+            {d.produtos.slice(0, 6).map(p => (
+              <div key={p.id} className="card card--pad row--between" style={{ gap: 10 }}>
+                <span className="truncate" style={{ fontSize: 13, fontWeight: 600, minWidth: 0 }}>{p.titulo || p.tipo}</span>
+                <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+                  {p.formato === 'html' && <button className="btn-icon btn-icon--sm" title="Abrir" onClick={() => abrirNova(p.conteudo)}><ExternalLink size={13} /></button>}
+                  <button className="btn-icon btn-icon--sm" title="Baixar" onClick={() => downloadText(fileSlug(p.titulo || p.tipo, p.formato), p.conteudo, p.formato === 'html' ? 'text/html' : 'text/markdown')}><Download size={13} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {d.roteiros.length > 0 && (
+        <div>
+          <label className="label">Roteiros recentes</label>
+          <div className="col" style={{ gap: 8 }}>
+            {d.roteiros.slice(0, 5).map(r => (
+              <div key={r.id} className="card card--pad row--between" style={{ gap: 10 }}>
+                <span className="truncate" style={{ fontSize: 13, minWidth: 0 }}>{r.hook || r.title || r.theme}</span>
+                <button className="btn-icon btn-icon--sm" title="Copiar" onClick={() => menu.copy(r.script || '', 'Copiado')}><Copy size={13} /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {d.roteiros.length === 0 && d.produtos.length === 0 && !loading && (
+        <div className="empty"><Sparkles size={36} strokeWidth={1} /><p className="muted">Nada gerado ainda pra {cliente.nome}. Use as abas Roteiros e Produtos.</p></div>
+      )}
+    </div>
+  )
+}
+
 export default function Conteudo() {
   const [leads, setLeads] = useState<CrmLead[]>([])
   const [clienteId, setClienteId] = useState('')
-  const [tab, setTab] = useState<TabId>('roteiros')
+  const [tab, setTab] = useState<TabId>('perfil')
 
   useEffect(() => { api.getCrm().then(r => setLeads(r.leads)).catch(() => {}) }, [])
   const cliente = leads.find(l => l.id === clienteId) || null
@@ -797,6 +908,7 @@ export default function Conteudo() {
       </div>
 
       <div className="anim-fade" key={tab + clienteId}>
+        {tab === 'perfil' && <PerfilTab clienteId={clienteId} cliente={cliente} goTab={setTab} />}
         {tab === 'roteiros' && <RoteirosTab clienteId={clienteId} cliente={cliente} />}
         {tab === 'produtos' && <ProdutosTab clienteId={clienteId} cliente={cliente} />}
         {tab === 'calendario' && <CalendarioTab clienteId={clienteId} />}
