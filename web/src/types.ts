@@ -175,6 +175,17 @@ export interface ConteudoPerfil {
   handle?: string
 }
 
+export interface Produto {
+  id?: string
+  clienteId?: string | null
+  tipo: string
+  titulo?: string
+  formato: 'html' | 'md'
+  conteudo: string
+  tema?: string
+  criadoEm?: string
+}
+
 export interface VideoJob {
   id: string
   state?: 'queued' | 'running' | 'done' | 'error'

@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
-import type { CrmLead, Roteiro, RoteiroVariation, CalendarioItem, ConteudoPost, Blueprint, ConteudoPerfil, VideoJob } from '../types'
+import type { CrmLead, Roteiro, RoteiroVariation, CalendarioItem, ConteudoPost, Blueprint, ConteudoPerfil, VideoJob, Produto } from '../types'
 import { useContextMenu } from '../components/ContextMenu'
 import {
   Wand2, Calendar, Megaphone, Lightbulb, Sparkles, Copy, Trash2, Plus, Loader2,
   Check, RefreshCw, Send, Eye, Heart, MessageCircle, Share2, Rocket, Film, Save,
-  Download, X, Clapperboard, Upload, Server,
+  Download, X, Clapperboard, Upload, Server, Package, ExternalLink,
 } from 'lucide-react'
 import { hyperframesComposition, videoUseBrief, downloadText } from '../lib/videoStudio'
 
@@ -14,6 +14,7 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const TABS = [
   { id: 'roteiros', label: 'Roteiros', icon: <Film size={15} strokeWidth={1.7} /> },
   { id: 'calendario', label: 'Calendário', icon: <Calendar size={15} strokeWidth={1.7} /> },
+  { id: 'produtos', label: 'Produtos', icon: <Package size={15} strokeWidth={1.7} /> },
   { id: 'publicacoes', label: 'Publicações', icon: <Megaphone size={15} strokeWidth={1.7} /> },
   { id: 'videos', label: 'Vídeos', icon: <Clapperboard size={15} strokeWidth={1.7} /> },
   { id: 'blueprint', label: 'Gerador de Prompt', icon: <Lightbulb size={15} strokeWidth={1.7} /> },
@@ -623,6 +624,146 @@ function BlueprintTab({ clienteId, cliente }: { clienteId: string; cliente: CrmL
   )
 }
 
+const PRODUTO_TIPOS = [
+  { id: 'landing', label: 'Landing Page', formato: 'html' as const },
+  { id: 'ebook', label: 'E-book / Guia', formato: 'md' as const },
+  { id: 'funil', label: 'Funil de vendas', formato: 'md' as const },
+  { id: 'emails', label: 'Sequência de e-mails', formato: 'md' as const },
+  { id: 'vsl', label: 'Roteiro de VSL', formato: 'md' as const },
+]
+
+function ProdutoView({ formato, conteudo }: { formato: string; conteudo: string }) {
+  if (formato === 'html') {
+    return <iframe srcDoc={conteudo} sandbox="allow-same-origin" title="preview" style={{ width: '100%', height: 480, border: '1px solid var(--border)', borderRadius: 10, background: '#fff' }} />
+  }
+  return (
+    <div className="card card--pad" style={{ background: 'var(--surface-2)', maxHeight: 480, overflow: 'auto' }}>
+      <pre style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{conteudo}</pre>
+    </div>
+  )
+}
+
+function fileSlug(s: string, formato: string) {
+  const base = String(s || 'produto').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'produto'
+  return `${base}.${formato === 'html' ? 'html' : 'md'}`
+}
+
+function abrirNova(conteudo: string) {
+  const w = window.open()
+  if (w) { w.document.open(); w.document.write(conteudo); w.document.close() }
+}
+
+function ProdutosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLead | null }) {
+  const menu = useContextMenu()
+  const [tipo, setTipo] = useState('landing')
+  const [tema, setTema] = useState('')
+  const [gerando, setGerando] = useState(false)
+  const [atual, setAtual] = useState<{ formato: string; conteudo: string } | null>(null)
+  const [salvos, setSalvos] = useState<Produto[]>([])
+  const [aberto, setAberto] = useState<string | null>(null)
+
+  const load = useCallback(() => { api.getProdutos(clienteId || undefined).then(r => setSalvos(r.produtos)).catch(() => {}) }, [clienteId])
+  useEffect(() => { load(); setAtual(null); setAberto(null) }, [load])
+
+  const tipoMeta = PRODUTO_TIPOS.find(t => t.id === tipo) || PRODUTO_TIPOS[0]
+
+  const gerar = async () => {
+    if (!cliente) { menu.toast('Selecione um cliente', 'error'); return }
+    setGerando(true); setAtual(null)
+    try {
+      const { jobId } = await api.gerarProduto({ cliente: { nome: cliente.nome, segmento: cliente.segmento, contato: cliente.contato, observacao: cliente.observacao }, tipo, tema: tema.trim() || undefined })
+      for (let i = 0; i < 90; i++) {
+        await sleep(2500)
+        const r = await api.getProdutoJob(jobId, tipo)
+        if (r.status === 'done') { if (r.produto) setAtual(r.produto); else menu.toast('Não consegui gerar — tente de novo', 'info'); break }
+        if (r.status === 'error') { menu.toast(r.error || 'Erro', 'error'); break }
+      }
+    } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro', 'error') }
+    finally { setGerando(false) }
+  }
+
+  const baixar = (formato: string, conteudo: string, titulo: string) => downloadText(fileSlug(titulo, formato), conteudo, formato === 'html' ? 'text/html' : 'text/markdown')
+
+  const salvar = async () => {
+    if (!atual) return
+    try { await api.saveProduto(clienteId || null, { tipo, titulo: `${tipoMeta.label} — ${cliente?.nome || ''}`.trim(), formato: atual.formato as 'html' | 'md', conteudo: atual.conteudo, tema: tema || undefined }); load(); menu.toast('Produto salvo') }
+    catch { menu.toast('Erro ao salvar', 'error') }
+  }
+
+  const excluir = async (id: string) => {
+    const ok = await menu.confirm({ title: 'Excluir produto', message: 'Remover este produto salvo?', danger: true, confirmLabel: 'Excluir' })
+    if (!ok) return
+    try { await api.deleteProduto(id); setSalvos(prev => prev.filter(p => p.id !== id)) } catch { menu.toast('Erro', 'error') }
+  }
+
+  return (
+    <div className="col gap-6">
+      <div className="card card--pad col" style={{ gap: 12 }}>
+        {!cliente && <p className="dim" style={{ fontSize: 13, margin: 0 }}>Selecione um cliente acima — o produto é gerado <b>pronto e adaptado</b> a ele.</p>}
+        <div className="row wrap" style={{ gap: 10, alignItems: 'flex-end' }}>
+          <div style={{ minWidth: 170 }}>
+            <label className="label">Tipo de produto</label>
+            <select className="select" value={tipo} onChange={e => setTipo(e.target.value)}>
+              {PRODUTO_TIPOS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <label className="label">Foco (opcional)</label>
+            <input className="input" value={tema} onChange={e => setTema(e.target.value)} placeholder="Ex.: promoção de inverno, novo serviço…" />
+          </div>
+          <button className="btn btn--primary" onClick={gerar} disabled={gerando || !cliente}>
+            {gerando ? <Loader2 size={15} className="spin" /> : <Package size={15} />}
+            {gerando ? 'Gerando…' : 'Gerar produto pronto'}
+          </button>
+        </div>
+      </div>
+
+      {gerando && !atual && <p className="dim" style={{ fontSize: 13, margin: 0 }}>Produzindo o entregável final adaptado a {cliente?.nome}… (~20–60s)</p>}
+
+      {atual && (
+        <div className="card card--pad col" style={{ gap: 10 }}>
+          <div className="row--between wrap" style={{ gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{tipoMeta.label} — pronto</span>
+            <div className="row wrap" style={{ gap: 6 }}>
+              <button className="btn btn--primary btn--sm" onClick={salvar}><Save size={13} /> Salvar</button>
+              {atual.formato === 'html' && <button className="btn btn--ghost btn--sm" onClick={() => abrirNova(atual.conteudo)}><ExternalLink size={13} /> Abrir</button>}
+              <button className="btn btn--ghost btn--sm" onClick={() => baixar(atual.formato, atual.conteudo, `${tipoMeta.label}-${cliente?.nome || ''}`)}><Download size={13} /> Baixar</button>
+              <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(atual.conteudo, 'Copiado')}><Copy size={13} /> Copiar</button>
+            </div>
+          </div>
+          <ProdutoView formato={atual.formato} conteudo={atual.conteudo} />
+        </div>
+      )}
+
+      <div>
+        <label className="label">Produtos de {cliente?.nome || '(geral)'} ({salvos.length})</label>
+        {salvos.length === 0 ? (
+          <p className="dim" style={{ fontSize: 12.5, margin: 0 }}>Nenhum produto salvo ainda.</p>
+        ) : (
+          <div className="col" style={{ gap: 8 }}>
+            {salvos.map(p => (
+              <div key={p.id}>
+                <div className="card card--pad row--between" style={{ gap: 10 }}>
+                  <button onClick={() => setAberto(aberto === p.id ? null : (p.id || null))} style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', minWidth: 0, flex: 1, padding: 0 }}>
+                    <p className="truncate" style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{p.titulo || p.tipo}</p>
+                    <p className="dim truncate" style={{ margin: '2px 0 0', fontSize: 11 }}>{p.formato.toUpperCase()} · {p.criadoEm ? new Date(p.criadoEm).toLocaleDateString('pt-BR') : ''}</p>
+                  </button>
+                  <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+                    {p.formato === 'html' && <button className="btn-icon btn-icon--sm" title="Abrir" onClick={() => abrirNova(p.conteudo)}><ExternalLink size={13} /></button>}
+                    <button className="btn-icon btn-icon--sm" title="Baixar" onClick={() => baixar(p.formato, p.conteudo, p.titulo || p.tipo)}><Download size={13} /></button>
+                    <button className="btn-icon btn-icon--sm" title="Excluir" onClick={() => excluir(p.id!)}><Trash2 size={13} /></button>
+                  </div>
+                </div>
+                {aberto === p.id && <div style={{ marginTop: 8 }}><ProdutoView formato={p.formato} conteudo={p.conteudo} /></div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Conteudo() {
   const [leads, setLeads] = useState<CrmLead[]>([])
   const [clienteId, setClienteId] = useState('')
@@ -657,6 +798,7 @@ export default function Conteudo() {
 
       <div className="anim-fade" key={tab + clienteId}>
         {tab === 'roteiros' && <RoteirosTab clienteId={clienteId} cliente={cliente} />}
+        {tab === 'produtos' && <ProdutosTab clienteId={clienteId} cliente={cliente} />}
         {tab === 'calendario' && <CalendarioTab clienteId={clienteId} />}
         {tab === 'publicacoes' && <PublicacoesTab clienteId={clienteId} />}
         {tab === 'videos' && <VideosTab clienteId={clienteId} />}

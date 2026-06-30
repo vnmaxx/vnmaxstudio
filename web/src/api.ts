@@ -165,6 +165,15 @@ export const api = {
     fetchJson<import('./types').Blueprint>('/conteudo/blueprints', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clienteId, blueprint }) }),
   deleteBlueprint: (id: string) => fetchJson<{ ok: boolean }>(`/conteudo/blueprints/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
+  gerarProduto: (payload: { cliente: { nome?: string; segmento?: string; contato?: string; observacao?: string; objetivo?: string; publico?: string }; tipo: string; tema?: string }) =>
+    fetchJson<{ jobId: string }>('/conteudo/produtos/gerar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+  getProdutoJob: (jobId: string, tipo: string) =>
+    fetchJson<{ status: string; produto?: { formato: 'html' | 'md'; conteudo: string }; error?: string; parseError?: boolean }>(`/conteudo/produtos/job/${encodeURIComponent(jobId)}?tipo=${encodeURIComponent(tipo)}`),
+  getProdutos: (clienteId?: string) => fetchJson<{ produtos: import('./types').Produto[] }>('/conteudo/produtos' + (clienteId ? `?clienteId=${encodeURIComponent(clienteId)}` : '')),
+  saveProduto: (clienteId: string | null, produto: import('./types').Produto) =>
+    fetchJson<import('./types').Produto>('/conteudo/produtos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clienteId, produto }) }),
+  deleteProduto: (id: string) => fetchJson<{ ok: boolean }>(`/conteudo/produtos/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
   uploadVideoJob: async (files: File[], roteiro: unknown, clienteId?: string) => {
     const fd = new FormData()
     files.forEach(f => fd.append('clips', f))

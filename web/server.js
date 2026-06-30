@@ -295,6 +295,11 @@ if (BRIDGE_URL) {
   app.get('/api/conteudo/blueprints', async (req, res) => { const { status, data } = await bridge('GET', '/conteudo/blueprints' + cq(req)); res.status(status).json(data); });
   app.post('/api/conteudo/blueprints', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/blueprints', req.body); res.status(status).json(data); });
   app.delete('/api/conteudo/blueprints/:id', async (req, res) => { const { status, data } = await bridge('DELETE', `/conteudo/blueprints/${req.params.id}`); res.status(status).json(data); });
+  app.post('/api/conteudo/produtos/gerar', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/produtos/gerar', req.body); res.status(status).json(data); });
+  app.get('/api/conteudo/produtos/job/:jobId', async (req, res) => { const { status, data } = await bridge('GET', `/conteudo/produtos/job/${req.params.jobId}` + (req.query.tipo ? `?tipo=${encodeURIComponent(req.query.tipo)}` : '')); res.status(status).json(data); });
+  app.get('/api/conteudo/produtos', async (req, res) => { const { status, data } = await bridge('GET', '/conteudo/produtos' + cq(req)); res.status(status).json(data); });
+  app.post('/api/conteudo/produtos', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/produtos', req.body); res.status(status).json(data); });
+  app.delete('/api/conteudo/produtos/:id', async (req, res) => { const { status, data } = await bridge('DELETE', `/conteudo/produtos/${req.params.id}`); res.status(status).json(data); });
 
   app.post('/api/video/jobs', async (req, res) => {
     try {
@@ -571,6 +576,11 @@ if (BRIDGE_URL) {
   app.get('/api/conteudo/blueprints', (req, res) => { if (!guard(res)) return; res.json({ blueprints: conteudoLocal.listBlueprints(req.query.clienteId) }); });
   app.post('/api/conteudo/blueprints', (req, res) => { if (!guard(res)) return; const { clienteId, blueprint } = req.body || {}; if (!blueprint) return res.status(400).json({ error: 'blueprint vazio' }); res.json(conteudoLocal.addBlueprint(clienteId || null, blueprint)); });
   app.delete('/api/conteudo/blueprints/:id', (req, res) => { if (!guard(res)) return; res.json({ ok: conteudoLocal.removeBlueprint(req.params.id) }); });
+  app.post('/api/conteudo/produtos/gerar', (req, res) => res.status(503).json({ error: 'Geração disponível apenas via bridge' }));
+  app.get('/api/conteudo/produtos/job/:jobId', (req, res) => res.status(503).json({ error: 'Geração disponível apenas via bridge' }));
+  app.get('/api/conteudo/produtos', (req, res) => { if (!guard(res)) return; res.json({ produtos: conteudoLocal.listProdutos(req.query.clienteId) }); });
+  app.post('/api/conteudo/produtos', (req, res) => { if (!guard(res)) return; const { clienteId, produto } = req.body || {}; if (!produto) return res.status(400).json({ error: 'produto vazio' }); res.json(conteudoLocal.addProduto(clienteId || null, produto)); });
+  app.delete('/api/conteudo/produtos/:id', (req, res) => { if (!guard(res)) return; res.json({ ok: conteudoLocal.removeProduto(req.params.id) }); });
 
   app.post('/api/video/jobs', (req, res) => res.status(503).json({ error: 'Edição de vídeo disponível apenas via bridge' }));
   app.get('/api/video/jobs', (req, res) => res.json({ jobs: [] }));

@@ -58,6 +58,8 @@ try {
 let viral = null, bp = null;
 try { viral = require(path.join(ROOT, 'lib', 'viral-engine.js')); } catch (e) { console.error('viral-engine indisponível:', e.message); }
 try { bp = require(path.join(ROOT, 'lib', 'blueprint.js')); } catch (e) { console.error('blueprint indisponível:', e.message); }
+let prod = null;
+try { prod = require(path.join(ROOT, 'lib', 'produtos.js')); } catch (e) { console.error('produtos indisponível:', e.message); }
 
 let vp = null;
 try { vp = require(path.join(ROOT, 'lib', 'video-pipeline.js')); } catch (e) { console.error('video-pipeline indisponível:', e.message); }
@@ -787,6 +789,47 @@ app.post('/conteudo/blueprints', (req, res) => {
 app.delete('/conteudo/blueprints/:id', (req, res) => {
   if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
   res.json({ ok: conteudo.removeBlueprint(req.params.id) });
+});
+
+app.post('/conteudo/produtos/gerar', async (req, res) => {
+  try {
+    if (!prod) return res.status(503).json({ error: 'produtos indisponível' });
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    const { cliente, tipo, tema } = req.body || {};
+    const task = prod.buildProdutoTask(cliente || {}, tipo || 'landing', { tema });
+    const r = await nxsRequest('POST', '/v1/jobs', { agent: 'general', task });
+    res.json({ jobId: r.jobId || r.id });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+app.get('/conteudo/produtos/job/:jobId', async (req, res) => {
+  try {
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    const r = await nxsRequest('GET', `/v1/jobs/${req.params.jobId}`);
+    if (r.status === 'done') {
+      const produto = prod ? prod.parseProduto(r.result, req.query.tipo) : null;
+      return res.json({ status: 'done', produto: produto || null, parseError: !produto });
+    }
+    if (r.status === 'error') return res.json({ status: 'error', error: String(r.result || 'erro') });
+    res.json({ status: r.status || 'pending' });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+app.get('/conteudo/produtos', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ produtos: conteudo.listProdutos(req.query.clienteId) });
+});
+
+app.post('/conteudo/produtos', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  const { clienteId, produto } = req.body || {};
+  if (!produto) return res.status(400).json({ error: 'produto vazio' });
+  res.json(conteudo.addProduto(clienteId || null, produto));
+});
+
+app.delete('/conteudo/produtos/:id', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ ok: conteudo.removeProduto(req.params.id) });
 });
 
 app.post('/video/jobs', (req, res) => {
