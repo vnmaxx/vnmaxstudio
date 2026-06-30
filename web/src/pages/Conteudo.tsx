@@ -15,6 +15,7 @@ const TABS = [
   { id: 'roteiros', label: 'Roteiros', icon: <Film size={15} strokeWidth={1.7} /> },
   { id: 'calendario', label: 'Calendário', icon: <Calendar size={15} strokeWidth={1.7} /> },
   { id: 'publicacoes', label: 'Publicações', icon: <Megaphone size={15} strokeWidth={1.7} /> },
+  { id: 'videos', label: 'Vídeos', icon: <Clapperboard size={15} strokeWidth={1.7} /> },
   { id: 'blueprint', label: 'Gerador de Prompt', icon: <Lightbulb size={15} strokeWidth={1.7} /> },
 ] as const
 type TabId = typeof TABS[number]['id']
@@ -464,6 +465,61 @@ function PublicacoesTab({ clienteId }: { clienteId: string }) {
   )
 }
 
+function VideosTab({ clienteId }: { clienteId: string }) {
+  const menu = useContextMenu()
+  const [jobs, setJobs] = useState<VideoJob[]>([])
+  const [storage, setStorage] = useState<{ dir: string; freeGB: number } | null>(null)
+
+  const load = useCallback(() => { api.getVideoJobs(clienteId || undefined).then(r => setJobs(r.jobs)).catch(() => {}) }, [clienteId])
+  useEffect(() => {
+    load(); api.getVideoStorage().then(setStorage).catch(() => {})
+    const iv = setInterval(load, 8000); return () => clearInterval(iv)
+  }, [load])
+
+  const excluir = async (id: string) => {
+    const ok = await menu.confirm({ title: 'Excluir vídeo', message: 'Remover este vídeo do servidor?', danger: true, confirmLabel: 'Excluir' })
+    if (!ok) return
+    try { await api.deleteVideoJob(id); setJobs(prev => prev.filter(j => j.id !== id)) } catch { menu.toast('Erro', 'error') }
+  }
+  const fmtMB = (n?: number) => n ? `${(n / 1048576).toFixed(1)} MB` : ''
+
+  return (
+    <div className="col gap-4">
+      <div className="row--between" style={{ gap: 12 }}>
+        <p className="dim" style={{ fontSize: 13, margin: 0 }}>
+          {jobs.length} vídeo{jobs.length === 1 ? '' : 's'}{storage && storage.freeGB > 0 ? ` · ${storage.freeGB} GB livres em ${storage.dir}` : ''}
+        </p>
+        <button className="btn-icon" onClick={load} title="Atualizar"><RefreshCw size={15} strokeWidth={1.7} /></button>
+      </div>
+
+      {jobs.length === 0 ? (
+        <div className="empty"><Clapperboard size={40} strokeWidth={1} /><p className="muted">Nenhum vídeo editado ainda. Gere um roteiro e use “Vídeo → Editar no servidor”.</p></div>
+      ) : (
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14, alignItems: 'stretch' }}>
+          {jobs.map(j => (
+            <div key={j.id} className="card card--pad col" style={{ gap: 10 }}>
+              {j.state === 'done' ? (
+                <video src={api.videoFinalUrl(j.id)} controls playsInline style={{ width: '100%', borderRadius: 10, background: '#000', maxHeight: 360 }} />
+              ) : j.state === 'error' ? (
+                <div className="card card--pad" style={{ background: 'color-mix(in srgb, var(--accent-red) 12%, transparent)', color: 'var(--accent-red)', fontSize: 12 }}>Falhou: {j.error}</div>
+              ) : (
+                <div className="row" style={{ gap: 8, fontSize: 12.5, color: 'var(--text-secondary)', padding: '20px 4px' }}><Loader2 size={15} className="spin" /> {j.step || j.state}…</div>
+              )}
+              <div className="row--between" style={{ gap: 8 }}>
+                <span className="truncate" style={{ fontSize: 12.5, fontWeight: 600, minWidth: 0 }}>{j.titulo || j.id}</span>
+                <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+                  {j.state === 'done' && <a className="btn-icon btn-icon--sm" title={`Baixar ${fmtMB(j.size)}`} href={api.videoFinalUrl(j.id)} download={`${j.id}.mp4`}><Download size={13} /></a>}
+                  <button className="btn-icon btn-icon--sm" title="Excluir" onClick={() => excluir(j.id)}><Trash2 size={13} /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const TIPO_META: Record<string, { label: string; color: string }> = {
   landing: { label: 'Landing Page', color: '#0A84FF' },
   crm: { label: 'CRM', color: '#BF5AF2' },
@@ -600,6 +656,7 @@ export default function Conteudo() {
         {tab === 'roteiros' && <RoteirosTab clienteId={clienteId} cliente={cliente} />}
         {tab === 'calendario' && <CalendarioTab clienteId={clienteId} />}
         {tab === 'publicacoes' && <PublicacoesTab clienteId={clienteId} />}
+        {tab === 'videos' && <VideosTab clienteId={clienteId} />}
         {tab === 'blueprint' && <BlueprintTab clienteId={clienteId} cliente={cliente} />}
       </div>
     </div>
