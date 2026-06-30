@@ -1,13 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { api } from '../api'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Terminal, AlertTriangle } from 'lucide-react'
 
 function classifyLine(line: string): string {
-  if (line.includes('ERROR') || line.includes('Erro') || line.includes('ERRO')) return '#FF453A'
-  if (line.includes('AVISO') || line.includes('WARN') || line.includes('warn')) return '#FFD60A'
-  if (line.includes('=== CICLO') || line.includes('CICLO ') || line.startsWith('====')) return '#0A84FF'
-  if (line.includes('OK') || line.includes('sucesso')) return '#30D158'
-  return 'rgba(255,255,255,0.45)'
+  if (line.includes('ERROR') || line.includes('Erro') || line.includes('ERRO')) return 'var(--accent-red)'
+  if (line.includes('AVISO') || line.includes('WARN') || line.includes('warn')) return 'var(--accent-yellow)'
+  if (line.includes('=== CICLO') || line.includes('CICLO ') || line.startsWith('====')) return 'var(--accent)'
+  if (line.includes('OK') || line.includes('sucesso')) return 'var(--accent-green)'
+  return 'var(--text-tertiary)'
 }
 
 export default function Logs() {
@@ -42,175 +42,110 @@ export default function Logs() {
   }, [lines, autoScroll])
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ padding: '20px 24px' }}>
-      {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between" style={{ marginBottom: 16 }}>
+    <div className="page page--flush page--full">
+      <div className="page-head">
         <div>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: 20, fontWeight: 600, margin: 0, lineHeight: 1 }}>
-            Logs
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '4px 0 0 0' }}>
-            {lines.length} linhas
+          <h1 className="page-title">Logs</h1>
+          <p className="page-sub">
+            <span className="row gap-2" style={{ display: 'inline-flex', verticalAlign: 'middle' }}>
+              <span className="dot dot--live" />
+              {lines.length} linhas em tempo real
+            </span>
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Auto-scroll toggle */}
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-            }}
-          >
-            <div
-              onClick={() => setAutoScroll(s => !s)}
-              style={{
-                position: 'relative',
-                width: 36,
-                height: 20,
-                borderRadius: 980,
-                background: autoScroll ? 'rgba(10,132,255,0.5)' : 'rgba(255,255,255,0.1)',
-                border: autoScroll ? '1px solid rgba(10,132,255,0.6)' : '1px solid rgba(255,255,255,0.15)',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                cursor: 'pointer',
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 2,
-                  left: autoScroll ? 18 : 2,
-                  width: 14,
-                  height: 14,
-                  borderRadius: '50%',
-                  background: autoScroll ? '#0A84FF' : 'rgba(255,255,255,0.4)',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: autoScroll ? '0 0 6px rgba(10,132,255,0.6)' : 'none',
-                }}
-              />
-            </div>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }}>
-              Auto-scroll
-            </span>
-          </label>
+        <div className="page-head-actions">
           <button
-            onClick={loadLogs}
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: 'var(--text-secondary)',
-              fontSize: 14,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-            title="Atualizar"
-          >
-            <RefreshCw size={14} strokeWidth={1.5} />
+            className="toggle"
+            data-on={String(autoScroll)}
+            onClick={() => setAutoScroll(s => !s)}
+            title="Auto-scroll"
+            aria-label="Alternar auto-scroll"
+          />
+          <span className="muted hide-xs" style={{ fontSize: 13, fontWeight: 500 }}>
+            Auto-scroll
+          </span>
+          <button className="btn-icon btn-icon--sm" onClick={loadLogs} title="Atualizar">
+            <RefreshCw size={15} strokeWidth={1.75} />
           </button>
         </div>
       </div>
 
       {error && (
         <div
-          className="flex-shrink-0"
+          className="card card--pad anim-fade"
           style={{
-            background: 'rgba(255,69,58,0.1)',
-            border: '1px solid rgba(255,69,58,0.25)',
-            color: '#FF453A',
-            borderRadius: 12,
-            padding: '10px 14px',
-            fontSize: 13,
-            marginBottom: 12,
+            background: 'color-mix(in srgb, var(--accent-red) 12%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--accent-red) 30%, transparent)',
+            color: 'var(--accent-red)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '12px 16px',
           }}
         >
-          {error}
+          <AlertTriangle size={16} strokeWidth={1.75} style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 13 }}>{error}</span>
         </div>
       )}
 
-      {/* Terminal window */}
       <div
-        className="flex-1 overflow-hidden flex flex-col"
-        style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 16,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.3)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-        }}
+        className="panel flex-1 anim-rise"
+        style={{ minHeight: 'min(560px, 62vh)' }}
       >
-        {/* macOS title bar */}
         <div
-          style={{
-            padding: '10px 14px',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
-            background: 'rgba(0,0,0,0.6)',
-            borderRadius: '16px 16px 0 0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
+          className="panel-head"
+          style={{ background: 'var(--bg-deep)', justifyContent: 'flex-start', gap: 8 }}
         >
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF453A' }} />
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FFD60A' }} />
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#30D158' }} />
+          <div className="row gap-2" style={{ flexShrink: 0 }}>
+            <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'var(--accent-red)' }} />
+            <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'var(--accent-yellow)' }} />
+            <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'var(--accent-green)' }} />
+          </div>
           <span
-            style={{
-              color: 'var(--text-tertiary)',
-              fontSize: 11,
-              marginLeft: 8,
-              fontFamily: "'SF Mono', 'Fira Code', monospace",
-            }}
+            className="mono truncate"
+            style={{ color: 'var(--text-tertiary)', fontSize: 11.5, marginLeft: 8 }}
           >
             logs/scheduler.log
           </span>
         </div>
 
-        {/* Log lines */}
-        <div
-          className="flex-1 overflow-y-auto"
-          style={{ padding: '12px 16px' }}
-        >
+        <div className="panel-body scroll" style={{ padding: '14px 16px' }}>
           {loading ? (
-            <p style={{ color: 'var(--text-tertiary)', fontSize: 12, fontFamily: "'SF Mono', monospace" }}>
+            <p className="mono" style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>
               Carregando logs...
             </p>
           ) : lines.length === 0 ? (
-            <p style={{ color: 'var(--text-tertiary)', fontSize: 12, fontFamily: "'SF Mono', monospace" }}>
-              Nenhum log disponível
-            </p>
+            <div className="empty">
+              <Terminal size={34} strokeWidth={1.5} />
+              <p>Nenhum log disponível</p>
+            </div>
           ) : (
             lines.map((line, i) => (
               <div
                 key={i}
+                className="mono"
                 style={{
                   display: 'flex',
-                  lineHeight: 1.7,
+                  lineHeight: 1.75,
                   fontSize: 11.5,
-                  fontFamily: "'SF Mono', 'Fira Code', monospace",
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
                 }}
               >
                 <span
                   style={{
-                    color: 'var(--text-tertiary)',
+                    color: 'var(--text-faint)',
                     userSelect: 'none',
-                    marginRight: 16,
+                    marginRight: 14,
                     textAlign: 'right',
-                    width: 36,
+                    width: 34,
                     flexShrink: 0,
                     fontSize: 10.5,
                   }}
                 >
                   {i + 1}
                 </span>
-                <span style={{ color: classifyLine(line) }}>{line}</span>
+                <span style={{ color: classifyLine(line), flex: 1, minWidth: 0 }}>{line}</span>
               </div>
             ))
           )}

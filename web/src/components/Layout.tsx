@@ -1,13 +1,22 @@
-import { Outlet } from 'react-router-dom'
-import Sidebar from './Sidebar'
+import { useState, useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
+import Sidebar, { MobileTopBar, MobileTabBar, Drawer } from './Sidebar'
 
 export default function Layout() {
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const { pathname } = useLocation()
+
+  useEffect(() => { setDrawerOpen(false) }, [pathname])
+
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+    <div className="app-shell">
       <Sidebar />
-      <main className="flex-1 overflow-hidden flex flex-col">
+      <div className="app-content">
+        <MobileTopBar onMenu={() => setDrawerOpen(true)} />
         <Outlet />
-      </main>
+      </div>
+      <MobileTabBar />
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   )
 }

@@ -12,7 +12,6 @@ import {
 
 type AgentsMap = Record<string, Agent>
 
-
 const AGENT_MASCOT_IMG: Record<string, string> = {
   'code':            '/mascots/1.png',
   'design':          '/mascots/2.png',
@@ -45,15 +44,15 @@ const TOOL_META: Record<string, { label: string }> = {
 }
 
 function classifyLog(line: string): string {
-  if (line.includes('ERRO') || line.includes('error')) return '#FF453A'
-  if (line.includes('AVISO') || line.includes('WARN'))  return '#FFD60A'
-  if (line.includes('=== CICLO') || line.includes('CICLO ')) return '#0A84FF'
-  if (line.includes('done') || line.includes('OK') || line.includes('sucesso')) return '#30D158'
-  return 'rgba(255,255,255,0.75)'
+  if (line.includes('ERRO') || line.includes('error')) return 'var(--accent-red)'
+  if (line.includes('AVISO') || line.includes('WARN'))  return 'var(--accent-yellow)'
+  if (line.includes('=== CICLO') || line.includes('CICLO ')) return 'var(--accent)'
+  if (line.includes('done') || line.includes('OK') || line.includes('sucesso')) return 'var(--accent-green)'
+  return 'rgba(255,255,255,0.7)'
 }
 
 function ModelBadge({ model }: { model: string }) {
-  const c = MODEL_COLORS[model] || { bg: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)', border: 'rgba(255,255,255,0.12)' }
+  const c = MODEL_COLORS[model] || { bg: 'var(--surface-3)', color: 'var(--text-secondary)', border: 'var(--border)' }
   return (
     <span style={{ background: c.bg, color: c.color, border: `1px solid ${c.border}`, fontSize: 9, padding: '1px 6px', borderRadius: 5, fontWeight: 600, letterSpacing: '0.02em' }}>
       {model}
@@ -110,84 +109,56 @@ function AgentModal({ name, agent, onClose, onSaved }: { name: string; agent: Ag
   const activeTools = (['shell', 'web', 'edit', 'read'] as const).filter(t => !!(viewTools as Record<string, boolean>)[t])
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
-      onClick={onClose}
-    >
-      <div
-        style={{ background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, width: '100%', maxWidth: 580, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="row--between" style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <div className="row" style={{ gap: 12 }}>
             <AgentMascot name={name} size={40} />
             <div>
-              <h2 style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 600, margin: '0 0 2px 0', textTransform: 'capitalize' }}>{name.replace('studio-', '')}</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 2px', textTransform: 'capitalize' }}>{name.replace('studio-', '')}</h2>
               <ModelBadge model={viewAgent.model} />
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="row" style={{ gap: 8 }}>
             {editing ? (
-              <button
-                onClick={cancelEdit}
-                style={{ padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
-              >
-                Cancelar
-              </button>
+              <button onClick={cancelEdit} className="btn btn--sm btn--ghost">Cancelar</button>
             ) : (
-              <button
-                onClick={startEdit}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)', color: '#0A84FF', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
-              >
-                <Pencil size={11} strokeWidth={2} />
-                Editar
+              <button onClick={startEdit} className="btn btn--sm btn--accent-soft">
+                <Pencil size={11} strokeWidth={2} /> Editar
               </button>
             )}
-            <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <button onClick={onClose} className="btn-icon btn-icon--sm" style={{ borderRadius: '50%' }}>
               <X size={14} strokeWidth={2} />
             </button>
           </div>
         </div>
 
-        <div className="overflow-y-auto" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="scroll" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {editing ? (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="grid grid--2" style={{ gap: 12 }}>
                 <div>
-                  <label style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6 }}>Modelo</label>
-                  <select
-                    value={form.model}
-                    onChange={e => setForm(f => ({ ...f, model: e.target.value as Agent['model'] }))}
-                    style={{ width: '100%', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 13, padding: '8px 10px', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
-                  >
+                  <label className="label">Modelo</label>
+                  <select className="select" value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value as Agent['model'] }))}>
                     <option value="opus">opus</option>
                     <option value="sonnet">sonnet</option>
                     <option value="haiku">haiku</option>
                   </select>
                 </div>
                 <div>
-                  <label style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6 }}>Max Turns</label>
-                  <input
-                    type="number" min={1} max={200}
-                    value={form.maxTurns}
-                    onChange={e => setForm(f => ({ ...f, maxTurns: Number(e.target.value) }))}
-                    style={{ width: '100%', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 13, padding: '8px 10px', outline: 'none', boxSizing: 'border-box' }}
-                  />
+                  <label className="label">Max Turns</label>
+                  <input className="input" type="number" min={1} max={200} value={form.maxTurns} onChange={e => setForm(f => ({ ...f, maxTurns: Number(e.target.value) }))} />
                 </div>
               </div>
 
               <div>
-                <label style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 8 }}>Capacidades</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <label className="label">Capacidades</label>
+                <div className="row wrap" style={{ gap: 8 }}>
                   {(['shell', 'web', 'edit', 'read'] as const).map(t => {
                     const on = !!(form.tools as Record<string, boolean>)[t]
                     return (
-                      <button
-                        key={t}
-                        onClick={() => setForm(f => ({ ...f, tools: { ...f.tools, [t]: !on } }))}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 980, fontSize: 12, fontWeight: 500, cursor: 'pointer', background: on ? 'rgba(10,132,255,0.15)' : 'rgba(255,255,255,0.04)', border: on ? '1px solid rgba(10,132,255,0.3)' : '1px solid rgba(255,255,255,0.08)', color: on ? '#0A84FF' : 'var(--text-tertiary)', transition: 'all 0.15s' }}
-                      >
+                      <button key={t} onClick={() => setForm(f => ({ ...f, tools: { ...f.tools, [t]: !on } }))}
+                        className="chip" style={{ cursor: 'pointer', background: on ? 'var(--accent-soft)' : 'var(--surface)', borderColor: on ? 'var(--accent-line)' : 'var(--border)', color: on ? 'var(--accent-text)' : 'var(--text-tertiary)' }}>
                         <span style={{ display: 'flex' }}>{toolIcons[t]}</span>
                         {TOOL_META[t].label}
                       </button>
@@ -197,62 +168,49 @@ function AgentModal({ name, agent, onClose, onSaved }: { name: string; agent: Ag
               </div>
 
               <div>
-                <label style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 8 }}>System Prompt</label>
-                <textarea
-                  value={form.system}
-                  onChange={e => setForm(f => ({ ...f, system: e.target.value }))}
-                  style={{ width: '100%', minHeight: 220, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'var(--text-primary)', fontSize: 12, lineHeight: 1.7, padding: 14, fontFamily: "'SF Mono', 'Fira Code', monospace", resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
-                />
+                <label className="label">System Prompt</label>
+                <textarea className="textarea" value={form.system} onChange={e => setForm(f => ({ ...f, system: e.target.value }))} style={{ minHeight: 220, fontSize: 12 }} />
               </div>
 
-              {saveErr && (
-                <p style={{ color: '#FF453A', fontSize: 12, margin: 0 }}>{saveErr}</p>
-              )}
+              {saveErr && <p style={{ color: 'var(--accent-red)', fontSize: 12, margin: 0 }}>{saveErr}</p>}
 
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 11, borderRadius: 10, background: saving ? 'rgba(255,255,255,0.05)' : 'rgba(48,209,88,0.15)', border: saving ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(48,209,88,0.3)', color: saving ? 'var(--text-tertiary)' : '#30D158', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
-              >
-                {saving
-                  ? <Loader2 size={14} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} />
-                  : <Save size={14} strokeWidth={2} />
-                }
+              <button onClick={handleSave} disabled={saving} className="btn btn--success btn--lg" style={{ justifyContent: 'center' }}>
+                {saving ? <Loader2 size={14} strokeWidth={2} className="spin" /> : <Save size={14} strokeWidth={2} />}
                 {saving ? 'Salvando…' : 'Salvar alterações'}
               </button>
             </>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div className="grid grid--3" style={{ gap: 10 }}>
                 {[
                   { value: agent.maxTurns, label: 'Max Turns' },
                   { value: activeTools.length, label: 'Ferramentas' },
                   { value: agent.model, label: 'Modelo', cap: true },
                 ].map((s, i) => (
-                  <div key={i} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', textTransform: s.cap ? 'capitalize' : undefined }}>{s.value}</div>
-                    <div style={{ color: 'var(--text-tertiary)', fontSize: 11, marginTop: 4 }}>{s.label}</div>
+                  <div key={i} className="card card--pad" style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, textTransform: s.cap ? 'capitalize' : undefined }}>{s.value}</div>
+                    <div className="dim" style={{ fontSize: 11, marginTop: 4 }}>{s.label}</div>
                   </div>
                 ))}
               </div>
               <div>
-                <p style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>Capacidades</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <p className="label">Capacidades</p>
+                <div className="row wrap" style={{ gap: 8 }}>
                   {(['shell', 'web', 'edit', 'read'] as const).map(t => {
                     const on = !!(viewTools as Record<string, boolean>)[t]
                     return (
-                      <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 980, fontSize: 12, fontWeight: 500, background: on ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.02)', border: on ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.04)', color: on ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+                      <span key={t} className="chip" style={{ background: on ? 'var(--surface-3)' : 'var(--surface)', color: on ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
                         <span style={{ opacity: on ? 1 : 0.3, display: 'flex' }}>{toolIcons[t]}</span>
                         <span>{TOOL_META[t].label}</span>
-                        <span style={{ color: on ? '#30D158' : 'var(--text-tertiary)', display: 'flex' }}>{on ? <Check size={10} strokeWidth={2} /> : <X size={10} strokeWidth={2} />}</span>
+                        <span style={{ color: on ? 'var(--accent-green)' : 'var(--text-tertiary)', display: 'flex' }}>{on ? <Check size={10} strokeWidth={2} /> : <X size={10} strokeWidth={2} />}</span>
                       </span>
                     )
                   })}
                 </div>
               </div>
               <div>
-                <p style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>System Prompt</p>
-                <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: "'SF Mono', 'Fira Code', monospace" }}>
+                <p className="label">System Prompt</p>
+                <div className="mono" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
                   {agent.system || '(sem system prompt)'}
                 </div>
               </div>
@@ -266,33 +224,27 @@ function AgentModal({ name, agent, onClose, onSaved }: { name: string; agent: Ag
 
 function AgentCard({ name, agent, onClick }: { name: string; agent: Agent; onClick: () => void }) {
   const tools = agent.tools || {}
-  const [hov, setHov] = useState(false)
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{ background: hov ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '14px 12px', textAlign: 'left', width: '100%', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)', transform: hov ? 'translateY(-2px)' : 'none', boxShadow: hov ? '0 8px 24px rgba(0,0,0,0.5)' : 'none' }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+    <button onClick={onClick} className="card card--hover card--pad" style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="row" style={{ alignItems: 'flex-start', gap: 10 }}>
         <AgentMascot name={name} size={44} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-            <h3 style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 12, textTransform: 'capitalize', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name.replace('studio-', '')}</h3>
+          <div className="row--between" style={{ marginBottom: 3 }}>
+            <h3 className="truncate" style={{ fontWeight: 600, fontSize: 12.5, textTransform: 'capitalize', margin: 0 }}>{name.replace('studio-', '')}</h3>
             <ModelBadge model={agent.model} />
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 10, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.5 }}>
+          <p className="muted clamp-2" style={{ fontSize: 10.5, margin: 0, lineHeight: 1.5 }}>
             {agent.system?.slice(0, 70) || 'Sem descrição'}
           </p>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 8 }}>
-        <div style={{ display: 'flex', gap: 5 }}>
+      <div className="row--between" style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+        <div className="row" style={{ gap: 6 }}>
           {(['shell', 'web', 'edit', 'read'] as const).map(t => (
             <ToolIcon key={t} label={t} active={!!(tools as Record<string, boolean>)[t]} />
           ))}
         </div>
-        <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>{agent.maxTurns}t</span>
+        <span className="dim" style={{ fontSize: 10 }}>{agent.maxTurns}t</span>
       </div>
     </button>
   )
@@ -367,8 +319,8 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 size={20} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)', animation: 'spin 1s linear infinite' }} />
+      <div className="center" style={{ flex: 1, minHeight: '50vh' }}>
+        <Loader2 size={22} strokeWidth={1.5} className="spin" style={{ color: 'var(--text-tertiary)' }} />
       </div>
     )
   }
@@ -378,8 +330,7 @@ export default function Dashboard() {
     : 'Nenhum ciclo ainda'
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ padding: '18px 20px 16px', gap: 14 }}>
-
+    <div className="page page--flush">
       {selectedAgent && (
         <AgentModal
           name={selectedAgent.name}
@@ -394,66 +345,57 @@ export default function Dashboard() {
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 100, background: 'rgba(20,20,22,0.96)', border: `1px solid rgba(255,255,255,0.1)`, borderLeft: `3px solid ${toast.type === 'success' ? '#30D158' : '#FF453A'}`, backdropFilter: 'blur(20px)', borderRadius: 12, padding: '12px 16px', fontSize: 13, color: 'var(--text-primary)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', fontWeight: 500 }}>
-          {toast.msg}
+        <div className="toast-wrap">
+          <div className={`toast toast--${toast.type}`}>{toast.msg}</div>
         </div>
       )}
 
-      {/* ── Header ── */}
-      <div className="flex-shrink-0 flex items-center justify-between">
+      <div className="page-head">
         <div>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: 18, fontWeight: 700, margin: 0, lineHeight: 1 }}>Visão Geral</h1>
-          <p style={{ color: 'var(--text-tertiary)', fontSize: 11, margin: '3px 0 0 0' }}>
+          <h1 className="page-title">Visão Geral</h1>
+          <p className="page-sub">
             {new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="page-head-actions">
           {stats && stats.totalErrors > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,69,58,0.1)', border: '1px solid rgba(255,69,58,0.2)', borderRadius: 8, padding: '5px 10px' }}>
-              <AlertCircle size={12} strokeWidth={1.5} style={{ color: '#FF453A' }} />
-              <span style={{ fontSize: 11, color: '#FF453A', fontWeight: 600 }}>{stats.totalErrors} erros</span>
-            </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '5px 10px' }}>
-            <Clock size={11} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} />
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{lastCycleLabel}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '5px 10px' }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: isOnline ? '#30D158' : '#FF453A', boxShadow: `0 0 6px ${isOnline ? '#30D158' : '#FF453A'}` }} />
-            <span style={{ fontSize: 11, fontWeight: 600, color: isOnline ? '#30D158' : '#FF453A', letterSpacing: '0.05em' }}>
-              {isOnline ? 'ATIVO' : 'PAUSADO'}
+            <span className="chip" style={{ background: 'color-mix(in srgb, var(--accent-red) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-red) 24%, transparent)', color: 'var(--accent-red)' }}>
+              <AlertCircle size={12} strokeWidth={1.5} /> {stats.totalErrors} erros
             </span>
-          </div>
+          )}
+          <span className="chip hide-xs">
+            <Clock size={11} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} /> {lastCycleLabel}
+          </span>
+          <span className="chip" style={{ color: isOnline ? 'var(--accent-green)' : 'var(--accent-red)', fontWeight: 600 }}>
+            <span className="dot" style={{ background: isOnline ? 'var(--accent-green)' : 'var(--accent-red)', boxShadow: `0 0 6px ${isOnline ? 'var(--accent-green)' : 'var(--accent-red)'}` }} />
+            {isOnline ? 'ATIVO' : 'PAUSADO'}
+          </span>
         </div>
       </div>
 
-      {/* ── KPI cards ── */}
-      <div className="flex-shrink-0" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
+      <div className="grid grid--kpi">
         {KPI_DEFS.map(kpi => {
           const val = stats?.counts[kpi.key as keyof typeof stats.counts] ?? 0
           return (
-            <div key={kpi.key} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '14px 14px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 500 }}>{kpi.label}</span>
-                <span style={{ color: kpi.color, opacity: 0.7 }}>{kpi.icon}</span>
+            <div key={kpi.key} className="card card--pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="row--between">
+                <span className="dim" style={{ fontSize: 11, fontWeight: 500 }}>{kpi.label}</span>
+                <span style={{ color: kpi.color, opacity: 0.75 }}>{kpi.icon}</span>
               </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>{val}</div>
+              <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{val}</div>
             </div>
           )
         })}
       </div>
 
-      {/* ── Main area: agents + activity ── */}
-      <div className="flex-1 min-h-0" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 12 }}>
-
-        {/* Agents panel */}
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>Agentes <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>({agentEntries.length})</span></span>
+      <div className="split">
+        <div className="panel" style={{ minHeight: 320 }}>
+          <div className="panel-head">
+            <span className="panel-title">Agentes <span className="dim" style={{ fontWeight: 400 }}>({agentEntries.length})</span></span>
             <Activity size={13} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} />
           </div>
-          <div className="flex-1 overflow-y-auto" style={{ padding: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          <div className="panel-body" style={{ padding: 12 }}>
+            <div className="grid grid--cards">
               {agentEntries.map(([name, agent]) => (
                 <AgentCard key={name} name={name} agent={agent} onClick={() => setSelectedAgent({ name, agent })} />
               ))}
@@ -461,21 +403,18 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Activity + actions panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0, overflow: 'hidden' }}>
-
-          {/* Live activity */}
-          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}>
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>Atividade recente</span>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#30D158', boxShadow: '0 0 5px #30D158' }} />
+        <div className="col" style={{ gap: 12, minHeight: 0 }}>
+          <div className="panel" style={{ flex: 1, minHeight: 240 }}>
+            <div className="panel-head">
+              <span className="panel-title">Atividade recente</span>
+              <span className="dot dot--live" />
             </div>
-            <div className="flex-1 overflow-y-auto" style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div className="panel-body" style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 3 }}>
               {logLines.length === 0 ? (
-                <p style={{ color: 'var(--text-tertiary)', fontSize: 12, fontFamily: "'SF Mono', monospace" }}>Sem atividade ainda</p>
+                <p className="dim mono" style={{ fontSize: 12 }}>Sem atividade ainda</p>
               ) : (
                 logLines.slice().reverse().map((line, i) => (
-                  <div key={i} style={{ fontSize: 12, fontFamily: "'SF Mono', 'Fira Code', monospace", lineHeight: 1.7, color: classifyLog(line), wordBreak: 'break-all', padding: '1px 0' }}>
+                  <div key={i} className="mono" style={{ fontSize: 12, lineHeight: 1.7, color: classifyLog(line), wordBreak: 'break-word', padding: '1px 0' }}>
                     {line}
                   </div>
                 ))
@@ -483,42 +422,32 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Cycle actions */}
-          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 14, flexShrink: 0 }}>
-            <p style={{ color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>Ciclos manuais</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <div className="card card--pad" style={{ flexShrink: 0 }}>
+            <p className="label">Ciclos manuais</p>
+            <div className="col" style={{ gap: 7 }}>
               {(['segunda', 'diario', 'sexta'] as const).map(cycle => {
                 const labels: Record<string, string> = { segunda: 'Segunda — Plano + Leads', diario: 'Diário — Tráfego + Clientes', sexta: 'Sexta — Dados + Relatório' }
                 return (
-                  <button
-                    key={cycle}
-                    onClick={() => runCycle(cycle)}
-                    disabled={cycleLoading !== null}
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: 'var(--text-primary)', borderRadius: 10, padding: '9px 12px', fontSize: 12, fontWeight: 500, cursor: cycleLoading !== null ? 'not-allowed' : 'pointer', opacity: cycleLoading !== null && cycleLoading !== cycle ? 0.4 : 1, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8 }}
-                  >
+                  <button key={cycle} onClick={() => runCycle(cycle)} disabled={cycleLoading !== null}
+                    className="btn btn--ghost" style={{ justifyContent: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', opacity: cycleLoading !== null && cycleLoading !== cycle ? 0.4 : 1 }}>
                     {cycleLoading === cycle
-                      ? <Loader2 size={12} strokeWidth={2} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                      : <Play size={12} strokeWidth={1.5} style={{ color: '#0A84FF', flexShrink: 0 }} />
-                    }
+                      ? <Loader2 size={12} strokeWidth={2} className="spin" style={{ flexShrink: 0 }} />
+                      : <Play size={12} strokeWidth={1.5} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
                     {labels[cycle]}
                   </button>
                 )
               })}
-              <Link
-                to="/aprovacoes"
-                style={{ background: (stats?.counts.pendentes ?? 0) > 0 ? 'rgba(255,214,10,0.1)' : 'rgba(255,255,255,0.05)', border: (stats?.counts.pendentes ?? 0) > 0 ? '1px solid rgba(255,214,10,0.22)' : '1px solid rgba(255,255,255,0.09)', color: (stats?.counts.pendentes ?? 0) > 0 ? '#FFD60A' : 'var(--text-secondary)', borderRadius: 10, padding: '9px 12px', fontSize: 12, fontWeight: 500, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.2s' }}
-              >
+              <Link to="/aprovacoes" className="btn" style={{ justifyContent: 'flex-start', textDecoration: 'none', background: (stats?.counts.pendentes ?? 0) > 0 ? 'color-mix(in srgb, var(--accent-yellow) 10%, transparent)' : 'var(--surface-2)', borderColor: (stats?.counts.pendentes ?? 0) > 0 ? 'color-mix(in srgb, var(--accent-yellow) 24%, transparent)' : 'var(--border)', color: (stats?.counts.pendentes ?? 0) > 0 ? 'var(--accent-yellow)' : 'var(--text-secondary)' }}>
                 <AlertCircle size={12} strokeWidth={1.5} style={{ flexShrink: 0 }} />
                 Aprovações pendentes
                 {(stats?.counts.pendentes ?? 0) > 0 && (
-                  <span style={{ background: '#FF453A', color: 'white', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, marginLeft: 'auto' }}>
+                  <span style={{ background: 'var(--accent-red)', color: 'white', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, marginLeft: 'auto' }}>
                     {stats!.counts.pendentes}
                   </span>
                 )}
               </Link>
             </div>
           </div>
-
         </div>
       </div>
     </div>

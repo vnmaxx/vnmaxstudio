@@ -6,9 +6,9 @@ import {
   reauthenticateWithCredential
 } from 'firebase/auth'
 import { doc, updateDoc } from 'firebase/firestore'
+import { useIsMobile } from '../hooks/useMediaQuery'
 import {
-  User, Palette, Bell, ChevronRight,
-  Check, Eye, EyeOff, Save, RefreshCw
+  User, Palette, Bell, Check, Eye, EyeOff, Save, RefreshCw, RotateCcw, Send
 } from 'lucide-react'
 
 const ACCENT_COLORS = [
@@ -37,10 +37,10 @@ const BG_COLORS = [
 
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
-    <div style={{ marginBottom: 20 }}>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</label>
+    <div style={{ marginBottom: 18 }}>
+      <label className="label">{label}</label>
       {children}
-      {hint && <p style={{ margin: '6px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.28)' }}>{hint}</p>}
+      {hint && <p style={{ margin: '7px 0 0', fontSize: 11.5, color: 'var(--text-faint)' }}>{hint}</p>}
     </div>
   )
 }
@@ -51,25 +51,23 @@ function Input({ value, onChange, type = 'text', placeholder, disabled }: { valu
   return (
     <div style={{ position: 'relative' }}>
       <input
+        className="input"
         value={value}
         onChange={e => onChange(e.target.value)}
         type={isPassword && !show ? 'password' : 'text'}
         placeholder={placeholder}
         disabled={disabled}
         style={{
-          width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 10, padding: isPassword ? '10px 44px 10px 14px' : '10px 14px',
-          fontSize: 14, color: disabled ? 'rgba(255,255,255,0.3)' : 'var(--text-primary)',
-          outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.18s',
+          paddingRight: isPassword ? 44 : undefined,
+          opacity: disabled ? 0.55 : 1,
+          cursor: disabled ? 'not-allowed' : undefined,
         }}
-        onFocus={e => { e.target.style.borderColor = 'rgba(10,132,255,0.5)' }}
-        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)' }}
       />
       {isPassword && (
         <button
           type="button"
           onClick={() => setShow(s => !s)}
-          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: 0, display: 'flex' }}
+          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: 0, display: 'flex' }}
         >
           {show ? <EyeOff size={16} strokeWidth={1.5} /> : <Eye size={16} strokeWidth={1.5} />}
         </button>
@@ -80,35 +78,29 @@ function Input({ value, onChange, type = 'text', placeholder, disabled }: { valu
 
 function Toast({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
   return (
-    <div style={{
-      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
-      background: type === 'ok' ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
-      border: `1px solid ${type === 'ok' ? 'rgba(48,209,88,0.35)' : 'rgba(255,69,58,0.35)'}`,
-      color: type === 'ok' ? '#30D158' : '#FF453A',
-      borderRadius: 12, padding: '12px 18px', fontSize: 13, fontWeight: 500,
-      display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-    }}>
-      {type === 'ok' ? <Check size={15} strokeWidth={2.5} /> : null}
-      {msg}
+    <div className="toast-wrap">
+      <div className={'toast toast--' + (type === 'ok' ? 'success' : 'error')}>
+        <div className="row gap-3">
+          {type === 'ok' ? <Check size={15} strokeWidth={2.5} style={{ color: 'var(--accent-green)' }} /> : null}
+          <span>{msg}</span>
+        </div>
+      </div>
     </div>
   )
 }
 
 function SaveBtn({ loading, onClick }: { loading: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px',
-        background: 'rgba(10,132,255,0.9)', border: 'none', borderRadius: 10,
-        color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: loading ? 'default' : 'pointer',
-        opacity: loading ? 0.7 : 1, transition: 'all 0.18s',
-      }}
-    >
-      {loading ? <RefreshCw size={14} strokeWidth={2} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={14} strokeWidth={2} />}
+    <button className="btn btn--primary" onClick={onClick} disabled={loading}>
+      {loading ? <RefreshCw size={14} strokeWidth={2} className="spin" /> : <Save size={14} strokeWidth={2} />}
       {loading ? 'Salvando...' : 'Salvar'}
     </button>
+  )
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 14px' }}>{children}</h3>
   )
 }
 
@@ -161,24 +153,24 @@ function ContaSection() {
   }
 
   return (
-    <div>
+    <div className="col gap-6">
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
-      <div style={{ marginBottom: 32 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Perfil</h3>
+      <div className="card card--pad">
+        <SectionTitle>Perfil</SectionTitle>
         <Field label="Email" hint="O email não pode ser alterado">
           <Input value={user?.email || ''} onChange={() => {}} disabled />
         </Field>
         <Field label="Nome de exibição">
           <Input value={name} onChange={setName} placeholder="Seu nome" />
         </Field>
-        <SaveBtn loading={loadingName} onClick={saveName} />
+        <div className="row wrap">
+          <SaveBtn loading={loadingName} onClick={saveName} />
+        </div>
       </div>
 
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '28px 0' }} />
-
-      <div>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Alterar Senha</h3>
+      <div className="card card--pad">
+        <SectionTitle>Alterar senha</SectionTitle>
         <Field label="Senha atual">
           <Input value={currentPwd} onChange={setCurrentPwd} type="password" placeholder="••••••••" />
         </Field>
@@ -188,7 +180,9 @@ function ContaSection() {
         <Field label="Confirmar nova senha">
           <Input value={confirmPwd} onChange={setConfirmPwd} type="password" placeholder="••••••••" />
         </Field>
-        <SaveBtn loading={loadingPwd} onClick={savePwd} />
+        <div className="row wrap">
+          <SaveBtn loading={loadingPwd} onClick={savePwd} />
+        </div>
       </div>
     </div>
   )
@@ -231,85 +225,84 @@ function AparenciaSection() {
     setTimeout(() => setToast(null), 3000)
   }
 
+  const swatch: React.CSSProperties = {
+    width: 42, height: 42, borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+    transition: 'all 0.18s', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  }
+
   return (
-    <div>
+    <div className="col gap-6">
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
-      <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Cor de destaque</h3>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div className="card card--pad">
+        <SectionTitle>Cor de destaque</SectionTitle>
+        <div className="row wrap" style={{ gap: 10 }}>
           {ACCENT_COLORS.map(c => (
             <button
               key={c.value}
               onClick={() => setAccent(c.value)}
               title={c.name}
               style={{
-                width: 40, height: 40, borderRadius: 10, background: c.value, border: 'none',
-                cursor: 'pointer', outline: accent === c.value ? `3px solid ${c.value}` : '3px solid transparent',
-                outlineOffset: 3, transition: 'all 0.18s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                ...swatch, background: c.value, border: 'none',
+                outline: accent === c.value ? `2.5px solid ${c.value}` : '2.5px solid transparent', outlineOffset: 3,
               }}
             >
               {accent === c.value && <Check size={18} strokeWidth={2.5} color="#fff" />}
             </button>
           ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
-            <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Personalizada:</label>
+          <div className="row gap-3" style={{ marginLeft: 4 }}>
+            <span className="dim" style={{ fontSize: 12 }}>Personalizada:</span>
             <input
               type="color"
               value={accent}
               onChange={e => setAccent(e.target.value)}
-              style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', background: 'transparent', padding: 2 }}
+              style={{ width: 42, height: 42, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer', background: 'transparent', padding: 2 }}
             />
           </div>
         </div>
       </div>
 
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
-
-      <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Cor de fundo</h3>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div className="card card--pad">
+        <SectionTitle>Cor de fundo</SectionTitle>
+        <div className="row wrap" style={{ gap: 10 }}>
           {BG_COLORS.map(c => (
             <button
               key={c.value}
               onClick={() => setBg(c.value)}
               title={c.name}
               style={{
-                width: 40, height: 40, borderRadius: 10, background: c.value,
-                border: bg === c.value ? `2px solid ${accent}` : '2px solid rgba(255,255,255,0.15)',
-                cursor: 'pointer', transition: 'all 0.18s', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                ...swatch, background: c.value,
+                border: bg === c.value ? `2px solid var(--accent)` : '2px solid var(--border-strong)',
               }}
             >
               {bg === c.value && <Check size={16} strokeWidth={2.5} color="rgba(255,255,255,0.7)" />}
             </button>
           ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
-            <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Personalizada:</label>
+          <div className="row gap-3" style={{ marginLeft: 4 }}>
+            <span className="dim" style={{ fontSize: 12 }}>Personalizada:</span>
             <input
               type="color"
               value={bg}
               onChange={e => setBg(e.target.value)}
-              style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', background: 'transparent', padding: 2 }}
+              style={{ width: 42, height: 42, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', cursor: 'pointer', background: 'transparent', padding: 2 }}
             />
           </div>
         </div>
       </div>
 
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
-
-      <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Tamanho da fonte</h3>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <div className="card card--pad">
+        <SectionTitle>Tamanho da fonte</SectionTitle>
+        <div className="row wrap" style={{ gap: 8 }}>
           {FONT_SIZES.map(f => (
             <button
               key={f.value}
               onClick={() => setFontSize(f.value)}
+              className="btn"
               style={{
-                padding: '8px 16px', borderRadius: 10, fontSize: f.value,
-                background: fontSize === f.value ? `rgba(10,132,255,0.15)` : 'rgba(255,255,255,0.05)',
-                border: fontSize === f.value ? `1px solid ${accent}55` : '1px solid rgba(255,255,255,0.1)',
-                color: fontSize === f.value ? accent : 'var(--text-secondary)',
-                cursor: 'pointer', fontWeight: 500, transition: 'all 0.18s',
+                fontSize: f.value,
+                background: fontSize === f.value ? 'var(--accent-soft)' : undefined,
+                borderColor: fontSize === f.value ? 'var(--accent-line)' : undefined,
+                color: fontSize === f.value ? 'var(--accent-text)' : 'var(--text-secondary)',
               }}
             >
               {f.label}
@@ -318,39 +311,26 @@ function AparenciaSection() {
         </div>
       </div>
 
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '20px 0' }} />
-
-      <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 16px' }}>Sidebar</h3>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-          <div
-            onClick={() => setSidebarCompact(s => !s)}
-            style={{
-              width: 44, height: 26, borderRadius: 13, transition: 'background 0.2s',
-              background: sidebarCompact ? accent : 'rgba(255,255,255,0.12)',
-              position: 'relative', cursor: 'pointer', flexShrink: 0,
-            }}
-          >
-            <div style={{
-              position: 'absolute', top: 3, left: sidebarCompact ? 21 : 3,
-              width: 20, height: 20, borderRadius: 10, background: '#fff',
-              transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
-            }} />
+      <div className="card card--pad">
+        <SectionTitle>Sidebar</SectionTitle>
+        <div className="row--between">
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>Sidebar compacta</p>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>Exibir apenas os ícones, sem rótulos</p>
           </div>
-          <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Sidebar compacta (sem labels)</span>
-        </label>
+          <button
+            className="toggle"
+            data-on={String(sidebarCompact)}
+            onClick={() => setSidebarCompact(s => !s)}
+            aria-label="Alternar sidebar compacta"
+          />
+        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div className="row wrap">
         <SaveBtn loading={false} onClick={save} />
-        <button
-          onClick={reset}
-          style={{
-            padding: '10px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)',
-            fontSize: 13.5, cursor: 'pointer', fontWeight: 500,
-          }}
-        >
+        <button className="btn" onClick={reset}>
+          <RotateCcw size={14} strokeWidth={2} />
           Resetar padrão
         </button>
       </div>
@@ -359,8 +339,6 @@ function AparenciaSection() {
 }
 
 function NotificacoesSection() {
-  const acc = () => document.documentElement.style.getPropertyValue('--accent') || '#0A84FF'
-
   const [browser,   setBrowser]   = useState(() => localStorage.getItem('notif_browser')   === 'true')
   const [cycleEnd,  setCycleEnd]  = useState(() => localStorage.getItem('notif_cycle')    !== 'false')
   const [pendentes, setPendentes] = useState(() => localStorage.getItem('notif_pend')     !== 'false')
@@ -396,40 +374,36 @@ function NotificacoesSection() {
   }
 
   const Toggle = ({ val, onChange, label, desc, disabled }: { val: boolean; onChange: (v: boolean) => void; label: string; desc: string; disabled?: boolean }) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', opacity: disabled ? 0.4 : 1 }}>
-      <div>
+    <div className="row--between" style={{ padding: '14px 0', borderBottom: '1px solid var(--border)', opacity: disabled ? 0.4 : 1 }}>
+      <div style={{ minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{label}</p>
         <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>{desc}</p>
       </div>
-      <div
+      <button
+        className="toggle"
+        data-on={String(val && !disabled)}
         onClick={() => !disabled && onChange(!val)}
-        style={{
-          width: 44, height: 26, borderRadius: 13, transition: 'background 0.2s',
-          background: val && !disabled ? acc() : 'rgba(255,255,255,0.12)',
-          position: 'relative', cursor: disabled ? 'not-allowed' : 'pointer', flexShrink: 0, marginLeft: 16,
-        }}
-      >
-        <div style={{
-          position: 'absolute', top: 3, left: val && !disabled ? 21 : 3,
-          width: 20, height: 20, borderRadius: 10, background: '#fff',
-          transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
-        }} />
-      </div>
+        disabled={disabled}
+        aria-label={label}
+        style={{ cursor: disabled ? 'not-allowed' : 'pointer', marginLeft: 16 }}
+      />
     </div>
   )
 
+  const permColor = perm === 'granted' ? 'var(--accent-green)' : perm === 'denied' ? 'var(--accent-red)' : 'var(--accent-yellow)'
+
   return (
-    <div>
+    <div className="col gap-6">
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
-      <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>Notificações do browser</h3>
+      <div className="card card--pad">
+        <SectionTitle>Notificações do browser</SectionTitle>
 
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '14px 16px', marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div>
+        <div className="card card--pad" style={{ marginBottom: 4 }}>
+          <div className="row--between wrap" style={{ gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)' }}>
-                Permissão: <span style={{ color: perm === 'granted' ? '#30D158' : perm === 'denied' ? '#FF453A' : '#FFD60A', fontWeight: 600 }}>
+                Permissão: <span style={{ color: permColor, fontWeight: 600 }}>
                   {perm === 'granted' ? 'Concedida' : perm === 'denied' ? 'Negada' : 'Pendente'}
                 </span>
               </p>
@@ -438,10 +412,7 @@ function NotificacoesSection() {
               </p>
             </div>
             {perm !== 'granted' && perm !== 'denied' && (
-              <button
-                onClick={requestBrowserPerm}
-                style={{ padding: '8px 14px', borderRadius: 8, background: 'rgba(10,132,255,0.15)', border: '1px solid rgba(10,132,255,0.3)', color: '#0A84FF', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
+              <button className="btn btn--accent-soft btn--sm" onClick={requestBrowserPerm}>
                 Solicitar
               </button>
             )}
@@ -456,22 +427,18 @@ function NotificacoesSection() {
         />
       </div>
 
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '4px 0 20px' }} />
-
-      <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>Sino de notificações</h3>
+      <div className="card card--pad">
+        <SectionTitle>Sino de notificações</SectionTitle>
         <Toggle val={cycleEnd}   onChange={setCycleEnd}   label="Ciclos manuais"       desc="Notificar ao iniciar ou concluir um ciclo" />
         <Toggle val={erros}      onChange={setErros}      label="Erros de agente"      desc="Alerta quando um agente retornar erro" />
         <Toggle val={aprovacoes} onChange={setAprovacoes} label="Aprovações"           desc="Alerta quando houver aprovações pendentes" />
         <Toggle val={pendentes}  onChange={setPendentes}  label="Badge de pendentes"   desc="Exibir contagem na sidebar" />
       </div>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div className="row wrap">
         <SaveBtn loading={false} onClick={save} />
-        <button
-          onClick={testNotif}
-          style={{ padding: '10px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: 13.5, cursor: 'pointer', fontWeight: 500 }}
-        >
+        <button className="btn" onClick={testNotif}>
+          <Send size={14} strokeWidth={2} />
           Testar notificação
         </button>
       </div>
@@ -483,58 +450,73 @@ type Section = 'conta' | 'aparencia' | 'notificacoes'
 
 export default function Configuracoes() {
   const [section, setSection] = useState<Section>('conta')
+  const isMobile = useIsMobile()
 
   const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
-    { id: 'conta',        label: 'Conta',        icon: <User    size={15} strokeWidth={1.5} /> },
-    { id: 'aparencia',    label: 'Aparência',    icon: <Palette size={15} strokeWidth={1.5} /> },
-    { id: 'notificacoes', label: 'Notificações', icon: <Bell    size={15} strokeWidth={1.5} /> },
+    { id: 'conta',        label: 'Conta',        icon: <User    size={15} strokeWidth={1.6} /> },
+    { id: 'aparencia',    label: 'Aparência',    icon: <Palette size={15} strokeWidth={1.6} /> },
+    { id: 'notificacoes', label: 'Notificações', icon: <Bell    size={15} strokeWidth={1.6} /> },
   ]
 
+  const content = (
+    <>
+      {section === 'conta'        && <ContaSection />}
+      {section === 'aparencia'    && <AparenciaSection />}
+      {section === 'notificacoes' && <NotificacoesSection />}
+    </>
+  )
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '20px 28px', boxSizing: 'border-box', overflow: 'hidden' }}>
-      <div style={{ marginBottom: 18, flexShrink: 0 }}>
-        <h1 style={{ color: 'var(--text-primary)', fontSize: 20, fontWeight: 700, margin: 0 }}>Configurações</h1>
-        <p style={{ color: 'var(--text-tertiary)', fontSize: 13, margin: '4px 0 0' }}>Personalize o Studio IA</p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 18, flex: 1, overflow: 'hidden', minHeight: 0 }}>
-        <div style={{ width: 196, flexShrink: 0, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 8, alignSelf: 'flex-start' }}>
-          {sections.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSection(s.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                padding: '10px 12px', borderRadius: 10,
-                background: section === s.id ? 'rgba(10,132,255,0.14)' : 'transparent',
-                border: section === s.id ? '1px solid rgba(10,132,255,0.28)' : '1px solid transparent',
-                color: section === s.id ? '#0A84FF' : 'rgba(255,255,255,0.5)',
-                fontSize: 13.5, fontWeight: 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { if (section !== s.id) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
-              onMouseLeave={e => { if (section !== s.id) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)' } }}
-            >
-              {s.icon}
-              <span style={{ flex: 1 }}>{s.label}</span>
-              <ChevronRight size={13} strokeWidth={1.5} style={{ opacity: 0.35 }} />
-            </button>
-          ))}
-        </div>
-
-        <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-          <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-            {sections.find(s => s.id === section)?.icon}
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
-              {sections.find(s => s.id === section)?.label}
-            </h2>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
-            {section === 'conta'        && <ContaSection />}
-            {section === 'aparencia'    && <AparenciaSection />}
-            {section === 'notificacoes' && <NotificacoesSection />}
-          </div>
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Configurações</h1>
+          <p className="page-sub">Personalize o Studio IA</p>
         </div>
       </div>
+
+      {isMobile ? (
+        <div className="col gap-6">
+          <div className="row scroll" style={{ gap: 8, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 2, margin: '0 -2px', WebkitOverflowScrolling: 'touch' }}>
+            {sections.map(s => {
+              const active = section === s.id
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSection(s.id)}
+                  className={'btn btn--pill' + (active ? ' btn--accent-soft' : '')}
+                  style={{ flexShrink: 0 }}
+                >
+                  {s.icon}
+                  {s.label}
+                </button>
+              )
+            })}
+          </div>
+          <div className="anim-fade" key={section}>{content}</div>
+        </div>
+      ) : (
+        <div className="split split--narrow">
+          <div className="panel" style={{ alignSelf: 'flex-start', padding: 6 }}>
+            {sections.map(s => {
+              const active = section === s.id
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSection(s.id)}
+                  className={'nav-link' + (active ? ' is-active' : '')}
+                  style={{ width: '100%', textAlign: 'left' }}
+                >
+                  {s.icon}
+                  <span style={{ flex: 1 }}>{s.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="anim-fade" key={section}>{content}</div>
+        </div>
+      )}
     </div>
   )
 }

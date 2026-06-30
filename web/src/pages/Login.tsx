@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
+import { Loader2, AlertCircle } from 'lucide-react'
 import { auth } from '../firebase'
 
 export default function Login() {
@@ -36,55 +37,135 @@ export default function Login() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-      <div style={{ width: 360, padding: 40, background: 'var(--bg-secondary)', borderRadius: 16, border: '1px solid var(--border)' }}>
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Studio IA</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '6px 0 0', fontSize: 14 }}>
-            {mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}
-          </p>
+    <div
+      style={{
+        minHeight: '100dvh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 'clamp(16px, 5vw, 40px)',
+        background:
+          'radial-gradient(1100px 620px at 50% -12%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%), radial-gradient(820px 520px at 12% 112%, color-mix(in srgb, var(--accent-purple) 10%, transparent), transparent 60%), var(--bg-deep)',
+      }}
+    >
+      <div
+        className="card card--pad card--glass anim-rise"
+        style={{ width: 'min(92vw, 380px)', padding: 'clamp(24px, 6vw, 36px)' }}
+      >
+        <div className="col" style={{ alignItems: 'center', gap: 12, marginBottom: 26 }}>
+          <img
+            src="/logo.png"
+            alt="Studio IA"
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 'var(--radius)',
+              objectFit: 'contain',
+              boxShadow: 'var(--shadow)',
+            }}
+          />
+          <div className="col" style={{ alignItems: 'center', gap: 4, textAlign: 'center' }}>
+            <h1
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                color: 'var(--text-primary)',
+                margin: 0,
+              }}
+            >
+              Studio IA
+            </h1>
+            <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
+              {mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <form onSubmit={handleSubmit} className="col gap-4">
           <div>
-            <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Email</label>
+            <label className="label">Email</label>
             <input
+              className="input"
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              placeholder="voce@email.com"
+              autoComplete="email"
               required
-              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Senha</label>
+            <label className="label">Senha</label>
             <input
+              className="input"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               required
-              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
             />
           </div>
 
           {error && (
-            <p style={{ margin: 0, fontSize: 13, color: '#FF453A', background: 'rgba(255,69,58,0.1)', padding: '8px 12px', borderRadius: 8 }}>{error}</p>
+            <div
+              className="row gap-2 anim-fade"
+              style={{
+                alignItems: 'flex-start',
+                fontSize: 13,
+                lineHeight: 1.4,
+                color: 'var(--accent-red)',
+                background: 'color-mix(in srgb, var(--accent-red) 12%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--accent-red) 28%, transparent)',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius)',
+              }}
+            >
+              <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>{error}</span>
+            </div>
           )}
 
           <button
             type="submit"
+            className="btn btn--primary btn--lg"
             disabled={loading}
-            style={{ padding: '11px', background: '#0A84FF', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, marginTop: 4 }}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
           >
-            {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Cadastrar'}
+            {loading ? (
+              <>
+                <Loader2 size={16} className="spin" />
+                Aguarde...
+              </>
+            ) : mode === 'login' ? (
+              'Entrar'
+            ) : (
+              'Cadastrar'
+            )}
           </button>
         </form>
 
-        <p style={{ margin: '20px 0 0', textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
+        <p
+          className="muted"
+          style={{ margin: '22px 0 0', textAlign: 'center', fontSize: 13 }}
+        >
           {mode === 'login' ? 'Não tem conta?' : 'Já tem conta?'}{' '}
           <button
-            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }}
-            style={{ background: 'none', border: 'none', color: '#0A84FF', cursor: 'pointer', fontSize: 13, padding: 0 }}
+            type="button"
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login')
+              setError('')
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent-text)',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+              padding: 0,
+            }}
           >
             {mode === 'login' ? 'Cadastrar' : 'Entrar'}
           </button>

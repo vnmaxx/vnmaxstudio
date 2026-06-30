@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
 import type { WorkspaceFile } from '../types'
+import { useIsMobile } from '../hooks/useMediaQuery'
 import {
   RefreshCw, FolderOpen, FileText, ChevronRight, ArrowLeft, Home, Search,
   Users, PenLine, Package, Globe, Megaphone, Mail, Handshake, ClipboardList,
@@ -85,6 +86,14 @@ function googleUrl(nome?: string) {
   return `https://www.google.com/search?q=${encodeURIComponent(nome || '')}`
 }
 
+function hexToRgb(hex: string) {
+  if (!hex || hex.length < 7) return '10,132,255'
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `${r},${g},${b}`
+}
+
 function LeadCard({ lead, index }: { lead: Lead; index: number }) {
   const { handle, phone } = parseContato(lead.contato)
   const rank    = extractRank(lead.observacao)
@@ -95,91 +104,85 @@ function LeadCard({ lead, index }: { lead: Lead; index: number }) {
   const rankColor = rank === 1 ? '#FFD60A' : rank === 2 ? '#C0C0C0' : rank === 3 ? '#CD7F32' : 'rgba(255,255,255,0.3)'
 
   return (
-    <div style={{
-      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: 14, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+    <div className="card card--pad col gap-3" style={{ gap: 12 }}>
+      <div className="row row--between" style={{ alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+        <div className="flex-1 col" style={{ minWidth: 0, gap: 6 }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             {rank && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: rankColor, background: `${rankColor}18`, border: `1px solid ${rankColor}40`, borderRadius: 6, padding: '1px 7px', flexShrink: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: rankColor, background: `${rankColor}18`, border: `1px solid ${rankColor}40`, borderRadius: 'var(--radius-sm)', padding: '1px 7px', flexShrink: 0 }}>
                 TOP {rank}
               </span>
             )}
-            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span className="truncate" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
               {lead.nome || `Lead #${index + 1}`}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div className="row wrap" style={{ gap: 8 }}>
             {lead.segmento && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--accent)', background: 'rgba(10,132,255,0.1)', border: '1px solid rgba(10,132,255,0.2)', borderRadius: 6, padding: '2px 8px' }}>
-                <Tag size={10} strokeWidth={2} /> {lead.segmento}
+              <span className="chip" style={{ color: 'var(--accent-text)', background: 'var(--accent-softer)', borderColor: 'var(--accent-line)' }}>
+                <Tag size={11} strokeWidth={2} /> {lead.segmento}
               </span>
             )}
             {rating && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: '#FFD60A', background: 'rgba(255,214,10,0.1)', border: '1px solid rgba(255,214,10,0.25)', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>
-                <Star size={10} strokeWidth={2.5} style={{ fill: '#FFD60A' }} /> {rating}
-                {reviews && <span style={{ fontWeight: 400, color: 'rgba(255,214,10,0.7)', fontSize: 10.5 }}>({reviews} avaliações)</span>}
+              <span className="chip" style={{ color: 'var(--accent-yellow)', background: 'color-mix(in srgb, var(--accent-yellow) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-yellow) 25%, transparent)', fontWeight: 600 }}>
+                <Star size={11} strokeWidth={2.5} style={{ fill: 'var(--accent-yellow)' }} /> {rating}
+                {reviews && <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 10.5 }}>({reviews} avaliações)</span>}
               </span>
             )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <div className="row wrap" style={{ gap: 6, flexShrink: 0 }}>
           <a
+            className="btn btn--sm btn--pill"
             href={mapsUrl(lead.nome)}
             target="_blank"
             rel="noopener noreferrer"
             title="Ver no Google Maps"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, background: 'rgba(234,67,53,0.1)', border: '1px solid rgba(234,67,53,0.25)', color: '#EA4335', fontSize: 11.5, textDecoration: 'none', fontWeight: 500, transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(234,67,53,0.18)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(234,67,53,0.1)' }}
+            style={{ background: 'color-mix(in srgb, #EA4335 12%, transparent)', borderColor: 'color-mix(in srgb, #EA4335 28%, transparent)', color: '#EA4335' }}
           >
-            <MapPin size={12} strokeWidth={2} /> Maps
+            <MapPin size={13} strokeWidth={2} /> Maps
           </a>
           <a
+            className="btn btn--sm btn--pill"
             href={googleUrl(lead.nome)}
             target="_blank"
             rel="noopener noreferrer"
             title="Pesquisar no Google"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, background: 'rgba(66,133,244,0.1)', border: '1px solid rgba(66,133,244,0.25)', color: '#4285F4', fontSize: 11.5, textDecoration: 'none', fontWeight: 500, transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(66,133,244,0.18)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(66,133,244,0.1)' }}
+            style={{ background: 'color-mix(in srgb, #4285F4 12%, transparent)', borderColor: 'color-mix(in srgb, #4285F4 28%, transparent)', color: '#4285F4' }}
           >
-            <ExternalLink size={12} strokeWidth={2} /> Google
+            <ExternalLink size={13} strokeWidth={2} /> Google
           </a>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="row wrap" style={{ gap: 8 }}>
         {handle && (
           <a
-            href={`https://instagram.com/${handle.replace('@','')}`}
+            className="chip"
+            href={`https://instagram.com/${handle.replace('@', '')}`}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#BF5AF2', background: 'rgba(191,90,242,0.1)', border: '1px solid rgba(191,90,242,0.2)', borderRadius: 8, padding: '5px 10px', textDecoration: 'none', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(191,90,242,0.18)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(191,90,242,0.1)' }}
+            style={{ color: 'var(--accent-purple)', background: 'color-mix(in srgb, var(--accent-purple) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-purple) 22%, transparent)', textDecoration: 'none' }}
           >
             <AtSign size={12} strokeWidth={2} /> {handle}
           </a>
         )}
         {phone && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#30D158', background: 'rgba(48,209,88,0.08)', border: '1px solid rgba(48,209,88,0.2)', borderRadius: 8, padding: '5px 10px' }}>
+          <span className="chip" style={{ color: 'var(--accent-green)', background: 'color-mix(in srgb, var(--accent-green) 9%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-green) 22%, transparent)' }}>
             <Phone size={12} strokeWidth={2} /> {phone}
           </span>
         )}
         {(lead.fonte as string) && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 10px' }}>
+          <span className="chip muted">
             Fonte: {lead.fonte as string}
           </span>
         )}
       </div>
 
       {obs && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
-          <MessageSquare size={13} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.2)', flexShrink: 0, marginTop: 2 }} />
+        <div className="row" style={{ gap: 8, alignItems: 'flex-start', padding: '10px 12px', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+          <MessageSquare size={14} strokeWidth={1.5} style={{ color: 'var(--text-faint)', flexShrink: 0, marginTop: 2 }} />
           <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{obs}</p>
         </div>
       )}
@@ -204,38 +207,34 @@ function FileViewer({ filename, content, isJson }: { filename: string; content: 
   const isLeads = leads !== null
 
   return (
-    <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+    <div className="panel anim-fade">
+      <div className="panel-head" style={{ gap: 10, flexWrap: 'wrap' }}>
         <FileIconComp name={filename} isDir={false} />
-        <span style={{ color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {filename}
-        </span>
+        <span className="panel-title truncate flex-1">{filename}</span>
         {isLeads && (
-          <span style={{ fontSize: 11, color: '#30D158', background: 'rgba(48,209,88,0.1)', border: '1px solid rgba(48,209,88,0.2)', padding: '2px 8px', borderRadius: 6 }}>
+          <span className="badge" style={{ color: 'var(--accent-green)', background: 'color-mix(in srgb, var(--accent-green) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-green) 22%, transparent)' }}>
             {leads!.length} leads
           </span>
         )}
         {isLeads && (
           <button
+            className={'btn btn--sm' + (rawView ? ' btn--accent-soft' : ' btn--ghost')}
             onClick={() => setRawView(r => !r)}
             title={rawView ? 'Ver cards' : 'Ver JSON'}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 7, background: rawView ? 'rgba(10,132,255,0.15)' : 'rgba(255,255,255,0.06)', border: `1px solid ${rawView ? 'rgba(10,132,255,0.3)' : 'rgba(255,255,255,0.1)'}`, color: rawView ? '#0A84FF' : 'rgba(255,255,255,0.4)', fontSize: 11.5, cursor: 'pointer' }}
           >
-            <Code size={12} strokeWidth={2} /> {rawView ? 'Cards' : 'JSON'}
+            <Code size={13} strokeWidth={2} /> {rawView ? 'Cards' : 'JSON'}
           </button>
         )}
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 6 }}>
-          {fileExt(filename).toUpperCase() || 'TXT'}
-        </span>
+        <span className="badge mono">{fileExt(filename).toUpperCase() || 'TXT'}</span>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: isLeads && !rawView ? '16px 18px' : '16px 20px' }}>
+      <div className="panel-body" style={{ padding: 'clamp(14px, 3vw, 18px)' }}>
         {isLeads && !rawView ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="col" style={{ gap: 12 }}>
             {leads!.map((lead, i) => <LeadCard key={i} lead={lead} index={i} />)}
           </div>
         ) : (
-          <pre style={{ color: '#c9d1d9', fontSize: 12.5, whiteSpace: 'pre-wrap', wordBreak: 'break-words', fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace", lineHeight: 1.75, margin: 0 }}>
+          <pre className="mono" style={{ color: '#c9d1d9', fontSize: 12.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.75, margin: 0 }}>
             {isJson ? (() => { try { const s = content.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```[\s\S]*$/, '').trim(); return JSON.stringify(JSON.parse(s), null, 2) } catch { return content } })() : content}
           </pre>
         )}
@@ -244,20 +243,12 @@ function FileViewer({ filename, content, isJson }: { filename: string; content: 
   )
 }
 
-function hexToRgb(hex: string) {
-  if (!hex || hex.length < 7) return '10,132,255'
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `${r},${g},${b}`
-}
-
 function FileIconComp({ name, isDir }: { name?: string; isDir: boolean }) {
-  if (isDir) return <FolderOpen size={18} strokeWidth={1.5} style={{ color: '#0A84FF' }} />
+  if (isDir) return <FolderOpen size={18} strokeWidth={1.5} style={{ color: 'var(--accent)' }} />
   const ext = fileExt(name)
-  if (ext === 'json') return <Braces size={18} strokeWidth={1.5} style={{ color: '#FFD60A' }} />
-  if (['js', 'ts', 'py', 'sh'].includes(ext)) return <Terminal size={18} strokeWidth={1.5} style={{ color: '#BF5AF2' }} />
-  if (['md', 'txt'].includes(ext)) return <FileText size={18} strokeWidth={1.5} style={{ color: '#32ADE6' }} />
+  if (ext === 'json') return <Braces size={18} strokeWidth={1.5} style={{ color: 'var(--accent-yellow)' }} />
+  if (['js', 'ts', 'py', 'sh'].includes(ext)) return <Terminal size={18} strokeWidth={1.5} style={{ color: 'var(--accent-purple)' }} />
+  if (['md', 'txt'].includes(ext)) return <FileText size={18} strokeWidth={1.5} style={{ color: 'var(--accent-cyan)' }} />
   return <File size={18} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} />
 }
 
@@ -267,6 +258,7 @@ export default function Workspace() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const isMobile = useIsMobile()
 
   const navigate = useCallback(async (segments: string[]) => {
     setLoading(true)
@@ -299,35 +291,33 @@ export default function Workspace() {
   const isRoot = pathStack.length === 0
   const filtered = items.filter(f => (f.name || '').toLowerCase().includes(search.toLowerCase()))
 
-  return (
-    <div style={{ height: '100%', padding: '20px 28px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+  const listCols = isMobile ? '1fr auto' : '1fr 90px 140px'
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+  return (
+    <div className="page page--flush">
+
+      <div className="page-head">
+        <div className="row" style={{ gap: 12, minWidth: 0 }}>
           {pathStack.length > 0 && (
-            <button
-              onClick={goBack}
-              style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-            >
-              <ArrowLeft size={15} strokeWidth={2} />
+            <button className="btn-icon" onClick={goBack} title="Voltar">
+              <ArrowLeft size={16} strokeWidth={2} />
             </button>
           )}
-          <div>
-            <h1 style={{ color: 'var(--text-primary)', fontSize: 20, fontWeight: 700, margin: 0, lineHeight: 1 }}>
+          <div style={{ minWidth: 0 }}>
+            <h1 className="page-title truncate">
               {isRoot ? 'Workspace' : pathStack[pathStack.length - 1]}
             </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 5 }}>
-              <button onClick={goHome} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 11, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <Home size={10} strokeWidth={2} /> workspace
+            <div className="row wrap" style={{ gap: 3, marginTop: 4 }}>
+              <button onClick={goHome} className="btn btn--ghost btn--sm" style={{ padding: '2px 6px', color: 'var(--accent-text)' }}>
+                <Home size={11} strokeWidth={2} /> workspace
               </button>
               {pathStack.map((seg, i) => (
-                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <ChevronRight size={10} style={{ color: 'rgba(255,255,255,0.2)' }} />
+                <span key={i} className="row" style={{ gap: 3 }}>
+                  <ChevronRight size={11} style={{ color: 'var(--text-faint)' }} />
                   <button
                     onClick={() => goTo(pathStack.slice(0, i + 1))}
-                    style={{ background: 'none', border: 'none', color: i === pathStack.length - 1 ? 'rgba(255,255,255,0.4)' : 'var(--accent)', fontSize: 11, cursor: i === pathStack.length - 1 ? 'default' : 'pointer', padding: 0 }}
+                    className="btn btn--ghost btn--sm"
+                    style={{ padding: '2px 6px', color: i === pathStack.length - 1 ? 'var(--text-tertiary)' : 'var(--accent-text)', cursor: i === pathStack.length - 1 ? 'default' : 'pointer' }}
                   >
                     {seg}
                   </button>
@@ -337,75 +327,57 @@ export default function Workspace() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="page-head-actions">
           {!fileContent && items.length > 4 && (
             <div style={{ position: 'relative' }}>
-              <Search size={13} strokeWidth={1.5} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
+              <Search size={14} strokeWidth={1.5} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', pointerEvents: 'none' }} />
               <input
+                className="input input--search"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Filtrar..."
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px 7px 30px', fontSize: 13, color: 'var(--text-primary)', outline: 'none', width: 160 }}
+                style={{ width: 'min(200px, 46vw)' }}
               />
             </div>
           )}
-          <button
-            onClick={() => navigate(pathStack)}
-            style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-          >
-            <RefreshCw size={14} strokeWidth={1.5} />
+          <button className="btn-icon" onClick={() => navigate(pathStack)} title="Atualizar">
+            <RefreshCw size={15} strokeWidth={1.5} />
           </button>
         </div>
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(255,69,58,0.08)', border: '1px solid rgba(255,69,58,0.2)', color: '#FF453A', borderRadius: 12, padding: '12px 16px', fontSize: 13, marginBottom: 16 }}>
+        <div className="card card--pad anim-fade" style={{ background: 'color-mix(in srgb, var(--accent-red) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-red) 25%, transparent)', color: 'var(--accent-red)', fontSize: 13 }}>
           {error}
         </div>
       )}
 
       {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 12 }}>
-          <RefreshCw size={20} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.2)', animation: 'spin 0.9s linear infinite' }} />
-          <span style={{ color: 'var(--text-tertiary)', fontSize: 13 }}>Carregando...</span>
+        <div className="empty">
+          <RefreshCw size={22} strokeWidth={1.5} className="spin" />
+          <p>Carregando...</p>
         </div>
       )}
 
       {!loading && isRoot && result?.type === 'dir' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gridAutoRows: '1fr', gap: 14, flex: 1, overflow: 'hidden' }}>
+        <div className="grid grid--auto anim-rise">
           {filtered.map(d => {
             const meta = DIR_META[d.name] || { icon: <Folder size={22} strokeWidth={1.4} />, color: '#0A84FF' }
             const rgb = hexToRgb(meta.color)
             return (
               <button
                 key={d.name}
+                className="card card--hover"
                 onClick={() => goTo([d.name])}
                 style={{
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: 18, padding: '22px 20px', textAlign: 'left', cursor: 'pointer', height: '100%', boxSizing: 'border-box',
-                  display: 'flex', flexDirection: 'column',
-                  transition: 'all 0.22s cubic-bezier(0.4,0,0.2,1)', position: 'relative', overflow: 'hidden',
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget
-                  el.style.background = `rgba(${rgb},0.08)`
-                  el.style.borderColor = `rgba(${rgb},0.3)`
-                  el.style.transform = 'translateY(-3px)'
-                  el.style.boxShadow = `0 8px 24px rgba(${rgb},0.15)`
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget
-                  el.style.background = 'rgba(255,255,255,0.03)'
-                  el.style.borderColor = 'rgba(255,255,255,0.07)'
-                  el.style.transform = 'none'
-                  el.style.boxShadow = 'none'
+                  padding: '22px 20px', textAlign: 'left',
+                  display: 'flex', flexDirection: 'column', gap: 4,
+                  position: 'relative', overflow: 'hidden', minHeight: 140,
                 }}
               >
-                <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `radial-gradient(circle, rgba(${rgb},0.12) 0%, transparent 70%)`, pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `radial-gradient(circle, rgba(${rgb},0.14) 0%, transparent 70%)`, pointerEvents: 'none' }} />
                 <div style={{ color: meta.color, marginBottom: 'auto', display: 'flex', paddingBottom: 16 }}>{meta.icon}</div>
-                <p style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, margin: '0 0 5px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
+                <p className="truncate" style={{ color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 600, margin: 0 }}>{d.name}</p>
                 <p style={{ margin: 0, fontSize: 11.5, fontWeight: 500, color: `rgba(${rgb},0.85)` }}>
                   {(d as WorkspaceFile & { count?: number }).count ?? 0} {((d as WorkspaceFile & { count?: number }).count ?? 0) === 1 ? 'item' : 'itens'}
                 </p>
@@ -416,19 +388,19 @@ export default function Workspace() {
       )}
 
       {!loading && !isRoot && result?.type === 'dir' && (
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
+        <div className="card anim-fade" style={{ overflow: 'hidden', padding: 0 }}>
           {filtered.length === 0 && (
-            <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-              <FolderOpen size={28} strokeWidth={1} style={{ color: 'rgba(255,255,255,0.1)', marginBottom: 10 }} />
-              <p style={{ color: 'var(--text-tertiary)', fontSize: 13, margin: 0 }}>{search ? 'Nenhum resultado' : 'Diretório vazio'}</p>
+            <div className="empty">
+              <FolderOpen size={30} strokeWidth={1} />
+              <p>{search ? 'Nenhum resultado' : 'Diretório vazio'}</p>
             </div>
           )}
 
           {filtered.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 130px', padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nome</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right', paddingRight: 20 }}>Tamanho</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>Modificado</span>
+            <div style={{ display: 'grid', gridTemplateColumns: listCols, padding: '10px 16px', borderBottom: '1px solid var(--border)', gap: 12 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nome</span>
+              {!isMobile && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>Tamanho</span>}
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>{isMobile ? '' : 'Modificado'}</span>
             </div>
           )}
 
@@ -436,29 +408,32 @@ export default function Workspace() {
             <button
               key={f.name}
               onClick={() => goTo([...pathStack, f.name])}
+              className="ws-row"
               style={{
-                display: 'grid', gridTemplateColumns: '1fr 80px 130px',
+                display: 'grid', gridTemplateColumns: listCols, gap: 12,
                 alignItems: 'center', width: '100%', textAlign: 'left',
-                padding: '11px 16px', cursor: 'pointer', background: 'transparent',
-                border: 'none', borderBottom: i < filtered.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                padding: '12px 16px', cursor: 'pointer', background: 'transparent',
+                border: 'none', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
                 transition: 'background 0.12s',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.03)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-2)' }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span className="row" style={{ gap: 10, minWidth: 0 }}>
                 <FileIconComp name={f.name} isDir={f.isDir} />
-                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                  {f.isDir && <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>Pasta</span>}
+                <span className="col" style={{ minWidth: 0 }}>
+                  <span className="truncate" style={{ color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 500 }}>{f.name}</span>
+                  {f.isDir && <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>Pasta</span>}
                 </span>
               </span>
-              <span style={{ fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'right', paddingRight: 20 }}>
-                {f.isDir ? '—' : formatSize(f.size)}
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.3)' }}>{formatDate(f.mtime)}</span>
-                <ChevronRight size={13} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
+              {!isMobile && (
+                <span style={{ fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'right' }}>
+                  {f.isDir ? '—' : formatSize(f.size)}
+                </span>
+              )}
+              <span className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                {!isMobile && <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>{formatDate(f.mtime)}</span>}
+                <ChevronRight size={14} strokeWidth={1.5} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
               </span>
             </button>
           ))}

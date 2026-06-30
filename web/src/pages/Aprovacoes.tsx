@@ -1,30 +1,21 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
 import type { AprovacaoResumo, AprovacaoCompleta } from '../types'
-import { Check, X, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
+import { useIsMobile } from '../hooks/useMediaQuery'
+import {
+  Check,
+  X,
+  RefreshCw,
+  CheckCircle2,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 
 function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 20,
-        right: 20,
-        zIndex: 100,
-        background: 'rgba(20,20,22,0.95)',
-        border: `1px solid rgba(255,255,255,0.12)`,
-        borderLeft: `3px solid ${type === 'success' ? '#30D158' : '#FF453A'}`,
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderRadius: 12,
-        padding: '12px 16px',
-        fontSize: 13,
-        color: 'var(--text-primary)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        fontWeight: 500,
-      }}
-    >
-      {msg}
+    <div className="toast-wrap">
+      <div className={'toast toast--' + type + ' anim-rise'}>{msg}</div>
     </div>
   )
 }
@@ -53,7 +44,7 @@ function AprovacaoItem({
       const data = await api.getPendente(item.id)
       setFull(data)
     } catch {
-      // ignore
+      setFull(null)
     } finally {
       setLoadingFull(false)
     }
@@ -91,206 +82,185 @@ function AprovacaoItem({
     return JSON.stringify(content, null, 2)
   }
 
-  const tipoDot = item.tipo.toLowerCase().includes('email')
-    ? '#0A84FF'
-    : 'rgba(255,255,255,0.3)'
+  const isEmail = item.tipo.toLowerCase().includes('email')
 
   return (
-    <div
-      style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 16,
-        overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
-    >
-      <div style={{ padding: '14px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          {/* Left info */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <div
+    <div className="card anim-rise" style={{ overflow: 'hidden' }}>
+      <div style={{ padding: 'clamp(13px, 1.8vw, 16px)' }}>
+        <div
+          className="row gap-3"
+          style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}
+        >
+          <div className="flex-1" style={{ minWidth: 0 }}>
+            <div
+              className="row gap-2"
+              style={{ marginBottom: 7, flexWrap: 'wrap' }}
+            >
+              <span
+                className="dot"
                 style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  background: tipoDot,
-                  flexShrink: 0,
+                  background: isEmail
+                    ? 'var(--accent)'
+                    : 'var(--text-faint)',
+                  boxShadow: isEmail
+                    ? '0 0 7px color-mix(in srgb, var(--accent) 60%, transparent)'
+                    : 'none',
                 }}
               />
               <span
+                className="badge"
                 style={{
-                  background: 'rgba(10,132,255,0.12)',
-                  color: '#0A84FF',
-                  border: '1px solid rgba(10,132,255,0.2)',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  padding: '2px 7px',
-                  borderRadius: 6,
+                  background: isEmail
+                    ? 'color-mix(in srgb, var(--accent) 14%, transparent)'
+                    : undefined,
+                  color: isEmail ? 'var(--accent-text)' : undefined,
                 }}
               >
                 {item.tipo}
               </span>
               <span
+                className="mono truncate hide-xs"
                 style={{
-                  color: 'var(--text-tertiary)',
+                  color: 'var(--text-faint)',
                   fontSize: 11,
-                  fontFamily: "'SF Mono', 'Fira Code', monospace",
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
+                  maxWidth: 180,
                 }}
               >
                 {item.id}
               </span>
             </div>
-            <p style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 500, margin: '0 0 4px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <p
+              className="truncate"
+              style={{
+                color: 'var(--text-primary)',
+                fontSize: 13.5,
+                fontWeight: 500,
+                margin: '0 0 4px 0',
+              }}
+            >
               {item.resumo}
             </p>
-            <p style={{ color: 'var(--text-tertiary)', fontSize: 11, margin: 0 }}>
-              {new Date(item.data).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+            <p
+              style={{
+                color: 'var(--text-tertiary)',
+                fontSize: 11.5,
+                margin: 0,
+              }}
+            >
+              {new Date(item.data).toLocaleString('pt-BR', {
+                timeZone: 'America/Sao_Paulo',
+              })}
             </p>
           </div>
 
-          {/* Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <div
+            className="row gap-2 wrap"
+            style={{ flexShrink: 0, justifyContent: 'flex-end' }}
+          >
             <button
+              className="btn btn--success btn--sm btn--pill"
               onClick={handleAprovar}
               disabled={aprovando}
-              style={{
-                background: 'rgba(48,209,88,0.15)',
-                border: '1px solid rgba(48,209,88,0.25)',
-                color: '#30D158',
-                padding: '6px 12px',
-                borderRadius: 980,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: aprovando ? 'not-allowed' : 'pointer',
-                opacity: aprovando ? 0.5 : 1,
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
+              style={aprovando ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
             >
-              {aprovando
-                ? <Loader2 size={12} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} />
-                : <><Check size={12} strokeWidth={2} /> Aprovar</>
+              {aprovando ? (
+                <Loader2 size={13} strokeWidth={2} className="spin" />
+              ) : (
+                <>
+                  <Check size={13} strokeWidth={2} /> Aprovar
+                </>
+              )}
+            </button>
+            <button
+              className={
+                'btn btn--sm btn--pill ' +
+                (showRejeitar ? 'btn--danger' : 'btn--ghost')
               }
-            </button>
-            <button
               onClick={() => setShowRejeitar(s => !s)}
-              style={{
-                background: showRejeitar ? 'rgba(255,69,58,0.15)' : 'transparent',
-                border: '1px solid rgba(255,69,58,0.25)',
-                color: '#FF453A',
-                padding: '6px 12px',
-                borderRadius: 980,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
+              style={
+                showRejeitar
+                  ? undefined
+                  : {
+                      color: 'var(--accent-red)',
+                      borderColor:
+                        'color-mix(in srgb, var(--accent-red) 30%, transparent)',
+                    }
+              }
             >
-              <X size={12} strokeWidth={2} /> Rejeitar
+              <X size={13} strokeWidth={2} /> Rejeitar
             </button>
             <button
+              className="btn-icon btn-icon--sm"
               onClick={handleExpand}
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'var(--text-secondary)',
-                padding: '6px 10px',
-                borderRadius: 8,
-                fontSize: 12,
-                cursor: 'pointer',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              }}
+              title={expanded ? 'Recolher' : 'Expandir'}
             >
-              {expanded ? '▲' : '▼'}
+              {expanded ? (
+                <ChevronUp size={15} strokeWidth={2} />
+              ) : (
+                <ChevronDown size={15} strokeWidth={2} />
+              )}
             </button>
           </div>
         </div>
 
-        {/* Reject input */}
         {showRejeitar && (
-          <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+          <div
+            className="row gap-2 wrap anim-fade"
+            style={{ marginTop: 11 }}
+          >
             <input
+              className="input flex-1"
               type="text"
               value={motivo}
               onChange={e => setMotivo(e.target.value)}
               placeholder="Motivo da rejeição..."
               onKeyDown={e => e.key === 'Enter' && handleRejeitar()}
-              style={{
-                flex: 1,
-                background: 'rgba(0,0,0,0.4)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 10,
-                color: 'var(--text-primary)',
-                padding: '8px 12px',
-                fontSize: 13,
-                outline: 'none',
-                fontFamily: 'inherit',
-              }}
-              onFocus={e => {
-                (e.target as HTMLInputElement).style.borderColor = 'var(--accent)'
-              }}
-              onBlur={e => {
-                (e.target as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.1)'
-              }}
+              style={{ minWidth: 180 }}
             />
             <button
+              className="btn btn--danger"
               onClick={handleRejeitar}
               disabled={rejeitando || !motivo.trim()}
-              style={{
-                background: 'rgba(255,69,58,0.15)',
-                border: '1px solid rgba(255,69,58,0.3)',
-                color: '#FF453A',
-                padding: '8px 16px',
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: rejeitando || !motivo.trim() ? 'not-allowed' : 'pointer',
-                opacity: rejeitando || !motivo.trim() ? 0.5 : 1,
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              {rejeitando
-                ? <Loader2 size={13} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} />
-                : 'Confirmar'
+              style={
+                rejeitando || !motivo.trim()
+                  ? { opacity: 0.5, cursor: 'not-allowed' }
+                  : undefined
               }
+            >
+              {rejeitando ? (
+                <Loader2 size={14} strokeWidth={2} className="spin" />
+              ) : (
+                'Confirmar'
+              )}
             </button>
           </div>
         )}
       </div>
 
-      {/* Expanded content */}
       {expanded && (
         <div
+          className="anim-fade"
           style={{
-            borderTop: '1px solid rgba(255,255,255,0.06)',
-            background: 'rgba(0,0,0,0.4)',
-            padding: 16,
+            borderTop: '1px solid var(--border)',
+            background: 'rgba(0,0,0,0.32)',
+            padding: 'clamp(13px, 1.8vw, 16px)',
           }}
         >
           {loadingFull ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: 0 }}>Carregando...</p>
+            <p
+              className="row gap-2"
+              style={{ color: 'var(--text-secondary)', fontSize: 13, margin: 0 }}
+            >
+              <Loader2 size={14} strokeWidth={2} className="spin" /> Carregando...
+            </p>
           ) : full ? (
             <pre
+              className="mono scroll"
               style={{
                 color: 'var(--text-secondary)',
                 fontSize: 11.5,
                 whiteSpace: 'pre-wrap',
-                wordBreak: 'break-words',
-                fontFamily: "'SF Mono', 'Fira Code', monospace",
+                wordBreak: 'break-word',
                 lineHeight: 1.7,
                 margin: 0,
                 maxHeight: 320,
@@ -300,7 +270,11 @@ function AprovacaoItem({
               {renderContent(full.conteudo)}
             </pre>
           ) : (
-            <p style={{ color: 'var(--text-tertiary)', fontSize: 13, margin: 0 }}>Sem conteúdo</p>
+            <p
+              style={{ color: 'var(--text-tertiary)', fontSize: 13, margin: 0 }}
+            >
+              Sem conteúdo
+            </p>
           )}
         </div>
       )}
@@ -313,6 +287,7 @@ export default function Aprovacoes() {
   const [loading, setLoading] = useState(true)
   const [aprovandoTodos, setAprovandoTodos] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
+  const isMobile = useIsMobile()
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type })
@@ -371,101 +346,77 @@ export default function Aprovacoes() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ padding: '20px 24px', gap: 16 }}>
+    <div className="page page--flush">
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
-      {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between">
+      <div className="page-head">
         <div>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: 20, fontWeight: 600, margin: 0, lineHeight: 1 }}>
-            Aprovações
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '4px 0 0 0' }}>
-            {items.length > 0 ? `${items.length} item${items.length > 1 ? 's' : ''} aguardando` : 'Nada pendente'}
+          <h1 className="page-title">Aprovações</h1>
+          <p className="page-sub">
+            {items.length > 0
+              ? `${items.length} item${items.length > 1 ? 's' : ''} aguardando`
+              : 'Nada pendente'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="page-head-actions">
           <button
+            className="btn-icon"
             onClick={loadItems}
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: 'var(--text-secondary)',
-              fontSize: 14,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
             title="Atualizar"
           >
-            <RefreshCw size={14} strokeWidth={1.5} />
+            <RefreshCw size={15} strokeWidth={1.75} />
           </button>
           {items.length > 1 && (
             <button
+              className="btn btn--success btn--pill"
               onClick={handleAprovarTodos}
               disabled={aprovandoTodos}
-              style={{
-                background: 'rgba(48,209,88,0.15)',
-                border: '1px solid rgba(48,209,88,0.3)',
-                color: '#30D158',
-                padding: '8px 16px',
-                borderRadius: 980,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: aprovandoTodos ? 'not-allowed' : 'pointer',
-                opacity: aprovandoTodos ? 0.5 : 1,
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              {aprovandoTodos
-                ? <><Loader2 size={13} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} /> Aprovando...</>
-                : <><Check size={13} strokeWidth={2} /> Aprovar Todos</>
+              style={
+                aprovandoTodos
+                  ? { opacity: 0.5, cursor: 'not-allowed' }
+                  : undefined
               }
+            >
+              {aprovandoTodos ? (
+                <>
+                  <Loader2 size={14} strokeWidth={2} className="spin" />
+                  {isMobile ? 'Aprovando...' : 'Aprovando...'}
+                </>
+              ) : (
+                <>
+                  <Check size={14} strokeWidth={2} />
+                  {isMobile ? 'Aprovar todos' : 'Aprovar Todos'}
+                </>
+              )}
             </button>
           )}
         </div>
       </div>
 
-      {/* Content */}
       {loading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <span style={{ color: 'var(--text-secondary)', fontSize: 15 }}>Carregando...</span>
+        <div className="empty">
+          <Loader2 size={30} strokeWidth={1.5} className="spin" />
+          <p className="muted">Carregando...</p>
         </div>
       ) : items.length === 0 ? (
-        <div
-          className="flex-1 flex items-center justify-center"
-        >
-          <div
+        <div className="empty anim-fade">
+          <CheckCircle2 size={48} strokeWidth={1} />
+          <p
             style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 20,
-              padding: '48px 64px',
-              textAlign: 'center',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+              color: 'var(--text-primary)',
+              fontSize: 16,
+              fontWeight: 600,
+              margin: 0,
             }}
           >
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
-              <CheckCircle2 size={48} strokeWidth={1} style={{ opacity: 0.3 }} />
-            </div>
-            <h3 style={{ color: 'var(--text-primary)', fontSize: 16, fontWeight: 600, margin: '0 0 8px 0' }}>
-              Tudo aprovado
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: 0 }}>
-              Nenhum item aguardando aprovação.
-            </p>
-          </div>
+            Tudo aprovado
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            Nenhum item aguardando aprovação.
+          </p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="col gap-3">
           {items.map(item => (
             <AprovacaoItem
               key={item.id}

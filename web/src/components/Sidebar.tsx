@@ -1,117 +1,183 @@
-import { NavLink } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
+import { useEffect, useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { useAuth } from '../contexts/AuthContext'
-import { LayoutDashboard, CheckSquare, BarChart3, FolderOpen, ScrollText, Shield, LogOut, Settings, Zap } from 'lucide-react'
+import {
+  LayoutDashboard, CheckSquare, BarChart3, FolderOpen, ScrollText,
+  Shield, LogOut, Settings, Zap, Menu, X, Briefcase,
+} from 'lucide-react'
 import NotificationBell from './NotificationBell'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} strokeWidth={1.5} /> },
-  { to: '/aprovacoes', label: 'Aprovações', icon: <CheckSquare size={16} strokeWidth={1.5} />, badge: true },
-  { to: '/relatorios', label: 'Relatórios', icon: <BarChart3 size={16} strokeWidth={1.5} /> },
-  { to: '/workspace', label: 'Workspace', icon: <FolderOpen size={16} strokeWidth={1.5} /> },
-  { to: '/logs', label: 'Logs', icon: <ScrollText size={16} strokeWidth={1.5} /> },
-  { to: '/pipelines', label: 'Pipelines', icon: <Zap size={16} strokeWidth={1.5} /> },
+export interface NavItem {
+  to: string
+  label: string
+  icon: ReactNode
+  primary?: boolean
+  adminOnly?: boolean
+  badge?: boolean
+}
+
+export const NAV_ITEMS: NavItem[] = [
+  { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} strokeWidth={1.6} />, primary: true },
+  { to: '/aprovacoes', label: 'Aprovações', icon: <CheckSquare size={18} strokeWidth={1.6} />, primary: true, badge: true },
+  { to: '/pipelines', label: 'Pipelines', icon: <Zap size={18} strokeWidth={1.6} />, primary: true },
+  { to: '/workspace', label: 'Workspace', icon: <FolderOpen size={18} strokeWidth={1.6} />, primary: true },
+  { to: '/relatorios', label: 'Relatórios', icon: <BarChart3 size={18} strokeWidth={1.6} /> },
+  { to: '/logs', label: 'Logs', icon: <ScrollText size={18} strokeWidth={1.6} /> },
+  { to: '/ceo', label: 'CEO', icon: <Briefcase size={18} strokeWidth={1.6} />, adminOnly: true },
+  { to: '/admin', label: 'Usuários', icon: <Shield size={18} strokeWidth={1.6} />, adminOnly: true },
+  { to: '/configuracoes', label: 'Configurações', icon: <Settings size={18} strokeWidth={1.6} /> },
 ]
 
-export default function Sidebar() {
-  const [pendingCount, setPendingCount] = useState(0)
-  const { user, logout } = useAuth()
-
+export function usePendingCount(): number {
+  const [count, setCount] = useState(0)
   useEffect(() => {
+    let alive = true
     const load = async () => {
-      try {
-        const list = await api.getPendentes()
-        setPendingCount(list.length)
-      } catch {
-        setPendingCount(0)
-      }
+      try { const list = await api.getPendentes(); if (alive) setCount(list.length) }
+      catch { if (alive) setCount(0) }
     }
     load()
-    const interval = setInterval(load, 30000)
-    return () => clearInterval(interval)
+    const iv = setInterval(load, 30000)
+    return () => { alive = false; clearInterval(iv) }
   }, [])
+  return count
+}
 
-  const linkStyle = (isActive: boolean) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 9,
-    padding: '8px 12px',
-    margin: '2px 8px',
-    borderRadius: 10,
-    fontSize: 13.5,
-    fontWeight: 500,
-    textDecoration: 'none',
-    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-    background: isActive ? 'rgba(10,132,255,0.18)' : 'transparent',
-    color: isActive ? '#0A84FF' : 'rgba(255,255,255,0.5)',
-    border: isActive ? '1px solid rgba(10,132,255,0.25)' : '1px solid transparent',
-  })
+export function navTitle(pathname: string): string {
+  const item = NAV_ITEMS.find(i => pathname.startsWith(i.to))
+  return item?.label || 'Studio IA'
+}
+
+function navClass({ isActive }: { isActive: boolean }) {
+  return 'nav-link' + (isActive ? ' is-active' : '')
+}
+
+function Brand() {
+  return (
+    <div className="row" style={{ gap: 11 }}>
+      <img src="/logo.png" alt="Studio IA" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+      <div>
+        <h1 style={{ fontWeight: 700, fontSize: 15, lineHeight: 1, margin: 0, letterSpacing: '-0.01em' }}>Studio IA</h1>
+        <p className="dim" style={{ fontSize: 10.5, margin: '3px 0 0' }}>Sistema Autônomo</p>
+      </div>
+    </div>
+  )
+}
+
+function NavBadge({ count }: { count: number }) {
+  if (count <= 0) return null
+  return (
+    <span style={{ background: 'var(--accent-red)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, lineHeight: '16px', marginLeft: 'auto' }}>
+      {count}
+    </span>
+  )
+}
+
+export default function Sidebar() {
+  const { user, logout } = useAuth()
+  const pending = usePendingCount()
+  const items = NAV_ITEMS.filter(i => !i.adminOnly || user?.isAdmin)
 
   return (
-    <aside style={{ background: 'rgba(12,12,14,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRight: '1px solid rgba(255,255,255,0.06)', width: 220, height: '100vh', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-      <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <img src="/logo.png" alt="Studio IA" style={{ width: 32, height: 32, objectFit: 'contain' }} />
-        <div>
-          <h1 style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 15, lineHeight: 1, margin: 0 }}>Studio IA</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 11, margin: '3px 0 0 0' }}>Sistema Autônomo</p>
-        </div>
+    <aside className="sidebar only-desktop">
+      <div style={{ padding: '20px 16px', borderBottom: '1px solid var(--border)' }}>
+        <Brand />
       </div>
 
-      <nav style={{ flex: 1, padding: '10px 0' }}>
-        {navItems.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            style={({ isActive }) => linkStyle(isActive)}
-            onMouseEnter={e => { const el = e.currentTarget; if (!el.style.background.includes('0.18')) { el.style.background = 'rgba(255,255,255,0.08)'; el.style.color = 'var(--text-primary)' } }}
-            onMouseLeave={e => { const el = e.currentTarget; if (!el.style.background.includes('0.18')) { el.style.background = 'transparent'; el.style.color = 'rgba(255,255,255,0.5)' } }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
+      <nav className="scroll" style={{ flex: 1, padding: '12px' }}>
+        {items.map(item => (
+          <NavLink key={item.to} to={item.to} className={navClass}>
+            {item.icon}
             <span style={{ flex: 1 }}>{item.label}</span>
-            {item.badge && pendingCount > 0 && (
-              <span style={{ background: '#FF453A', color: 'white', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, lineHeight: '16px' }}>{pendingCount}</span>
-            )}
+            {item.badge && <NavBadge count={pending} />}
           </NavLink>
         ))}
-
-        {user?.isAdmin && (
-          <NavLink
-            to="/admin"
-            style={({ isActive }) => linkStyle(isActive)}
-            onMouseEnter={e => { const el = e.currentTarget; if (!el.style.background.includes('0.18')) { el.style.background = 'rgba(255,255,255,0.08)'; el.style.color = 'var(--text-primary)' } }}
-            onMouseLeave={e => { const el = e.currentTarget; if (!el.style.background.includes('0.18')) { el.style.background = 'transparent'; el.style.color = 'rgba(255,255,255,0.5)' } }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center' }}><Shield size={16} strokeWidth={1.5} /></span>
-            <span style={{ flex: 1 }}>Usuários</span>
-          </NavLink>
-        )}
       </nav>
 
-      <div style={{ padding: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ padding: '6px 12px', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{user?.email}</p>
+      <div style={{ padding: '12px', borderTop: '1px solid var(--border)' }}>
+        <div className="row" style={{ gap: 8, padding: '4px 8px 10px' }}>
+          <p className="muted truncate" style={{ margin: 0, fontSize: 12, flex: 1 }}>{user?.email}</p>
           <NotificationBell />
         </div>
-        <NavLink
-          to="/configuracoes"
-          style={({ isActive }) => ({ ...linkStyle(isActive), marginBottom: 2 })}
-          onMouseEnter={e => { const el = e.currentTarget; if (!el.style.background.includes('0.18')) { el.style.background = 'rgba(255,255,255,0.08)'; el.style.color = 'var(--text-primary)' } }}
-          onMouseLeave={e => { const el = e.currentTarget; if (!el.style.background.includes('0.18')) { el.style.background = 'transparent'; el.style.color = 'rgba(255,255,255,0.5)' } }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center' }}><Settings size={16} strokeWidth={1.5} /></span>
-          <span style={{ flex: 1 }}>Configurações</span>
-        </NavLink>
-        <button
-          onClick={logout}
-          style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 12px', background: 'transparent', border: '1px solid transparent', borderRadius: 10, color: 'rgba(255,255,255,0.4)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s' }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,69,58,0.12)'; e.currentTarget.style.color = '#FF453A' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)' }}
-        >
-          <LogOut size={16} strokeWidth={1.5} />
-          Sair
+        <button onClick={logout} className="nav-link" style={{ width: '100%', color: 'var(--text-tertiary)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'color-mix(in srgb, var(--accent-red) 12%, transparent)'; e.currentTarget.style.color = 'var(--accent-red)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-tertiary)' }}>
+          <LogOut size={18} strokeWidth={1.6} />
+          <span style={{ flex: 1 }}>Sair</span>
         </button>
       </div>
     </aside>
+  )
+}
+
+export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
+  const { pathname } = useLocation()
+  return (
+    <header className="mobile-topbar only-mobile">
+      <button className="btn-icon btn-icon--sm" onClick={onMenu} aria-label="Menu" style={{ background: 'transparent', border: 'none' }}>
+        <Menu size={20} strokeWidth={1.8} />
+      </button>
+      <span className="mobile-topbar-title truncate">{navTitle(pathname)}</span>
+      <NotificationBell />
+    </header>
+  )
+}
+
+export function MobileTabBar() {
+  const pending = usePendingCount()
+  const items = NAV_ITEMS.filter(i => i.primary)
+  return (
+    <nav className="mobile-tabbar only-mobile">
+      {items.map(item => (
+        <NavLink key={item.to} to={item.to} className={({ isActive }) => 'tab-link' + (isActive ? ' is-active' : '')}>
+          <span style={{ position: 'relative', display: 'flex' }}>
+            {item.icon}
+            {item.badge && pending > 0 && (
+              <span style={{ position: 'absolute', top: -4, right: -6, background: 'var(--accent-red)', color: '#fff', fontSize: 8.5, fontWeight: 700, minWidth: 15, height: 15, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', border: '1.5px solid var(--bg-deep)' }}>
+                {pending}
+              </span>
+            )}
+          </span>
+          <span>{item.label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  )
+}
+
+export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { user, logout } = useAuth()
+  const pending = usePendingCount()
+  const items = NAV_ITEMS.filter(i => !i.adminOnly || user?.isAdmin)
+  if (!open) return null
+  return (
+    <>
+      <div className="drawer-backdrop only-mobile" onClick={onClose} />
+      <aside className="drawer only-mobile">
+        <div className="row--between" style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
+          <Brand />
+          <button className="btn-icon btn-icon--sm" onClick={onClose} aria-label="Fechar" style={{ background: 'transparent', border: 'none' }}>
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
+        <nav className="scroll" style={{ flex: 1, padding: 12 }}>
+          {items.map(item => (
+            <NavLink key={item.to} to={item.to} onClick={onClose} className={navClass}>
+              {item.icon}
+              <span style={{ flex: 1 }}>{item.label}</span>
+              {item.badge && <NavBadge count={pending} />}
+            </NavLink>
+          ))}
+        </nav>
+        <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
+          <p className="muted truncate" style={{ margin: '0 0 10px', fontSize: 12, padding: '0 8px' }}>{user?.email}</p>
+          <button onClick={() => { logout(); onClose() }} className="nav-link" style={{ width: '100%', color: 'var(--accent-red)' }}>
+            <LogOut size={18} strokeWidth={1.6} />
+            <span style={{ flex: 1 }}>Sair</span>
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }

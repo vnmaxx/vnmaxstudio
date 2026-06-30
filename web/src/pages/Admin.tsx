@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import { CheckCircle, Clock, UserCheck } from 'lucide-react'
+import { CheckCircle2, Clock, UserCheck, Users, RefreshCw, Loader2, ShieldOff } from 'lucide-react'
 
 interface UsuarioFirestore {
   uid: string
@@ -39,70 +39,136 @@ export default function Admin() {
   const pendentes = usuarios.filter(u => !u.approved && u.email !== 'admin@studioia.com')
   const aprovados = usuarios.filter(u => u.approved && u.email !== 'admin@studioia.com')
 
+  function UsuarioCard({ u, acao }: { u: UsuarioFirestore; acao: 'aprovar' | 'revogar' }) {
+    const inicial = (u.displayName || u.email || '?').trim().charAt(0).toUpperCase()
+    return (
+      <div className="card card--pad anim-rise">
+        <div className="row row--between gap-3 wrap" style={{ alignItems: 'center' }}>
+          <div className="row gap-3 flex-1" style={{ minWidth: 0, alignItems: 'center' }}>
+            <div
+              className="center"
+              style={{
+                width: 38,
+                height: 38,
+                flexShrink: 0,
+                borderRadius: 'var(--radius-pill)',
+                background: acao === 'aprovar'
+                  ? 'color-mix(in srgb, var(--accent-orange) 16%, transparent)'
+                  : 'color-mix(in srgb, var(--accent-green) 16%, transparent)',
+                color: acao === 'aprovar' ? 'var(--accent-orange)' : 'var(--accent-green)',
+                fontSize: 15,
+                fontWeight: 600,
+              }}
+            >
+              {inicial}
+            </div>
+            <div className="col" style={{ minWidth: 0, gap: 2 }}>
+              <p className="truncate" style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>
+                {u.email}
+              </p>
+              {u.displayName && (
+                <p className="truncate" style={{ margin: 0, fontSize: 12.5, color: 'var(--text-tertiary)' }}>
+                  {u.displayName}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {acao === 'aprovar' ? (
+            <button className="btn btn--success btn--sm btn--pill" onClick={() => aprovar(u.uid)}>
+              <UserCheck size={14} strokeWidth={1.75} />
+              Aprovar
+            </button>
+          ) : (
+            <button className="btn btn--ghost btn--sm btn--pill" onClick={() => revogar(u.uid)}>
+              <ShieldOff size={14} strokeWidth={1.75} />
+              Revogar
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ padding: '32px 24px', maxWidth: 700 }}>
-      <h1 style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 600, color: 'var(--text-primary)' }}>Gerenciar Usuários</h1>
-      <p style={{ margin: '0 0 32px', color: 'var(--text-secondary)', fontSize: 14 }}>{usuarios.length} conta(s) registrada(s)</p>
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Gerenciar Usuários</h1>
+          <p className="page-sub">
+            {usuarios.length} conta{usuarios.length === 1 ? '' : 's'} registrada{usuarios.length === 1 ? '' : 's'}
+          </p>
+        </div>
+        <div className="page-head-actions">
+          <button className="btn-icon" onClick={carregar} title="Atualizar" disabled={loading}>
+            {loading
+              ? <Loader2 size={15} strokeWidth={1.75} className="spin" />
+              : <RefreshCw size={15} strokeWidth={1.75} />}
+          </button>
+        </div>
+      </div>
 
       {loading ? (
-        <p style={{ color: 'var(--text-secondary)' }}>Carregando...</p>
+        <div className="empty">
+          <Loader2 size={30} strokeWidth={1.5} className="spin" />
+          <p className="muted">Carregando...</p>
+        </div>
+      ) : pendentes.length === 0 && aprovados.length === 0 ? (
+        <div className="empty anim-fade">
+          <Users size={48} strokeWidth={1} />
+          <p style={{ color: 'var(--text-primary)', fontSize: 16, fontWeight: 600, margin: 0 }}>
+            Nenhum usuário cadastrado
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            As contas registradas aparecerão aqui.
+          </p>
+        </div>
       ) : (
-        <>
+        <div className="col gap-6">
           {pendentes.length > 0 && (
-            <div style={{ marginBottom: 32 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <Clock size={16} color="#FF9F0A" strokeWidth={1.5} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#FF9F0A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Aguardando aprovação ({pendentes.length})</span>
+            <section className="col gap-3">
+              <div className="row gap-2" style={{ alignItems: 'center' }}>
+                <Clock size={15} strokeWidth={1.75} style={{ color: 'var(--accent-orange)' }} />
+                <span className="label" style={{ color: 'var(--accent-orange)' }}>
+                  Aguardando aprovação
+                </span>
+                <span className="badge" style={{
+                  background: 'color-mix(in srgb, var(--accent-orange) 16%, transparent)',
+                  color: 'var(--accent-orange)',
+                }}>
+                  {pendentes.length}
+                </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="col gap-2">
                 {pendentes.map(u => (
-                  <div key={u.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{u.email}</p>
-                      {u.displayName && <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>{u.displayName}</p>}
-                    </div>
-                    <button
-                      onClick={() => aprovar(u.uid)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'rgba(48,209,88,0.15)', border: '1px solid rgba(48,209,88,0.3)', borderRadius: 8, color: '#30D158', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
-                    >
-                      <UserCheck size={14} strokeWidth={1.5} />
-                      Aprovar
-                    </button>
-                  </div>
+                  <UsuarioCard key={u.uid} u={u} acao="aprovar" />
                 ))}
               </div>
-            </div>
+            </section>
           )}
 
           {aprovados.length > 0 && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <CheckCircle size={16} color="#30D158" strokeWidth={1.5} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#30D158', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Aprovados ({aprovados.length})</span>
+            <section className="col gap-3">
+              <div className="row gap-2" style={{ alignItems: 'center' }}>
+                <CheckCircle2 size={15} strokeWidth={1.75} style={{ color: 'var(--accent-green)' }} />
+                <span className="label" style={{ color: 'var(--accent-green)' }}>
+                  Aprovados
+                </span>
+                <span className="badge" style={{
+                  background: 'color-mix(in srgb, var(--accent-green) 16%, transparent)',
+                  color: 'var(--accent-green)',
+                }}>
+                  {aprovados.length}
+                </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="col gap-2">
                 {aprovados.map(u => (
-                  <div key={u.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{u.email}</p>
-                      {u.displayName && <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>{u.displayName}</p>}
-                    </div>
-                    <button
-                      onClick={() => revogar(u.uid)}
-                      style={{ padding: '7px 14px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer' }}
-                    >
-                      Revogar
-                    </button>
-                  </div>
+                  <UsuarioCard key={u.uid} u={u} acao="revogar" />
                 ))}
               </div>
-            </div>
+            </section>
           )}
-
-          {pendentes.length === 0 && aprovados.length === 0 && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Nenhum usuário cadastrado ainda.</p>
-          )}
-        </>
+        </div>
       )}
     </div>
   )

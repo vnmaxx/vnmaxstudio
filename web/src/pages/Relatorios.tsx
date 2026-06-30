@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
 import type { ReportFile } from '../types'
-import { RefreshCw, BarChart3 } from 'lucide-react'
+import { useIsMobile } from '../hooks/useMediaQuery'
+import { RefreshCw, BarChart3, FileText, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react'
 
 function getReportType(name: string): string {
   if (name.startsWith('relatorio-')) return 'Relatório'
@@ -27,6 +28,8 @@ export default function Relatorios() {
   const [content, setContent] = useState<string | null>(null)
   const [loadingContent, setLoadingContent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isMobile = useIsMobile()
 
   const loadReports = useCallback(async () => {
     try {
@@ -58,192 +61,201 @@ export default function Relatorios() {
   }
 
   const groups = groupReports(reports)
+  const showList = !isMobile || !selected
+  const showContent = !isMobile || !!selected
+
+  const listPane = (
+    <div className="col gap-6 scroll" style={{ minHeight: 0 }}>
+      {loading ? (
+        <div className="col gap-3">
+          <div className="skeleton" style={{ height: 46, borderRadius: 'var(--radius)' }} />
+          <div className="skeleton" style={{ height: 46, borderRadius: 'var(--radius)' }} />
+          <div className="skeleton" style={{ height: 46, borderRadius: 'var(--radius)' }} />
+        </div>
+      ) : reports.length === 0 ? (
+        <div className="empty">
+          <FileText size={34} strokeWidth={1.4} />
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>Nenhum relatório encontrado</p>
+        </div>
+      ) : (
+        Object.entries(groups).map(([type, items]) => (
+          <div key={type} className="col gap-3">
+            <span className="label" style={{ margin: '0 0 0 2px' }}>{type}</span>
+            <div className="col" style={{ gap: 6 }}>
+              {items.map(r => {
+                const active = selected === r.name
+                return (
+                  <button
+                    key={r.name}
+                    onClick={() => selectReport(r.name)}
+                    className="anim-fade"
+                    style={{
+                      textAlign: 'left',
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius)',
+                      cursor: 'pointer',
+                      transition: 'all 0.16s var(--ease)',
+                      background: active
+                        ? 'color-mix(in srgb, var(--accent) 16%, transparent)'
+                        : 'var(--surface)',
+                      border: active
+                        ? '1px solid var(--accent-line)'
+                        : '1px solid var(--border)',
+                    }}
+                  >
+                    <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+                      <FileText
+                        size={15}
+                        strokeWidth={1.6}
+                        style={{
+                          flexShrink: 0,
+                          marginTop: 1,
+                          color: active ? 'var(--accent-text)' : 'var(--text-tertiary)',
+                        }}
+                      />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p
+                          className="truncate"
+                          style={{
+                            margin: 0,
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            color: active ? 'var(--accent-text)' : 'var(--text-primary)',
+                          }}
+                        >
+                          {r.name.replace('.md', '')}
+                        </p>
+                        <p
+                          style={{
+                            margin: '3px 0 0',
+                            fontSize: 10.5,
+                            color: active ? 'var(--accent-text)' : 'var(--text-tertiary)',
+                            opacity: active ? 0.8 : 1,
+                          }}
+                        >
+                          {new Date(r.mtime).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+
+  const contentPane = (
+    <div className="panel" style={{ minHeight: isMobile ? 360 : 0 }}>
+      {!selected ? (
+        <div className="panel-body center" style={{ padding: 0 }}>
+          <div className="empty">
+            <BarChart3 size={40} strokeWidth={1} />
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+              Selecione um relatório para visualizar
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="panel-head">
+            {isMobile && (
+              <button
+                className="btn-icon btn-icon--sm"
+                onClick={() => setSelected(null)}
+                title="Voltar"
+                aria-label="Voltar"
+              >
+                <ArrowLeft size={16} strokeWidth={1.7} />
+              </button>
+            )}
+            <FileText size={15} strokeWidth={1.6} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
+            <span className="panel-title truncate" title={selected}>{selected}</span>
+          </div>
+          <div className="panel-body" style={{ padding: 'clamp(14px, 2.4vw, 20px)' }}>
+            {loadingContent ? (
+              <div className="center" style={{ minHeight: 160, gap: 10 }}>
+                <Loader2 size={18} className="spin" style={{ color: 'var(--text-tertiary)' }} />
+                <span className="muted" style={{ fontSize: 13 }}>Carregando...</span>
+              </div>
+            ) : (
+              <pre
+                className="mono"
+                style={{
+                  color: 'var(--text-secondary)',
+                  fontSize: 12.5,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  lineHeight: 1.7,
+                  margin: 0,
+                }}
+              >
+                {content}
+              </pre>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ padding: '20px 24px' }}>
-      {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between" style={{ marginBottom: 16 }}>
-        <div>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: 20, fontWeight: 600, margin: 0, lineHeight: 1 }}>
-            Relatórios
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '4px 0 0 0' }}>
-            {reports.length} arquivo{reports.length !== 1 ? 's' : ''}
-          </p>
+    <div className="page page--flush">
+      <div className="page-head">
+        <div className="row" style={{ gap: 10 }}>
+          {isMobile && selected && (
+            <button
+              className="btn-icon"
+              onClick={() => setSelected(null)}
+              title="Voltar"
+              aria-label="Voltar"
+            >
+              <ArrowLeft size={18} strokeWidth={1.7} />
+            </button>
+          )}
+          <div>
+            <h1 className="page-title">Relatórios</h1>
+            <p className="page-sub">
+              {reports.length} arquivo{reports.length !== 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
-        <button
-          onClick={loadReports}
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            color: 'var(--text-secondary)',
-            fontSize: 14,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-          title="Atualizar"
-        >
-          <RefreshCw size={14} strokeWidth={1.5} />
-        </button>
+        <div className="page-head-actions">
+          <button
+            className="btn-icon"
+            onClick={loadReports}
+            title="Atualizar"
+            aria-label="Atualizar"
+          >
+            <RefreshCw size={16} strokeWidth={1.6} />
+          </button>
+        </div>
       </div>
 
       {error && (
         <div
-          className="flex-shrink-0"
+          className="row anim-rise"
           style={{
-            background: 'rgba(255,69,58,0.1)',
-            border: '1px solid rgba(255,69,58,0.25)',
-            color: '#FF453A',
-            borderRadius: 12,
-            padding: '10px 14px',
+            gap: 9,
+            background: 'color-mix(in srgb, var(--accent-red) 12%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--accent-red) 28%, transparent)',
+            color: 'var(--accent-red)',
+            borderRadius: 'var(--radius)',
+            padding: '11px 14px',
             fontSize: 13,
-            marginBottom: 12,
           }}
         >
-          {error}
+          <AlertCircle size={16} strokeWidth={1.7} style={{ flexShrink: 0 }} />
+          <span>{error}</span>
         </div>
       )}
 
-      <div className="flex gap-4 flex-1 min-h-0">
-        {/* Sidebar list */}
-        <div className="overflow-y-auto" style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {loading ? (
-            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</div>
-          ) : reports.length === 0 ? (
-            <div
-              style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 12,
-                padding: '20px 16px',
-                textAlign: 'center',
-                color: 'var(--text-tertiary)',
-                fontSize: 13,
-              }}
-            >
-              Nenhum relatório encontrado
-            </div>
-          ) : (
-            Object.entries(groups).map(([type, items]) => (
-              <div key={type}>
-                <h3
-                  style={{
-                    color: 'var(--text-tertiary)',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    margin: '0 0 6px 4px',
-                  }}
-                >
-                  {type}
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {items.map(r => (
-                    <button
-                      key={r.name}
-                      onClick={() => selectReport(r.name)}
-                      style={{
-                        textAlign: 'left',
-                        padding: '8px 12px',
-                        borderRadius: 10,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                        background: selected === r.name
-                          ? 'rgba(10,132,255,0.18)'
-                          : 'rgba(255,255,255,0.04)',
-                        border: selected === r.name
-                          ? '1px solid rgba(10,132,255,0.25)'
-                          : '1px solid rgba(255,255,255,0.07)',
-                        color: selected === r.name ? '#0A84FF' : 'var(--text-secondary)',
-                        width: '100%',
-                      }}
-                    >
-                      <p style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {r.name.replace('.md', '')}
-                      </p>
-                      <p
-                        style={{
-                          margin: '3px 0 0 0',
-                          fontSize: 10,
-                          color: selected === r.name ? 'rgba(10,132,255,0.7)' : 'var(--text-tertiary)',
-                        }}
-                      >
-                        {new Date(r.mtime).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Content pane */}
-        <div
-          className="flex-1 overflow-hidden flex flex-col"
-          style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 16,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
-          }}
-        >
-          {!selected ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
-                  <BarChart3 size={40} strokeWidth={1} style={{ opacity: 0.3 }} />
-                </div>
-                <p style={{ color: 'var(--text-tertiary)', fontSize: 13, margin: 0 }}>
-                  Selecione um relatório para visualizar
-                </p>
-              </div>
-            </div>
-          ) : loadingContent ? (
-            <div className="flex-1 flex items-center justify-center">
-              <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</span>
-            </div>
-          ) : (
-            <>
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderBottom: '1px solid rgba(255,255,255,0.06)',
-                  background: 'rgba(0,0,0,0.3)',
-                  borderRadius: '16px 16px 0 0',
-                }}
-              >
-                <h2 style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: 13, margin: 0 }}>
-                  {selected}
-                </h2>
-              </div>
-              <div className="flex-1 overflow-auto" style={{ padding: 16 }}>
-                <pre
-                  style={{
-                    color: 'var(--text-secondary)',
-                    fontSize: 12.5,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-words',
-                    fontFamily: "'SF Mono', 'Fira Code', monospace",
-                    lineHeight: 1.7,
-                    margin: 0,
-                  }}
-                >
-                  {content}
-                </pre>
-              </div>
-            </>
-          )}
-        </div>
+      <div className="split--narrow split anim-fade">
+        {showList && listPane}
+        {showContent && contentPane}
       </div>
     </div>
   )
