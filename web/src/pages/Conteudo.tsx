@@ -506,7 +506,10 @@ function VideosTab({ clienteId }: { clienteId: string }) {
                 <div className="row" style={{ gap: 8, fontSize: 12.5, color: 'var(--text-secondary)', padding: '20px 4px' }}><Loader2 size={15} className="spin" /> {j.step || j.state}…</div>
               )}
               <div className="row--between" style={{ gap: 8 }}>
-                <span className="truncate" style={{ fontSize: 12.5, fontWeight: 600, minWidth: 0 }}>{j.titulo || j.id}</span>
+                <span className="row" style={{ gap: 6, minWidth: 0 }}>
+                  <span className="truncate" style={{ fontSize: 12.5, fontWeight: 600, minWidth: 0 }}>{j.titulo || j.id}</span>
+                  {j.legendas === 'sincronizada' && <span className="badge" style={{ flexShrink: 0, background: 'color-mix(in srgb, var(--accent-green) 16%, transparent)', color: 'var(--accent-green)' }}>sinc.</span>}
+                </span>
                 <div className="row" style={{ gap: 6, flexShrink: 0 }}>
                   {j.state === 'done' && <a className="btn-icon btn-icon--sm" title={`Baixar ${fmtMB(j.size)}`} href={api.videoFinalUrl(j.id)} download={`${j.id}.mp4`}><Download size={13} /></a>}
                   <button className="btn-icon btn-icon--sm" title="Excluir" onClick={() => excluir(j.id)}><Trash2 size={13} /></button>

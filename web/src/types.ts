@@ -182,6 +182,8 @@ export interface VideoJob {
   error?: string
   final?: string
   size?: number
+  legendas?: string
+  transcricao?: string | null
   clienteId?: string | null
   titulo?: string
   criadoEm?: string
