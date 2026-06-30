@@ -201,6 +201,18 @@ const STUDIO_AGENTS = {
 // ---------------------------------------------------------------------------
 const AGENTS = Object.assign({}, BASE_AGENTS, STUDIO_AGENTS);
 
+// Normalização de compatibilidade com o gateway nxs-agents (server.js / runner.js):
+//  - injeta `name` (a chave do agente) — usado no audit/jobs do gateway (profile.name)
+//  - garante `systemPrompt` — o runner lê profile.systemPrompt; aqui os perfis usam `system`
+//  - mantém `system` — o bridge.js e o frontend (Dashboard) leem esse campo
+//  - garante `description` — exposto em /v1/agents
+for (const [key, a] of Object.entries(AGENTS)) {
+  if (!a.name) a.name = key;
+  if (!a.systemPrompt) a.systemPrompt = a.system || '';
+  if (!a.system) a.system = a.systemPrompt || '';
+  if (!a.description) a.description = key;
+}
+
 // ---------------------------------------------------------------------------
 // ROTEADOR — pickAgent(task) → nome do agente
 // ---------------------------------------------------------------------------
@@ -221,15 +233,18 @@ const ROUTES = [
   { agent: 'research', kw: ['pesquis', 'research', 'investig', 'fonte', 'comparar', 'levantamento'] },
 ];
 
-function pickAgent(task) {
-  if (!task || typeof task !== 'string') return 'general';
+// IMPORTANTE: o gateway (server.js) chama pickAgent(task, hint) e espera o
+// OBJETO do perfil (não o nome). hint = body.agent tem precedência.
+function pickAgent(task, hint) {
+  if (hint && AGENTS[hint]) return AGENTS[hint];
+  if (!task || typeof task !== 'string') return AGENTS.general;
   const t = task.toLowerCase();
   for (const route of ROUTES) {
     for (const kw of route.kw) {
-      if (t.includes(kw)) return route.agent;
+      if (t.includes(kw)) return AGENTS[route.agent];
     }
   }
-  return 'general';
+  return AGENTS.general;
 }
 
 // ---------------------------------------------------------------------------
