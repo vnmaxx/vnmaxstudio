@@ -102,6 +102,79 @@ export interface SocialProvider {
   atualizadoEm: string | null
 }
 
+export interface RoteiroVariation {
+  hook?: string
+  hook_formula?: string
+  visual_hook?: string
+  script?: string
+  onscreen_text?: string[]
+  loop_line?: string
+  cta?: string
+  broll_suggestions?: string[]
+  keywords?: string[]
+  retencao_3s?: number
+  completion_estimada?: number
+  estimated_retention?: number
+  viral_score?: number
+  title?: string
+  demo?: boolean
+}
+
+export interface Roteiro extends RoteiroVariation {
+  id: string
+  clienteId: string | null
+  theme: string
+  criadoEm: string
+}
+
+export interface CalendarioItem {
+  id: string
+  clienteId: string | null
+  date: string
+  theme: string
+  status: string
+  roteiroId?: string | null
+  criadoEm: string
+}
+
+export interface ConteudoPost {
+  id: string
+  clienteId: string | null
+  roteiroId?: string | null
+  plataforma: string
+  legenda: string
+  retencao: number
+  viralScore?: number | null
+  criadoEm: string
+  metrics?: { views: number; likes: number; comments: number; shares: number }
+}
+
+export interface Blueprint {
+  id?: string
+  clienteId?: string | null
+  tipo_recomendado: string
+  justificativa?: string
+  nome_projeto?: string
+  objetivo_principal?: string
+  publico_alvo?: string
+  proposta_valor?: string
+  funcionalidades?: string[]
+  stack_sugerida?: string
+  identidade?: string
+  prompt: string
+  primeiro_passo?: string
+  criadoEm?: string
+  demo?: boolean
+}
+
+export interface ConteudoPerfil {
+  niche?: string
+  tom?: string
+  publico?: string
+  objetivo?: string
+  handle?: string
+}
+
 export type PipelineState = 'WAITING' | 'RUNNING' | 'RETRY' | 'FAILED' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
 
 export interface PipelineStep {

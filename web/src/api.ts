@@ -128,6 +128,43 @@ export const api = {
   disconnectSocial: (id: string) =>
     fetchJson<import('./types').SocialProvider>(`/social/${encodeURIComponent(id)}/disconnect`, { method: 'POST' }),
 
+  gerarRoteiros: (payload: { cliente: { nome?: string; segmento?: string; tom?: string; publico?: string; objetivo?: string }; theme: string; count?: number; durationSec?: number; platform?: string; storytelling?: boolean }) =>
+    fetchJson<{ jobId: string }>('/conteudo/roteiros/gerar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+  getRoteiroJob: (jobId: string) =>
+    fetchJson<{ status: string; variations?: import('./types').RoteiroVariation[]; error?: string; parseError?: boolean }>(`/conteudo/roteiros/job/${encodeURIComponent(jobId)}`),
+  gerarBlueprint: (cliente: { nome?: string; segmento?: string; contato?: string; observacao?: string; objetivo?: string; publico?: string }) =>
+    fetchJson<{ jobId: string }>('/conteudo/blueprint/gerar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cliente }) }),
+  getBlueprintJob: (jobId: string) =>
+    fetchJson<{ status: string; blueprint?: import('./types').Blueprint; error?: string; parseError?: boolean }>(`/conteudo/blueprint/job/${encodeURIComponent(jobId)}`),
+
+  getPerfilConteudo: (clienteId: string) => fetchJson<import('./types').ConteudoPerfil>(`/conteudo/perfil/${encodeURIComponent(clienteId)}`),
+  setPerfilConteudo: (clienteId: string, patch: import('./types').ConteudoPerfil) =>
+    fetchJson<import('./types').ConteudoPerfil>(`/conteudo/perfil/${encodeURIComponent(clienteId)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) }),
+
+  getRoteiros: (clienteId?: string) => fetchJson<{ roteiros: import('./types').Roteiro[] }>('/conteudo/roteiros' + (clienteId ? `?clienteId=${encodeURIComponent(clienteId)}` : '')),
+  saveRoteiro: (clienteId: string | null, theme: string, variation: import('./types').RoteiroVariation) =>
+    fetchJson<import('./types').Roteiro>('/conteudo/roteiros', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clienteId, theme, variation }) }),
+  deleteRoteiro: (id: string) => fetchJson<{ ok: boolean }>(`/conteudo/roteiros/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  getCalendario: (clienteId?: string) => fetchJson<{ calendario: import('./types').CalendarioItem[] }>('/conteudo/calendario' + (clienteId ? `?clienteId=${encodeURIComponent(clienteId)}` : '')),
+  addCalendario: (item: { clienteId?: string | null; date?: string; theme?: string; status?: string; roteiroId?: string | null }) =>
+    fetchJson<import('./types').CalendarioItem>('/conteudo/calendario', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) }),
+  planCalendario: (clienteId: string | null, opts: { count?: number; perWeek?: number; themes?: string[] }) =>
+    fetchJson<{ items: import('./types').CalendarioItem[] }>('/conteudo/calendario/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clienteId, ...opts }) }),
+  updateCalendario: (id: string, patch: Partial<import('./types').CalendarioItem>) =>
+    fetchJson<import('./types').CalendarioItem>(`/conteudo/calendario/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) }),
+  deleteCalendario: (id: string) => fetchJson<{ ok: boolean }>(`/conteudo/calendario/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  getPosts: (clienteId?: string) => fetchJson<{ posts: import('./types').ConteudoPost[] }>('/conteudo/posts' + (clienteId ? `?clienteId=${encodeURIComponent(clienteId)}` : '')),
+  publicarPost: (post: { clienteId?: string | null; roteiroId?: string | null; plataforma: string; legenda: string; retencao?: number; viralScore?: number | null }) =>
+    fetchJson<import('./types').ConteudoPost>('/conteudo/posts/publicar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(post) }),
+  deletePost: (id: string) => fetchJson<{ ok: boolean }>(`/conteudo/posts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  getBlueprints: (clienteId?: string) => fetchJson<{ blueprints: import('./types').Blueprint[] }>('/conteudo/blueprints' + (clienteId ? `?clienteId=${encodeURIComponent(clienteId)}` : '')),
+  saveBlueprint: (clienteId: string | null, blueprint: import('./types').Blueprint) =>
+    fetchJson<import('./types').Blueprint>('/conteudo/blueprints', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clienteId, blueprint }) }),
+  deleteBlueprint: (id: string) => fetchJson<{ ok: boolean }>(`/conteudo/blueprints/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
   getStats: () => fetchJson<import('./types').Stats>('/stats'),
 
   getStatus: () => fetchJson<import('./types').SystemStatus>('/status'),

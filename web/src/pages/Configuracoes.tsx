@@ -9,8 +9,9 @@ import {
 import { doc, updateDoc } from 'firebase/firestore'
 import { useIsMobile } from '../hooks/useMediaQuery'
 import {
-  User, Palette, Bell, Check, Eye, EyeOff, Save, RefreshCw, RotateCcw, Send
+  User, Palette, Bell, Check, Eye, EyeOff, Save, RefreshCw, RotateCcw, Send, Plug
 } from 'lucide-react'
+import { ConexoesSection } from './Conexoes'
 
 const ACCENT_COLORS = [
   { name: 'Azul', value: '#0A84FF' },
@@ -424,7 +425,7 @@ function NotificacoesSection() {
   )
 }
 
-type Section = 'conta' | 'aparencia' | 'notificacoes'
+type Section = 'conta' | 'aparencia' | 'notificacoes' | 'conexoes'
 
 export default function Configuracoes() {
   const [section, setSection] = useState<Section>('conta')
@@ -432,6 +433,7 @@ export default function Configuracoes() {
 
   const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
     { id: 'conta',        label: 'Conta',        icon: <User    size={15} strokeWidth={1.6} /> },
+    { id: 'conexoes',     label: 'Conexões',     icon: <Plug    size={15} strokeWidth={1.6} /> },
     { id: 'aparencia',    label: 'Aparência',    icon: <Palette size={15} strokeWidth={1.6} /> },
     { id: 'notificacoes', label: 'Notificações', icon: <Bell    size={15} strokeWidth={1.6} /> },
   ]
@@ -439,6 +441,7 @@ export default function Configuracoes() {
   const content = (
     <>
       {section === 'conta'        && <ContaSection />}
+      {section === 'conexoes'     && <ConexoesSection />}
       {section === 'aparencia'    && <AparenciaSection />}
       {section === 'notificacoes' && <NotificacoesSection />}
     </>

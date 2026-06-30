@@ -117,7 +117,7 @@ function ProviderCard({ p, onChanged }: { p: SocialProvider; onChanged: (p: Soci
   )
 }
 
-export default function Conexoes() {
+export function ConexoesSection() {
   const [providers, setProviders] = useState<SocialProvider[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -131,21 +131,18 @@ export default function Conexoes() {
   const conectados = providers.filter(p => p.connected || p.kind === 'link').length
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Conexões</h1>
-          <p className="page-sub">{conectados} canal{conectados === 1 ? '' : 'is'} pronto{conectados === 1 ? '' : 's'} para enviar mensagens</p>
-        </div>
-        <div className="page-head-actions">
-          <button className="btn-icon" onClick={load} title="Atualizar"><RefreshCw size={15} strokeWidth={1.7} /></button>
-        </div>
+    <div className="col gap-6">
+      <div className="row--between" style={{ gap: 12 }}>
+        <p className="dim" style={{ fontSize: 13, margin: 0 }}>
+          {conectados} canal{conectados === 1 ? '' : 'is'} pronto{conectados === 1 ? '' : 's'} para enviar mensagens aos leads
+        </p>
+        <button className="btn-icon" onClick={load} title="Atualizar"><RefreshCw size={15} strokeWidth={1.7} /></button>
       </div>
 
       {loading ? (
         <div className="empty"><RefreshCw size={26} className="spin" /><p className="muted">Carregando...</p></div>
       ) : (
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14, alignItems: 'stretch' }}>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14, alignItems: 'stretch' }}>
           {providers.map(p => <ProviderCard key={p.id} p={p} onChanged={onChanged} />)}
         </div>
       )}

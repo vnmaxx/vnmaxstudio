@@ -49,6 +49,16 @@ try {
 let sdr = { sdrTask: () => '', parseMsgBlocks: () => [], firstDraft: () => null };
 try { sdr = require(path.join(ROOT, 'lib', 'sdr.js')); } catch (e) { console.error('SDR helpers indisponíveis:', e.message); }
 
+let conteudo = null;
+try {
+  const m = require(path.join(ROOT, 'lib', 'conteudo.js'));
+  conteudo = new m.Conteudo(WORKSPACE);
+} catch (e) { console.error('Conteudo indisponível:', e.message); }
+
+let viral = null, bp = null;
+try { viral = require(path.join(ROOT, 'lib', 'viral-engine.js')); } catch (e) { console.error('viral-engine indisponível:', e.message); }
+try { bp = require(path.join(ROOT, 'lib', 'blueprint.js')); } catch (e) { console.error('blueprint indisponível:', e.message); }
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function nxsRequest(method, pathname, body) {
@@ -584,6 +594,140 @@ app.post('/social/:id/test', async (req, res) => {
 app.post('/social/:id/disconnect', (req, res) => {
   if (!social) return res.status(503).json({ error: 'Social Hub indisponível' });
   res.json(social.disconnect(req.params.id));
+});
+
+app.post('/conteudo/roteiros/gerar', async (req, res) => {
+  try {
+    if (!viral) return res.status(503).json({ error: 'viral-engine indisponível' });
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    const { cliente, theme, count, durationSec, platform, storytelling } = req.body || {};
+    const task = viral.buildRoteiristaTask(cliente || {}, { theme, count, durationSec, platform, storytelling });
+    const r = await nxsRequest('POST', '/v1/jobs', { agent: 'general', task });
+    res.json({ jobId: r.jobId || r.id });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+app.get('/conteudo/roteiros/job/:jobId', async (req, res) => {
+  try {
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    const r = await nxsRequest('GET', `/v1/jobs/${req.params.jobId}`);
+    if (r.status === 'done') {
+      const variations = viral ? viral.parseVariations(r.result) : null;
+      return res.json({ status: 'done', variations: variations || [], parseError: !variations });
+    }
+    if (r.status === 'error') return res.json({ status: 'error', error: String(r.result || 'erro') });
+    res.json({ status: r.status || 'pending' });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+app.post('/conteudo/blueprint/gerar', async (req, res) => {
+  try {
+    if (!bp) return res.status(503).json({ error: 'blueprint indisponível' });
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    const task = bp.buildBlueprintTask(req.body && req.body.cliente || {});
+    const r = await nxsRequest('POST', '/v1/jobs', { agent: 'general', task });
+    res.json({ jobId: r.jobId || r.id });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+app.get('/conteudo/blueprint/job/:jobId', async (req, res) => {
+  try {
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    const r = await nxsRequest('GET', `/v1/jobs/${req.params.jobId}`);
+    if (r.status === 'done') {
+      const blueprint = bp ? bp.parseBlueprint(r.result) : null;
+      return res.json({ status: 'done', blueprint: blueprint || null, parseError: !blueprint });
+    }
+    if (r.status === 'error') return res.json({ status: 'error', error: String(r.result || 'erro') });
+    res.json({ status: r.status || 'pending' });
+  } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+app.get('/conteudo/perfil/:clienteId', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json(conteudo.getPerfil(req.params.clienteId) || {});
+});
+
+app.post('/conteudo/perfil/:clienteId', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json(conteudo.setPerfil(req.params.clienteId, req.body || {}));
+});
+
+app.get('/conteudo/roteiros', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ roteiros: conteudo.listRoteiros(req.query.clienteId) });
+});
+
+app.post('/conteudo/roteiros', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  const { clienteId, theme, variation } = req.body || {};
+  if (!variation) return res.status(400).json({ error: 'roteiro vazio' });
+  res.json(conteudo.addRoteiro(clienteId || null, theme || '', variation));
+});
+
+app.delete('/conteudo/roteiros/:id', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ ok: conteudo.removeRoteiro(req.params.id) });
+});
+
+app.get('/conteudo/calendario', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ calendario: conteudo.listCalendario(req.query.clienteId) });
+});
+
+app.post('/conteudo/calendario', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json(conteudo.addCalendario(req.body || {}));
+});
+
+app.post('/conteudo/calendario/plan', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  const { clienteId, count, perWeek, themes } = req.body || {};
+  res.json({ items: conteudo.planCalendario(clienteId || null, { count, perWeek, themes }) });
+});
+
+app.put('/conteudo/calendario/:id', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  const it = conteudo.updateCalendario(req.params.id, req.body || {});
+  if (!it) return res.status(404).json({ error: 'Not found' });
+  res.json(it);
+});
+
+app.delete('/conteudo/calendario/:id', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ ok: conteudo.removeCalendario(req.params.id) });
+});
+
+app.get('/conteudo/posts', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ posts: conteudo.listPosts(req.query.clienteId) });
+});
+
+app.post('/conteudo/posts/publicar', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json(conteudo.addPost(req.body || {}));
+});
+
+app.delete('/conteudo/posts/:id', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ ok: conteudo.removePost(req.params.id) });
+});
+
+app.get('/conteudo/blueprints', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ blueprints: conteudo.listBlueprints(req.query.clienteId) });
+});
+
+app.post('/conteudo/blueprints', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  const { clienteId, blueprint } = req.body || {};
+  if (!blueprint) return res.status(400).json({ error: 'blueprint vazio' });
+  res.json(conteudo.addBlueprint(clienteId || null, blueprint));
+});
+
+app.delete('/conteudo/blueprints/:id', (req, res) => {
+  if (!conteudo) return res.status(503).json({ error: 'Conteudo indisponível' });
+  res.json({ ok: conteudo.removeBlueprint(req.params.id) });
 });
 
 app.post('/crm/:id/descartar-rascunho', (req, res) => {

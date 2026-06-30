@@ -274,6 +274,28 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
+  const cq = (req) => req.query.clienteId ? `?clienteId=${encodeURIComponent(req.query.clienteId)}` : '';
+  app.post('/api/conteudo/roteiros/gerar', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/roteiros/gerar', req.body); res.status(status).json(data); });
+  app.get('/api/conteudo/roteiros/job/:jobId', async (req, res) => { const { status, data } = await bridge('GET', `/conteudo/roteiros/job/${req.params.jobId}`); res.status(status).json(data); });
+  app.post('/api/conteudo/blueprint/gerar', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/blueprint/gerar', req.body); res.status(status).json(data); });
+  app.get('/api/conteudo/blueprint/job/:jobId', async (req, res) => { const { status, data } = await bridge('GET', `/conteudo/blueprint/job/${req.params.jobId}`); res.status(status).json(data); });
+  app.get('/api/conteudo/perfil/:clienteId', async (req, res) => { const { status, data } = await bridge('GET', `/conteudo/perfil/${req.params.clienteId}`); res.status(status).json(data); });
+  app.post('/api/conteudo/perfil/:clienteId', async (req, res) => { const { status, data } = await bridge('POST', `/conteudo/perfil/${req.params.clienteId}`, req.body); res.status(status).json(data); });
+  app.get('/api/conteudo/roteiros', async (req, res) => { const { status, data } = await bridge('GET', '/conteudo/roteiros' + cq(req)); res.status(status).json(data); });
+  app.post('/api/conteudo/roteiros', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/roteiros', req.body); res.status(status).json(data); });
+  app.delete('/api/conteudo/roteiros/:id', async (req, res) => { const { status, data } = await bridge('DELETE', `/conteudo/roteiros/${req.params.id}`); res.status(status).json(data); });
+  app.get('/api/conteudo/calendario', async (req, res) => { const { status, data } = await bridge('GET', '/conteudo/calendario' + cq(req)); res.status(status).json(data); });
+  app.post('/api/conteudo/calendario', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/calendario', req.body); res.status(status).json(data); });
+  app.post('/api/conteudo/calendario/plan', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/calendario/plan', req.body); res.status(status).json(data); });
+  app.put('/api/conteudo/calendario/:id', async (req, res) => { const { status, data } = await bridge('PUT', `/conteudo/calendario/${req.params.id}`, req.body); res.status(status).json(data); });
+  app.delete('/api/conteudo/calendario/:id', async (req, res) => { const { status, data } = await bridge('DELETE', `/conteudo/calendario/${req.params.id}`); res.status(status).json(data); });
+  app.get('/api/conteudo/posts', async (req, res) => { const { status, data } = await bridge('GET', '/conteudo/posts' + cq(req)); res.status(status).json(data); });
+  app.post('/api/conteudo/posts/publicar', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/posts/publicar', req.body); res.status(status).json(data); });
+  app.delete('/api/conteudo/posts/:id', async (req, res) => { const { status, data } = await bridge('DELETE', `/conteudo/posts/${req.params.id}`); res.status(status).json(data); });
+  app.get('/api/conteudo/blueprints', async (req, res) => { const { status, data } = await bridge('GET', '/conteudo/blueprints' + cq(req)); res.status(status).json(data); });
+  app.post('/api/conteudo/blueprints', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/blueprints', req.body); res.status(status).json(data); });
+  app.delete('/api/conteudo/blueprints/:id', async (req, res) => { const { status, data } = await bridge('DELETE', `/conteudo/blueprints/${req.params.id}`); res.status(status).json(data); });
+
 } else {
   const STUDIO_ROOT = process.env.STUDIO_ROOT || path.join(__dirname, '..');
   
@@ -483,6 +505,31 @@ if (BRIDGE_URL) {
   app.post('/api/social/:id/disconnect', (req, res) => {
     try { if (!socialLocal) return res.status(503).json({ error: 'Social indisponível' }); res.json(socialLocal.disconnect(req.params.id)); } catch (e) { res.status(500).json({ error: e.message }); }
   });
+
+  let conteudoLocal = null;
+  try { const m = require(path.join(STUDIO_ROOT, 'lib', 'conteudo.js')); conteudoLocal = new m.Conteudo(WORKSPACE_DIR); } catch (e) { console.error('Conteudo local indisponível:', e.message); }
+  const guard = (res) => { if (!conteudoLocal) { res.status(503).json({ error: 'Conteudo indisponível' }); return false; } return true; };
+
+  app.post('/api/conteudo/roteiros/gerar', (req, res) => res.status(503).json({ error: 'Geração disponível apenas via bridge' }));
+  app.get('/api/conteudo/roteiros/job/:jobId', (req, res) => res.status(503).json({ error: 'Geração disponível apenas via bridge' }));
+  app.post('/api/conteudo/blueprint/gerar', (req, res) => res.status(503).json({ error: 'Geração disponível apenas via bridge' }));
+  app.get('/api/conteudo/blueprint/job/:jobId', (req, res) => res.status(503).json({ error: 'Geração disponível apenas via bridge' }));
+  app.get('/api/conteudo/perfil/:clienteId', (req, res) => { if (!guard(res)) return; res.json(conteudoLocal.getPerfil(req.params.clienteId) || {}); });
+  app.post('/api/conteudo/perfil/:clienteId', (req, res) => { if (!guard(res)) return; res.json(conteudoLocal.setPerfil(req.params.clienteId, req.body || {})); });
+  app.get('/api/conteudo/roteiros', (req, res) => { if (!guard(res)) return; res.json({ roteiros: conteudoLocal.listRoteiros(req.query.clienteId) }); });
+  app.post('/api/conteudo/roteiros', (req, res) => { if (!guard(res)) return; const { clienteId, theme, variation } = req.body || {}; if (!variation) return res.status(400).json({ error: 'roteiro vazio' }); res.json(conteudoLocal.addRoteiro(clienteId || null, theme || '', variation)); });
+  app.delete('/api/conteudo/roteiros/:id', (req, res) => { if (!guard(res)) return; res.json({ ok: conteudoLocal.removeRoteiro(req.params.id) }); });
+  app.get('/api/conteudo/calendario', (req, res) => { if (!guard(res)) return; res.json({ calendario: conteudoLocal.listCalendario(req.query.clienteId) }); });
+  app.post('/api/conteudo/calendario', (req, res) => { if (!guard(res)) return; res.json(conteudoLocal.addCalendario(req.body || {})); });
+  app.post('/api/conteudo/calendario/plan', (req, res) => { if (!guard(res)) return; const { clienteId, count, perWeek, themes } = req.body || {}; res.json({ items: conteudoLocal.planCalendario(clienteId || null, { count, perWeek, themes }) }); });
+  app.put('/api/conteudo/calendario/:id', (req, res) => { if (!guard(res)) return; const it = conteudoLocal.updateCalendario(req.params.id, req.body || {}); if (!it) return res.status(404).json({ error: 'Not found' }); res.json(it); });
+  app.delete('/api/conteudo/calendario/:id', (req, res) => { if (!guard(res)) return; res.json({ ok: conteudoLocal.removeCalendario(req.params.id) }); });
+  app.get('/api/conteudo/posts', (req, res) => { if (!guard(res)) return; res.json({ posts: conteudoLocal.listPosts(req.query.clienteId) }); });
+  app.post('/api/conteudo/posts/publicar', (req, res) => { if (!guard(res)) return; res.json(conteudoLocal.addPost(req.body || {})); });
+  app.delete('/api/conteudo/posts/:id', (req, res) => { if (!guard(res)) return; res.json({ ok: conteudoLocal.removePost(req.params.id) }); });
+  app.get('/api/conteudo/blueprints', (req, res) => { if (!guard(res)) return; res.json({ blueprints: conteudoLocal.listBlueprints(req.query.clienteId) }); });
+  app.post('/api/conteudo/blueprints', (req, res) => { if (!guard(res)) return; const { clienteId, blueprint } = req.body || {}; if (!blueprint) return res.status(400).json({ error: 'blueprint vazio' }); res.json(conteudoLocal.addBlueprint(clienteId || null, blueprint)); });
+  app.delete('/api/conteudo/blueprints/:id', (req, res) => { if (!guard(res)) return; res.json({ ok: conteudoLocal.removeBlueprint(req.params.id) }); });
 
   app.get('/api/crm', (req, res) => {
     try {
