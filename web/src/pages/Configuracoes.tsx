@@ -12,6 +12,7 @@ import {
   User, Palette, Bell, Check, Eye, EyeOff, Save, RefreshCw, RotateCcw, Send, Plug
 } from 'lucide-react'
 import { ConexoesSection } from './Conexoes'
+import { api } from '../api'
 
 const ACCENT_COLORS = [
   { name: 'Azul', value: '#0A84FF' },
@@ -430,6 +431,19 @@ type Section = 'conta' | 'aparencia' | 'notificacoes' | 'conexoes'
 export default function Configuracoes() {
   const [section, setSection] = useState<Section>('conta')
   const isMobile = useIsMobile()
+  const menu = useContextMenu()
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('state') === 'meta' && params.get('code')) {
+      const redirectUri = window.location.origin + window.location.pathname
+      setSection('conexoes')
+      api.metaExchange({ code: params.get('code') || '', redirectUri })
+        .then(r => menu.toast(r.ok ? `Facebook conectado — página ${r.page}` : (r.error || 'Falha ao conectar'), r.ok ? 'success' : 'error'))
+        .catch(e => menu.toast(e instanceof Error ? e.message : 'Erro ao conectar', 'error'))
+        .finally(() => window.history.replaceState({}, '', window.location.pathname))
+    }
+  }, [menu])
 
   const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
     { id: 'conta',        label: 'Conta',        icon: <User    size={15} strokeWidth={1.6} /> },

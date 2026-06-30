@@ -657,6 +657,20 @@ app.post('/social/:id/disconnect', (req, res) => {
   res.json(social.disconnect(req.params.id));
 });
 
+app.get('/social/meta/oauth-url', (req, res) => {
+  if (!social) return res.status(503).json({ error: 'Social Hub indisponível' });
+  const url = social.metaOauthUrl(req.query.redirect || '', 'meta');
+  if (!url) return res.status(400).json({ error: 'Preencha o App ID do Meta e salve primeiro.' });
+  res.json({ url });
+});
+
+app.post('/social/meta/exchange', async (req, res) => {
+  if (!social) return res.status(503).json({ error: 'Social Hub indisponível' });
+  const { code, redirectUri } = req.body || {};
+  if (!code || !redirectUri) return res.status(400).json({ error: 'code/redirectUri ausentes' });
+  res.json(await social.metaExchange(code, redirectUri));
+});
+
 app.post('/conteudo/roteiros/gerar', async (req, res) => {
   try {
     if (!viral) return res.status(503).json({ error: 'viral-engine indisponível' });

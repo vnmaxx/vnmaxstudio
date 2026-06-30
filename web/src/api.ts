@@ -128,6 +128,11 @@ export const api = {
   disconnectSocial: (id: string) =>
     fetchJson<import('./types').SocialProvider>(`/social/${encodeURIComponent(id)}/disconnect`, { method: 'POST' }),
 
+  metaOauthUrl: (redirect: string) =>
+    fetchJson<{ url: string }>(`/social/meta/oauth-url?redirect=${encodeURIComponent(redirect)}`),
+  metaExchange: (payload: { code: string; redirectUri: string }) =>
+    fetchJson<{ ok: boolean; page?: string; error?: string }>('/social/meta/exchange', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+
   gerarRoteiros: (payload: { cliente: { nome?: string; segmento?: string; tom?: string; publico?: string; objetivo?: string }; theme: string; count?: number; durationSec?: number; platform?: string; storytelling?: boolean }) =>
     fetchJson<{ jobId: string }>('/conteudo/roteiros/gerar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
   getRoteiroJob: (jobId: string) =>

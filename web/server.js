@@ -273,6 +273,14 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('POST', `/social/${req.params.id}/disconnect`, req.body);
     res.status(status).json(data);
   });
+  app.get('/api/social/meta/oauth-url', async (req, res) => {
+    const { status, data } = await bridge('GET', '/social/meta/oauth-url' + (req.query.redirect ? `?redirect=${encodeURIComponent(req.query.redirect)}` : ''));
+    res.status(status).json(data);
+  });
+  app.post('/api/social/meta/exchange', async (req, res) => {
+    const { status, data } = await bridge('POST', '/social/meta/exchange', req.body);
+    res.status(status).json(data);
+  });
 
   const cq = (req) => req.query.clienteId ? `?clienteId=${encodeURIComponent(req.query.clienteId)}` : '';
   app.post('/api/conteudo/roteiros/gerar', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/roteiros/gerar', req.body); res.status(status).json(data); });
@@ -550,6 +558,12 @@ if (BRIDGE_URL) {
   });
   app.post('/api/social/:id/disconnect', (req, res) => {
     try { if (!socialLocal) return res.status(503).json({ error: 'Social indisponível' }); res.json(socialLocal.disconnect(req.params.id)); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.get('/api/social/meta/oauth-url', (req, res) => {
+    try { if (!socialLocal) return res.status(503).json({ error: 'Social indisponível' }); const url = socialLocal.metaOauthUrl(req.query.redirect || '', 'meta'); if (!url) return res.status(400).json({ error: 'App ID ausente' }); res.json({ url }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/social/meta/exchange', async (req, res) => {
+    try { if (!socialLocal) return res.status(503).json({ error: 'Social indisponível' }); const { code, redirectUri } = req.body || {}; res.json(await socialLocal.metaExchange(code, redirectUri)); } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
   let conteudoLocal = null;

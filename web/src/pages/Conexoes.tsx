@@ -53,6 +53,15 @@ function ProviderCard({ p, onChanged }: { p: SocialProvider; onChanged: (p: Soci
     catch { menu.toast('Erro ao desconectar', 'error') }
   }
 
+  const conectarFacebook = async () => {
+    try {
+      const redirect = window.location.origin + window.location.pathname
+      const { url } = await api.metaOauthUrl(redirect)
+      window.location.href = url
+    } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao iniciar conexão', 'error') }
+  }
+  const metaPronto = !!(form.appId || p.values.appId) && !!(form.appSecret || p.values.appSecret)
+
   return (
     <div className="card card--pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div className="row" style={{ gap: 11, alignItems: 'flex-start' }}>
@@ -111,6 +120,19 @@ function ProviderCard({ p, onChanged }: { p: SocialProvider; onChanged: (p: Soci
               <Trash2 size={13} /> Desconectar
             </button>
           )}
+        </div>
+      )}
+
+      {p.id === 'meta' && (
+        <div className="col" style={{ gap: 6 }}>
+          <button className="btn btn--sm" style={{ background: '#1877F2', color: '#fff', borderColor: '#1877F2', justifyContent: 'center' }} onClick={conectarFacebook} disabled={!metaPronto}>
+            <Plug size={13} /> Conectar com Facebook
+          </button>
+          {!metaPronto
+            ? <p className="dim" style={{ fontSize: 11, margin: 0 }}>Preencha App ID + App Secret e clique <b>Salvar</b> antes de conectar.</p>
+            : p.connected
+              ? <p className="dim" style={{ fontSize: 11, margin: 0 }}>Página conectada ✓ (ID {p.values.igId}).</p>
+              : <p className="dim" style={{ fontSize: 11, margin: 0 }}>Salvou as credenciais? Clique acima pra logar e puxar o token da página.</p>}
         </div>
       )}
     </div>
