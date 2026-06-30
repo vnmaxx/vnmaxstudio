@@ -89,7 +89,7 @@ const STUDIO_AGENTS = {
 
   'studio-growth': {
     model: 'sonnet',
-    maxTurns: 40,
+    maxTurns: 70,
     tools: { shell: false, web: true, edit: false, read: false },
     system:
       'Você é o agente Growth do Studio IA. Missão: encontrar negócios locais reais ' +

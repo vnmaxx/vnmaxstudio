@@ -330,7 +330,7 @@ export default function Dashboard() {
     : 'Nenhum ciclo ainda'
 
   return (
-    <div className="page page--flush">
+    <div className="page page--flush page--fit">
       {selectedAgent && (
         <AgentModal
           name={selectedAgent.name}
@@ -389,7 +389,7 @@ export default function Dashboard() {
       </div>
 
       <div className="split">
-        <div className="panel" style={{ minHeight: 320 }}>
+        <div className="panel" style={{ minHeight: 0 }}>
           <div className="panel-head">
             <span className="panel-title">Agentes <span className="dim" style={{ fontWeight: 400 }}>({agentEntries.length})</span></span>
             <Activity size={13} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} />
@@ -404,7 +404,7 @@ export default function Dashboard() {
         </div>
 
         <div className="col" style={{ gap: 12, minHeight: 0 }}>
-          <div className="panel" style={{ flex: 1, minHeight: 240 }}>
+          <div className="panel" style={{ flex: 1, minHeight: 0 }}>
             <div className="panel-head">
               <span className="panel-title">Atividade recente</span>
               <span className="dot dot--live" />

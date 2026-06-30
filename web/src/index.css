@@ -118,6 +118,9 @@ a { color: inherit; }
 }
 .page--flush { max-width: none; }
 .page--full { flex: 1; min-height: 0; }
+@media (min-width: 1024px) {
+  .page--fit { height: 100%; overflow: hidden; }
+}
 
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .page-title { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; letter-spacing: -0.02em; margin: 0; line-height: 1.1; }
