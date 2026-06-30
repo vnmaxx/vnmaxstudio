@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import type { PipelineRecord, PipelineMetrics, Stats, AprovacaoResumo, PipelineState } from '../types'
+import { useContextMenu, type CtxItem } from '../components/ContextMenu'
 import {
   Users, AlertCircle, CheckCircle, Play, RefreshCw, Target,
-  Activity, Clock, Zap, TrendingUp, Check, X, Loader2, ChevronRight,
+  Activity, Clock, Zap, TrendingUp, Check, X, Loader2, ChevronRight, Copy, Eye,
 } from 'lucide-react'
 
 const STATE_COLOR: Record<PipelineState, string> = {
@@ -40,6 +41,8 @@ export default function CEO() {
   const [pendentes, setPendentes] = useState<AprovacaoResumo[]>([])
   const [cycleLoading, setCycleLoading] = useState(false)
   const [acting, setActing] = useState<string | null>(null)
+  const menu = useContextMenu()
+  const navigate = useNavigate()
 
   const carregar = useCallback(async () => {
     try {
@@ -146,7 +149,17 @@ export default function CEO() {
                 const done = p.steps.filter(s => s.state === 'COMPLETED').length
                 return (
                   <Link key={p.id} to="/pipelines" style={{ textDecoration: 'none' }}>
-                    <div className="row" style={{ gap: 14, padding: '13px 16px', borderBottom: i < recentPipes.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div
+                      className="row"
+                      style={{ gap: 14, padding: '13px 16px', borderBottom: i < recentPipes.length - 1 ? '1px solid var(--border)' : 'none' }}
+                      {...menu.bind((): CtxItem[] => [
+                        { header: p.name },
+                        { label: 'Ver no painel', icon: <Eye size={15} strokeWidth={1.8} />, onClick: () => navigate('/pipelines') },
+                        { separator: true },
+                        { label: 'Copiar ID', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(p.id, 'ID copiado') },
+                        { label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(p.name, 'Nome copiado') },
+                      ])}
+                    >
                       <span className="dot" style={{ background: STATE_COLOR[p.state], boxShadow: p.state === 'RUNNING' ? '0 0 7px var(--accent)' : 'none' }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="row" style={{ gap: 8 }}>
@@ -179,7 +192,19 @@ export default function CEO() {
             ) : (
               <div className="col" style={{ gap: 10 }}>
                 {pendentes.slice(0, 8).map(item => (
-                  <div key={item.id} className="card card--pad" style={{ background: 'color-mix(in srgb, var(--accent-red) 6%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-red) 16%, transparent)' }}>
+                  <div
+                    key={item.id}
+                    className="card card--pad"
+                    style={{ background: 'color-mix(in srgb, var(--accent-red) 6%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-red) 16%, transparent)' }}
+                    {...menu.bind((): CtxItem[] => [
+                      { header: item.resumo },
+                      { label: 'Aprovar', icon: <Check size={15} strokeWidth={2} />, onClick: () => aprovar(item.id), disabled: acting === item.id },
+                      { label: 'Rejeitar', icon: <X size={15} strokeWidth={2} />, danger: true, onClick: () => rejeitar(item.id), disabled: acting === item.id },
+                      { separator: true },
+                      { label: 'Ver em Aprovações', icon: <Eye size={15} strokeWidth={1.8} />, onClick: () => navigate('/aprovacoes') },
+                      { label: 'Copiar ID', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(item.id, 'ID copiado') },
+                    ])}
+                  >
                     <div className="row" style={{ gap: 8, marginBottom: 6 }}>
                       <span className="badge" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>{item.tipo}</span>
                       <span className="dim mono truncate" style={{ fontSize: 11 }}>{item.id}</span>
@@ -211,7 +236,16 @@ export default function CEO() {
             <div className="empty" style={{ padding: 28 }}><p className="dim" style={{ margin: 0, fontSize: 13 }}>Nenhum evento registrado ainda</p></div>
           ) : (
             pipelines.history.slice(0, 10).map((p, i, arr) => (
-              <div key={p.id} className="row" style={{ gap: 14, padding: '10px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <div
+                key={p.id}
+                className="row"
+                style={{ gap: 14, padding: '10px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}
+                {...menu.bind((): CtxItem[] => [
+                  { header: p.name },
+                  { label: 'Ver no painel', icon: <Eye size={15} strokeWidth={1.8} />, onClick: () => navigate('/pipelines') },
+                  { label: 'Copiar ID', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(p.id, 'ID copiado') },
+                ])}
+              >
                 <span className="dot" style={{ background: STATE_COLOR[p.state] }} />
                 <span className="truncate" style={{ fontSize: 12.5, fontWeight: 500, minWidth: 0, flex: 1 }}>{p.name}</span>
                 <span className="badge hide-xs" style={{ color: STATE_COLOR[p.state] }}>{p.state}</span>

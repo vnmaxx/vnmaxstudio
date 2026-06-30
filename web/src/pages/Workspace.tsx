@@ -3,11 +3,16 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import type { WorkspaceFile } from '../types'
 import { useIsMobile } from '../hooks/useMediaQuery'
+import { useContextMenu, type CtxItem } from '../components/ContextMenu'
+import { downloadText, humanName } from '../lib/files'
+
+const HIDDEN_DIRS = ['aprovacoes']
 import {
   RefreshCw, FolderOpen, FileText, ChevronRight, ArrowLeft, Home, Search,
   Users, PenLine, Package, Globe, Megaphone, Mail, Handshake, ClipboardList,
   BarChart3, CheckSquare, Folder, File, Braces, Terminal, LayoutGrid,
   Phone, AtSign, Tag, MessageSquare, Star, Code, MapPin, ExternalLink,
+  Copy, FolderInput, Download, Trash2,
 } from 'lucide-react'
 
 type BrowseResult =
@@ -96,6 +101,7 @@ function hexToRgb(hex: string) {
 }
 
 function LeadCard({ lead, index }: { lead: Lead; index: number }) {
+  const menu = useContextMenu()
   const { handle, phone } = parseContato(lead.contato)
   const rank    = extractRank(lead.observacao)
   const rating  = extractRating(lead.observacao)
@@ -104,8 +110,20 @@ function LeadCard({ lead, index }: { lead: Lead; index: number }) {
 
   const rankColor = rank === 1 ? '#FFD60A' : rank === 2 ? '#C0C0C0' : rank === 3 ? '#CD7F32' : 'rgba(255,255,255,0.3)'
 
+  const menuItems = (): CtxItem[] => {
+    const items: CtxItem[] = [{ header: lead.nome || `Lead #${index + 1}` }]
+    if (handle) items.push({ label: 'Abrir Instagram', icon: <AtSign size={15} strokeWidth={1.8} />, onClick: () => window.open(`https://instagram.com/${handle.replace('@', '')}`, '_blank') })
+    items.push({ label: 'Pesquisar no Google', icon: <ExternalLink size={15} strokeWidth={1.8} />, onClick: () => window.open(googleUrl(lead.nome), '_blank') })
+    items.push({ label: 'Ver no Maps', icon: <MapPin size={15} strokeWidth={1.8} />, onClick: () => window.open(mapsUrl(lead.nome), '_blank') })
+    items.push({ separator: true })
+    if (phone) items.push({ label: 'Copiar telefone', icon: <Phone size={15} strokeWidth={1.8} />, onClick: () => menu.copy(phone, 'Telefone copiado') })
+    if (lead.contato) items.push({ label: 'Copiar contato', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(lead.contato!, 'Contato copiado') })
+    items.push({ label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(lead.nome || '', 'Nome copiado') })
+    return items
+  }
+
   return (
-    <div className="card card--pad col gap-3" style={{ gap: 12 }}>
+    <div className="card card--pad col gap-3" style={{ gap: 12 }} {...menu.bind(menuItems)}>
       <div className="row row--between" style={{ alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
         <div className="flex-1 col" style={{ minWidth: 0, gap: 6 }}>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -191,8 +209,9 @@ function LeadCard({ lead, index }: { lead: Lead; index: number }) {
   )
 }
 
-function FileViewer({ filename, content, isJson }: { filename: string; content: string; isJson: boolean }) {
+function FileViewer({ filename, content, isJson, fullPath, onDeleted }: { filename: string; content: string; isJson: boolean; fullPath: string[]; onDeleted: () => void }) {
   const [rawView, setRawView] = useState(false)
+  const menu = useContextMenu()
 
   let leads: Lead[] | null = null
   if (isJson) {
@@ -207,11 +226,47 @@ function FileViewer({ filename, content, isJson }: { filename: string; content: 
 
   const isLeads = leads !== null
 
+  const handleDelete = async () => {
+    if (!confirm(`Excluir o arquivo "${filename}"? Esta ação não pode ser desfeita.`)) return
+    try {
+      await api.deleteWorkspacePath(fullPath)
+      menu.flash('Arquivo excluído')
+      onDeleted()
+    } catch (e: unknown) {
+      menu.flash(e instanceof Error ? e.message : 'Erro ao excluir')
+    }
+  }
+
+  const viewerMenu = (): CtxItem[] => {
+    const items: CtxItem[] = [
+      { header: filename },
+      { label: 'Copiar conteúdo', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(content, 'Conteúdo copiado') },
+      { label: 'Baixar', icon: <Download size={15} strokeWidth={1.8} />, onClick: () => downloadText(filename, content) },
+    ]
+    if (isLeads && leads) {
+      items.push({ label: 'Copiar JSON dos leads', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(JSON.stringify(leads, null, 2), 'JSON copiado') })
+    }
+    items.push({ separator: true })
+    items.push({ label: 'Copiar caminho', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(fullPath.join('/'), 'Caminho copiado') })
+    items.push({
+      label: 'Renomear', icon: <PenLine size={15} strokeWidth={1.8} />,
+      onClick: async () => {
+        const novo = window.prompt('Novo nome do arquivo:', filename)
+        if (!novo || novo.trim() === '' || novo === filename) return
+        try { await api.renameWorkspacePath(fullPath, novo.trim()); menu.flash('Arquivo renomeado'); onDeleted() }
+        catch (e: unknown) { menu.flash(e instanceof Error ? e.message : 'Erro ao renomear') }
+      },
+    })
+    items.push({ separator: true })
+    items.push({ label: 'Excluir arquivo', icon: <Trash2 size={15} strokeWidth={1.8} />, danger: true, onClick: handleDelete })
+    return items
+  }
+
   return (
-    <div className="panel anim-fade">
+    <div className="panel anim-fade" {...menu.bind(viewerMenu)}>
       <div className="panel-head" style={{ gap: 10, flexWrap: 'wrap' }}>
         <FileIconComp name={filename} isDir={false} />
-        <span className="panel-title truncate flex-1">{filename}</span>
+        <span className="panel-title truncate flex-1" title={filename}>{humanName(filename)}</span>
         {isLeads && (
           <span className="badge" style={{ color: 'var(--accent-green)', background: 'color-mix(in srgb, var(--accent-green) 10%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-green) 22%, transparent)' }}>
             {leads!.length} leads
@@ -261,6 +316,7 @@ export default function Workspace() {
   const [search, setSearch] = useState('')
   const isMobile = useIsMobile()
   const [searchParams] = useSearchParams()
+  const menu = useContextMenu()
 
   const navigate = useCallback(async (segments: string[]) => {
     setLoading(true)
@@ -269,7 +325,7 @@ export default function Workspace() {
     try {
       if (segments.length === 0) {
         const dirs = await api.getWorkspace()
-        setResult({ type: 'dir', items: dirs.map(d => ({ name: d.name, isDir: true, size: 0, mtime: '', count: d.count })) })
+        setResult({ type: 'dir', items: dirs.filter(d => !HIDDEN_DIRS.includes(d.name)).map(d => ({ name: d.name, isDir: true, size: 0, mtime: '', count: d.count })) })
       } else {
         const res = await api.browsePath(segments)
         setResult(res)
@@ -374,6 +430,13 @@ export default function Workspace() {
                 key={d.name}
                 className="card card--hover"
                 onClick={() => goTo([d.name])}
+                {...menu.bind((): CtxItem[] => [
+                  { header: d.name },
+                  { label: 'Abrir', icon: <FolderOpen size={15} strokeWidth={1.8} />, onClick: () => goTo([d.name]) },
+                  { label: 'Atualizar', icon: <RefreshCw size={15} strokeWidth={1.8} />, onClick: () => navigate(pathStack) },
+                  { separator: true },
+                  { label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(d.name, 'Nome copiado') },
+                ])}
                 style={{
                   padding: '22px 20px', textAlign: 'left',
                   display: 'flex', flexDirection: 'column', gap: 4,
@@ -382,7 +445,7 @@ export default function Workspace() {
               >
                 <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `radial-gradient(circle, rgba(${rgb},0.14) 0%, transparent 70%)`, pointerEvents: 'none' }} />
                 <div style={{ color: meta.color, marginBottom: 'auto', display: 'flex', paddingBottom: 16 }}>{meta.icon}</div>
-                <p className="truncate" style={{ color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 600, margin: 0 }}>{d.name}</p>
+                <p className="truncate" style={{ color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 600, margin: 0 }}>{humanName(d.name, true)}</p>
                 <p style={{ margin: 0, fontSize: 11.5, fontWeight: 500, color: `rgba(${rgb},0.85)` }}>
                   {(d as WorkspaceFile & { count?: number }).count ?? 0} {((d as WorkspaceFile & { count?: number }).count ?? 0) === 1 ? 'item' : 'itens'}
                 </p>
@@ -414,6 +477,34 @@ export default function Workspace() {
               key={f.name}
               onClick={() => goTo([...pathStack, f.name])}
               className="ws-row"
+              {...menu.bind((): CtxItem[] => {
+                const items: CtxItem[] = [
+                  { header: f.name },
+                  { label: f.isDir ? 'Abrir pasta' : 'Abrir arquivo', icon: f.isDir ? <FolderInput size={15} strokeWidth={1.8} /> : <FileText size={15} strokeWidth={1.8} />, onClick: () => goTo([...pathStack, f.name]) },
+                ]
+                if (!f.isDir) items.push({ label: 'Copiar caminho', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy([...pathStack, f.name].join('/'), 'Caminho copiado') })
+                items.push({ label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(f.name, 'Nome copiado') })
+                if (!f.isDir) items.push({
+                  label: 'Renomear', icon: <PenLine size={15} strokeWidth={1.8} />,
+                  onClick: async () => {
+                    const novo = window.prompt('Novo nome do arquivo:', f.name)
+                    if (!novo || novo.trim() === '' || novo === f.name) return
+                    try { await api.renameWorkspacePath([...pathStack, f.name], novo.trim()); menu.flash('Arquivo renomeado'); navigate(pathStack) }
+                    catch (e: unknown) { menu.flash(e instanceof Error ? e.message : 'Erro ao renomear') }
+                  },
+                })
+                items.push({ separator: true })
+                items.push({ label: 'Atualizar', icon: <RefreshCw size={15} strokeWidth={1.8} />, onClick: () => navigate(pathStack) })
+                if (!f.isDir) items.push({
+                  label: 'Excluir', icon: <Trash2 size={15} strokeWidth={1.8} />, danger: true,
+                  onClick: async () => {
+                    if (!confirm(`Excluir "${f.name}"? Esta ação não pode ser desfeita.`)) return
+                    try { await api.deleteWorkspacePath([...pathStack, f.name]); menu.flash('Arquivo excluído'); navigate(pathStack) }
+                    catch (e: unknown) { menu.flash(e instanceof Error ? e.message : 'Erro ao excluir') }
+                  },
+                })
+                return items
+              })}
               style={{
                 display: 'grid', gridTemplateColumns: listCols, gap: 12,
                 alignItems: 'center', width: '100%', textAlign: 'left',
@@ -427,7 +518,7 @@ export default function Workspace() {
               <span className="row" style={{ gap: 10, minWidth: 0 }}>
                 <FileIconComp name={f.name} isDir={f.isDir} />
                 <span className="col" style={{ minWidth: 0 }}>
-                  <span className="truncate" style={{ color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 500 }}>{f.name}</span>
+                  <span className="truncate" title={f.name} style={{ color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 500 }}>{humanName(f.name, f.isDir)}</span>
                   {f.isDir && <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>Pasta</span>}
                 </span>
               </span>
@@ -450,6 +541,8 @@ export default function Workspace() {
           filename={pathStack[pathStack.length - 1] || ''}
           content={fileContent.raw}
           isJson={fileContent.isJson}
+          fullPath={pathStack}
+          onDeleted={() => goTo(pathStack.slice(0, -1))}
         />
       )}
     </div>

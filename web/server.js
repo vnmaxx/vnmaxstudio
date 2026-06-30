@@ -157,6 +157,16 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
+  app.delete('/api/workspace-browse/*', async (req, res) => {
+    const { status, data } = await bridge('DELETE', `/workspace-browse/${req.params[0]}`);
+    res.status(status).json(data);
+  });
+
+  app.post('/api/workspace-rename', async (req, res) => {
+    const { status, data } = await bridge('POST', '/workspace-rename', req.body);
+    res.status(status).json(data);
+  });
+
   app.get('/api/workspace', (req, res) => {
     const { status, data } = bridgeCached('/workspace');
     res.status(status).json(data);
@@ -349,6 +359,34 @@ if (BRIDGE_URL) {
     try {
       const dirs = safeReadDir(WORKSPACE_DIR).filter(f => { try { return fs.statSync(path.join(WORKSPACE_DIR, f)).isDirectory(); } catch { return false; } }).map(name => ({ name, count: safeReadDir(path.join(WORKSPACE_DIR, name)).length }));
       res.json(dirs);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete('/api/workspace-browse/*', (req, res) => {
+    try {
+      const segments = req.params[0].split('/').filter(s => s && s !== '..' && s !== '.');
+      const target = path.join(WORKSPACE_DIR, ...segments);
+      if (!target.startsWith(WORKSPACE_DIR)) return res.status(403).json({ error: 'forbidden' });
+      if (!fs.existsSync(target)) return res.status(404).json({ error: 'Not found' });
+      if (fs.statSync(target).isDirectory()) return res.status(400).json({ error: 'Não é possível excluir pastas' });
+      fs.unlinkSync(target);
+      res.json({ ok: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/workspace-rename', (req, res) => {
+    try {
+      const { from, to } = req.body || {};
+      if (!Array.isArray(from) || from.length === 0 || !to || typeof to !== 'string') return res.status(400).json({ error: 'parâmetros inválidos' });
+      const safeFrom = from.filter(s => s && s !== '..' && s !== '.');
+      const src = path.join(WORKSPACE_DIR, ...safeFrom);
+      const newName = path.basename(to);
+      const dest = path.join(path.dirname(src), newName);
+      if (!src.startsWith(WORKSPACE_DIR) || !dest.startsWith(WORKSPACE_DIR)) return res.status(403).json({ error: 'forbidden' });
+      if (!fs.existsSync(src)) return res.status(404).json({ error: 'Not found' });
+      if (fs.existsSync(dest)) return res.status(409).json({ error: 'Já existe um arquivo com esse nome' });
+      fs.renameSync(src, dest);
+      res.json({ ok: true, name: newName });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 

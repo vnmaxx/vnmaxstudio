@@ -2,7 +2,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
 import type { ReportFile } from '../types'
 import { useIsMobile } from '../hooks/useMediaQuery'
-import { RefreshCw, BarChart3, FileText, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react'
+import { useContextMenu, type CtxItem } from '../components/ContextMenu'
+import { downloadText, humanName } from '../lib/files'
+import { RefreshCw, BarChart3, FileText, ArrowLeft, AlertCircle, Loader2, Eye, Copy, Download, Trash2 } from 'lucide-react'
 
 function getReportType(name: string): string {
   if (name.startsWith('relatorio-')) return 'Relatório'
@@ -30,6 +32,38 @@ export default function Relatorios() {
   const [error, setError] = useState<string | null>(null)
 
   const isMobile = useIsMobile()
+  const menu = useContextMenu()
+
+  const reportContent = async (name: string) => {
+    const res = await api.getRelatorio(name)
+    return res.content
+  }
+
+  const copyReport = async (name: string) => { try { menu.copy(await reportContent(name), 'Conteúdo copiado') } catch {} }
+  const downloadReport = async (name: string) => { try { downloadText(name, await reportContent(name), 'text/markdown') } catch {} }
+
+  const deleteReport = async (name: string) => {
+    if (!confirm(`Excluir o relatório "${name}"? Esta ação não pode ser desfeita.`)) return
+    try {
+      await api.deleteWorkspacePath(['reports', name])
+      if (selected === name) { setSelected(null); setContent(null) }
+      menu.flash('Relatório excluído')
+      loadReports()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro ao excluir')
+    }
+  }
+
+  const reportMenu = (name: string): CtxItem[] => [
+    { header: name.replace('.md', '') },
+    { label: 'Abrir', icon: <Eye size={15} strokeWidth={1.8} />, onClick: () => selectReport(name) },
+    { separator: true },
+    { label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(name, 'Nome copiado') },
+    { label: 'Copiar conteúdo', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => copyReport(name) },
+    { label: 'Baixar (.md)', icon: <Download size={15} strokeWidth={1.8} />, onClick: () => downloadReport(name) },
+    { separator: true },
+    { label: 'Excluir', icon: <Trash2 size={15} strokeWidth={1.8} />, danger: true, onClick: () => deleteReport(name) },
+  ]
 
   const loadReports = useCallback(async () => {
     try {
@@ -89,6 +123,7 @@ export default function Relatorios() {
                     key={r.name}
                     onClick={() => selectReport(r.name)}
                     className="anim-fade"
+                    {...menu.bind(() => reportMenu(r.name))}
                     style={{
                       textAlign: 'left',
                       width: '100%',
@@ -117,6 +152,7 @@ export default function Relatorios() {
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <p
                           className="truncate"
+                          title={r.name}
                           style={{
                             margin: 0,
                             fontSize: 12.5,
@@ -124,7 +160,7 @@ export default function Relatorios() {
                             color: active ? 'var(--accent-text)' : 'var(--text-primary)',
                           }}
                         >
-                          {r.name.replace('.md', '')}
+                          {humanName(r.name)}
                         </p>
                         <p
                           style={{
@@ -173,9 +209,19 @@ export default function Relatorios() {
               </button>
             )}
             <FileText size={15} strokeWidth={1.6} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
-            <span className="panel-title truncate" title={selected}>{selected}</span>
+            <span className="panel-title truncate" title={selected}>{humanName(selected)}</span>
           </div>
-          <div className="panel-body" style={{ padding: 'clamp(14px, 2.4vw, 20px)' }}>
+          <div
+            className="panel-body"
+            style={{ padding: 'clamp(14px, 2.4vw, 20px)' }}
+            {...(selected && content ? menu.bind((): CtxItem[] => [
+              { header: selected },
+              { label: 'Copiar tudo', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(content, 'Conteúdo copiado') },
+              { label: 'Baixar (.md)', icon: <Download size={15} strokeWidth={1.8} />, onClick: () => downloadText(selected, content, 'text/markdown') },
+              { separator: true },
+              { label: 'Excluir', icon: <Trash2 size={15} strokeWidth={1.8} />, danger: true, onClick: () => deleteReport(selected) },
+            ]) : {})}
+          >
             {loadingContent ? (
               <div className="center" style={{ minHeight: 160, gap: 10 }}>
                 <Loader2 size={18} className="spin" style={{ color: 'var(--text-tertiary)' }} />

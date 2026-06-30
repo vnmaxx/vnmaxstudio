@@ -58,6 +58,18 @@ export const api = {
       `/workspace/${encodeURIComponent(dir)}/${encodeURIComponent(file)}`
     ),
 
+  deleteWorkspacePath: (pathSegments: string[]) => {
+    const encoded = pathSegments.map(s => encodeURIComponent(s)).join('/')
+    return fetchJson<{ ok: boolean }>(`/workspace-browse/${encoded}`, { method: 'DELETE' })
+  },
+
+  renameWorkspacePath: (from: string[], to: string) =>
+    fetchJson<{ ok: boolean; name: string }>('/workspace-rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to }),
+    }),
+
   getPipelines: () => fetchJson<{ running: import('./types').PipelineRecord[]; history: import('./types').PipelineRecord[] }>('/pipelines'),
 
   getPipelineMetrics: () => fetchJson<import('./types').PipelineMetrics>('/pipelines/metrics'),

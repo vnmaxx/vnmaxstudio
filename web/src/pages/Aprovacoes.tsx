@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
 import type { AprovacaoResumo, AprovacaoCompleta } from '../types'
 import { useIsMobile } from '../hooks/useMediaQuery'
+import { useContextMenu, type CtxItem } from '../components/ContextMenu'
 import {
   Check,
   X,
@@ -10,6 +11,8 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Eye,
+  Copy,
 } from 'lucide-react'
 
 function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
@@ -36,6 +39,7 @@ function AprovacaoItem({
   const [rejeitando, setRejeitando] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [showRejeitar, setShowRejeitar] = useState(false)
+  const menu = useContextMenu()
 
   const loadFull = async () => {
     if (full) return
@@ -84,8 +88,17 @@ function AprovacaoItem({
 
   const isEmail = item.tipo.toLowerCase().includes('email')
 
+  const menuItems = (): CtxItem[] => [
+    { header: item.resumo },
+    { label: 'Aprovar', icon: <Check size={15} strokeWidth={2} />, onClick: handleAprovar, disabled: aprovando },
+    { label: 'Rejeitar', icon: <X size={15} strokeWidth={2} />, danger: true, onClick: () => setShowRejeitar(true) },
+    { separator: true },
+    { label: expanded ? 'Ocultar detalhes' : 'Ver detalhes', icon: <Eye size={15} strokeWidth={1.8} />, onClick: handleExpand },
+    { label: 'Copiar ID', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(item.id, 'ID copiado') },
+  ]
+
   return (
-    <div className="card anim-rise" style={{ overflow: 'hidden' }}>
+    <div className="card anim-rise" style={{ overflow: 'hidden' }} {...menu.bind(menuItems)}>
       <div style={{ padding: 'clamp(13px, 1.8vw, 16px)' }}>
         <div
           className="row gap-3"

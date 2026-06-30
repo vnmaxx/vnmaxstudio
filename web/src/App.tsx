@@ -12,6 +12,7 @@ import Admin from './pages/Admin'
 import Configuracoes from './pages/Configuracoes'
 import CEO from './pages/CEO'
 import Pipelines from './pages/Pipelines'
+import { ContextMenuProvider } from './components/ContextMenu'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -50,7 +51,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <ContextMenuProvider>
+          <AppRoutes />
+        </ContextMenuProvider>
       </AuthProvider>
     </BrowserRouter>
   )

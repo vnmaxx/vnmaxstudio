@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import { CheckCircle2, Clock, UserCheck, Users, RefreshCw, Loader2, ShieldOff } from 'lucide-react'
+import { CheckCircle2, Clock, UserCheck, Users, RefreshCw, Loader2, ShieldOff, Copy } from 'lucide-react'
+import { useContextMenu, type CtxItem } from '../components/ContextMenu'
 
 interface UsuarioFirestore {
   uid: string
@@ -14,6 +15,7 @@ interface UsuarioFirestore {
 export default function Admin() {
   const [usuarios, setUsuarios] = useState<UsuarioFirestore[]>([])
   const [loading, setLoading] = useState(true)
+  const menu = useContextMenu()
 
   async function carregar() {
     setLoading(true)
@@ -41,8 +43,17 @@ export default function Admin() {
 
   function UsuarioCard({ u, acao }: { u: UsuarioFirestore; acao: 'aprovar' | 'revogar' }) {
     const inicial = (u.displayName || u.email || '?').trim().charAt(0).toUpperCase()
+    const cardMenu = (): CtxItem[] => {
+      const items: CtxItem[] = [{ header: u.email }]
+      if (acao === 'aprovar') items.push({ label: 'Aprovar', icon: <UserCheck size={15} strokeWidth={1.8} />, onClick: () => aprovar(u.uid) })
+      else items.push({ label: 'Revogar acesso', icon: <ShieldOff size={15} strokeWidth={1.8} />, danger: true, onClick: () => revogar(u.uid) })
+      items.push({ separator: true })
+      items.push({ label: 'Copiar email', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(u.email, 'Email copiado') })
+      if (u.displayName) items.push({ label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(u.displayName, 'Nome copiado') })
+      return items
+    }
     return (
-      <div className="card card--pad anim-rise">
+      <div className="card card--pad anim-rise" {...menu.bind(cardMenu)}>
         <div className="row row--between gap-3 wrap" style={{ alignItems: 'center' }}>
           <div className="row gap-3 flex-1" style={{ minWidth: 0, alignItems: 'center' }}>
             <div

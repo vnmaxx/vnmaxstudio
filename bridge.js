@@ -225,10 +225,17 @@ app.get('/agents', (req, res) => {
     const { AGENTS } = require('/home/v/nxs-agents/lib/agents.js');
     const overrides = loadAgentOverrides();
     const normalized = {};
-    for (const [name, agent] of Object.entries(AGENTS)) {
+    const names = new Set([...Object.keys(AGENTS), ...Object.keys(overrides)]);
+    for (const name of names) {
+      const base = AGENTS[name] || {};
       const over = overrides[name] || {};
-      const merged = { ...agent, ...over };
-      normalized[name] = { ...merged, system: merged.system || merged.systemPrompt || '' };
+      const merged = { ...base, ...over };
+      normalized[name] = {
+        model: merged.model || 'sonnet',
+        maxTurns: merged.maxTurns || 40,
+        tools: merged.tools || { shell: false, web: false, edit: false, read: false },
+        system: merged.system || merged.systemPrompt || '',
+      };
     }
     res.json(normalized);
   } catch (e) {
@@ -335,6 +342,36 @@ app.get('/pipelines/:id', (req, res) => {
     const file = path.join(PIPELINES_DIR, `pipeline-${req.params.id}.json`);
     if (!fs.existsSync(file)) return res.status(404).json({ error: 'Not found' });
     res.json(JSON.parse(fs.readFileSync(file, 'utf8')));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/workspace-rename', (req, res) => {
+  try {
+    const { from, to } = req.body || {};
+    if (!Array.isArray(from) || from.length === 0 || !to || typeof to !== 'string') {
+      return res.status(400).json({ error: 'parâmetros inválidos' });
+    }
+    const safeFrom = from.filter(s => s && s !== '..' && s !== '.');
+    const src = path.join(WORKSPACE, ...safeFrom);
+    const newName = path.basename(to);
+    const dest = path.join(path.dirname(src), newName);
+    if (!src.startsWith(WORKSPACE) || !dest.startsWith(WORKSPACE)) return res.status(403).json({ error: 'forbidden' });
+    if (!fs.existsSync(src)) return res.status(404).json({ error: 'Not found' });
+    if (fs.existsSync(dest)) return res.status(409).json({ error: 'Já existe um arquivo com esse nome' });
+    fs.renameSync(src, dest);
+    res.json({ ok: true, name: newName });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete(/^\/workspace-browse\/(.*)$/, (req, res) => {
+  try {
+    const segments = req.params[0].split('/').filter(s => s && s !== '..' && s !== '.');
+    const target = path.join(WORKSPACE, ...segments);
+    if (!target.startsWith(WORKSPACE)) return res.status(403).json({ error: 'forbidden' });
+    if (!fs.existsSync(target)) return res.status(404).json({ error: 'Not found' });
+    if (fs.statSync(target).isDirectory()) return res.status(400).json({ error: 'Não é possível excluir pastas' });
+    fs.unlinkSync(target);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

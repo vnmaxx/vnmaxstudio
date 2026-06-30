@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { api } from '../api'
-import { RefreshCw, Terminal, AlertTriangle } from 'lucide-react'
+import { useContextMenu, type CtxItem } from '../components/ContextMenu'
+import { downloadText } from '../lib/files'
+import { RefreshCw, Terminal, AlertTriangle, Copy, Download } from 'lucide-react'
 
 function classifyLine(line: string): string {
   if (line.includes('ERROR') || line.includes('Erro') || line.includes('ERRO')) return 'var(--accent-red)'
@@ -16,6 +18,7 @@ export default function Logs() {
   const [error, setError] = useState<string | null>(null)
   const [autoScroll, setAutoScroll] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const menu = useContextMenu()
 
   const loadLogs = useCallback(async () => {
     try {
@@ -34,6 +37,14 @@ export default function Logs() {
     const interval = setInterval(loadLogs, 5000)
     return () => clearInterval(interval)
   }, [loadLogs])
+
+  const globalMenu = (): CtxItem[] => [
+    { header: 'logs/scheduler.log' },
+    { label: 'Copiar tudo', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(lines.join('\n'), 'Logs copiados') },
+    { label: 'Baixar logs', icon: <Download size={15} strokeWidth={1.8} />, onClick: () => downloadText('scheduler.log', lines.join('\n')) },
+    { separator: true },
+    { label: 'Atualizar', icon: <RefreshCw size={15} strokeWidth={1.8} />, onClick: loadLogs },
+  ]
 
   useEffect(() => {
     if (autoScroll && bottomRef.current) {
@@ -95,6 +106,7 @@ export default function Logs() {
         <div
           className="panel-head"
           style={{ background: 'var(--bg-deep)', justifyContent: 'flex-start', gap: 8 }}
+          {...menu.bind(globalMenu)}
         >
           <div className="row gap-2" style={{ flexShrink: 0 }}>
             <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'var(--accent-red)' }} />
@@ -124,6 +136,12 @@ export default function Logs() {
               <div
                 key={i}
                 className="mono"
+                {...menu.bind((): CtxItem[] => [
+                  { label: 'Copiar linha', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(line, 'Linha copiada') },
+                  { label: 'Copiar tudo', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(lines.join('\n'), 'Logs copiados') },
+                  { separator: true },
+                  { label: 'Baixar logs', icon: <Download size={15} strokeWidth={1.8} />, onClick: () => downloadText('scheduler.log', lines.join('\n')) },
+                ])}
                 style={{
                   display: 'flex',
                   lineHeight: 1.75,

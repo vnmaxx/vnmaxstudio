@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
 import type { PipelineRecord, PipelineStep, PipelineMetrics, PipelineState } from '../types'
-import { Activity, CheckCircle, XCircle, Clock, RefreshCw, AlertCircle, ChevronDown, ChevronRight, Zap, BarChart3 } from 'lucide-react'
+import { Activity, CheckCircle, XCircle, Clock, RefreshCw, AlertCircle, ChevronDown, ChevronRight, Zap, BarChart3, Eye, Copy, Download } from 'lucide-react'
+import { useContextMenu, type CtxItem } from '../components/ContextMenu'
+import { downloadText } from '../lib/files'
 
 function fmtMs(ms: number | null | undefined) {
   if (!ms) return '—'
@@ -95,13 +97,41 @@ function StepRow({ step, isRunning }: { step: PipelineStep; isRunning: boolean }
 function PipelineCard({ record, defaultOpen = false }: { record: PipelineRecord; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
   const [showLogs, setShowLogs] = useState(false)
+  const menu = useContextMenu()
   const isActive = record.state === 'RUNNING' || record.state === 'RETRY' || record.state === 'WAITING'
 
   const doneSteps = record.steps.filter(s => s.state === 'COMPLETED').length
   const progress = record.steps.length > 0 ? doneSteps / record.steps.length : 0
 
+  const menuItems = (): CtxItem[] => {
+    const items: CtxItem[] = [
+      { header: record.name },
+      { label: open ? 'Ocultar detalhes' : 'Ver detalhes', icon: <Eye size={15} strokeWidth={1.8} />, onClick: () => setOpen(o => !o) },
+    ]
+    if (record.logs.length > 0) items.push({ label: 'Ver logs', icon: <Activity size={15} strokeWidth={1.8} />, onClick: () => { setOpen(true); setShowLogs(true) } })
+    items.push({ separator: true })
+    items.push({ label: 'Copiar ID', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(record.id, 'ID copiado') })
+    items.push({ label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(record.name, 'Nome copiado') })
+    if (record.logs.length > 0) {
+      items.push({ label: 'Copiar logs', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(record.logs.join('\n'), 'Logs copiados') })
+      items.push({ label: 'Baixar logs', icon: <Download size={15} strokeWidth={1.8} />, onClick: () => downloadText(`pipeline-${record.id}.log`, record.logs.join('\n')) })
+    }
+    items.push({ label: 'Copiar JSON', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(JSON.stringify(record, null, 2), 'JSON copiado') })
+    if (['segunda', 'diario', 'sexta'].includes(record.cycle)) {
+      items.push({ separator: true })
+      items.push({
+        label: 'Reexecutar ciclo', icon: <RefreshCw size={15} strokeWidth={1.8} />,
+        onClick: async () => {
+          try { await api.runCycle(record.cycle as 'segunda' | 'diario' | 'sexta'); menu.flash('Ciclo reiniciado') }
+          catch { menu.flash('Erro ao reexecutar') }
+        },
+      })
+    }
+    return items
+  }
+
   return (
-    <div className="card" style={{ borderColor: isActive ? 'var(--accent-line)' : 'var(--border)', overflow: 'hidden' }}>
+    <div className="card" style={{ borderColor: isActive ? 'var(--accent-line)' : 'var(--border)', overflow: 'hidden' }} {...menu.bind(menuItems)}>
       <div
         onClick={() => setOpen(o => !o)}
         className="row"

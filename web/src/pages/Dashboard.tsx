@@ -1,13 +1,14 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { pushNotification } from '../components/NotificationBell'
+import { useContextMenu, type CtxItem } from '../components/ContextMenu'
 import type { Agent, SystemStatus, Stats } from '../types'
 import {
   Terminal, Globe, Pencil, BookOpen,
   Play, Loader2, X, Check, Save,
   Users, FileText, Megaphone, Mail, Package,
-  AlertCircle, Activity, TrendingUp, Clock,
+  AlertCircle, Activity, TrendingUp, Clock, Copy, CopyPlus,
 } from 'lucide-react'
 
 type AgentsMap = Record<string, Agent>
@@ -222,10 +223,26 @@ function AgentModal({ name, agent, onClose, onSaved }: { name: string; agent: Ag
   )
 }
 
-function AgentCard({ name, agent, onClick }: { name: string; agent: Agent; onClick: () => void }) {
+function AgentCard({ name, agent, onClick, onChanged }: { name: string; agent: Agent; onClick: () => void; onChanged: () => void }) {
   const tools = agent.tools || {}
+  const menu = useContextMenu()
   return (
-    <button onClick={onClick} className="card card--hover card--pad" style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <button
+      onClick={onClick}
+      className="card card--hover card--pad"
+      {...menu.bind((): CtxItem[] => [
+        { header: name.replace('studio-', '') },
+        { label: 'Editar agente', icon: <Pencil size={15} strokeWidth={1.8} />, onClick },
+        { label: 'Duplicar agente', icon: <CopyPlus size={15} strokeWidth={1.8} />, onClick: async () => {
+          try { await api.updateAgent(`${name}-copia`, { ...agent }); menu.flash('Agente duplicado'); onChanged() }
+          catch (e: unknown) { menu.flash(e instanceof Error ? e.message : 'Erro ao duplicar') }
+        } },
+        { separator: true },
+        { label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(name, 'Nome copiado') },
+        { label: 'Copiar system prompt', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(agent.system || '', 'Prompt copiado'), disabled: !agent.system },
+      ])}
+      style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
       <div className="row" style={{ alignItems: 'flex-start', gap: 10 }}>
         <AgentMascot name={name} size={44} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -314,6 +331,8 @@ export default function Dashboard() {
     }
   }
 
+  const menu = useContextMenu()
+  const navigate = useNavigate()
   const agentEntries = Object.entries(agents)
   const isOnline = !status?.disabled
 
@@ -377,7 +396,19 @@ export default function Dashboard() {
         {KPI_DEFS.map(kpi => {
           const val = stats?.counts[kpi.key as keyof typeof stats.counts] ?? 0
           return (
-            <Link key={kpi.key} to={kpi.to} className="card card--hover card--pad" style={{ display: 'flex', flexDirection: 'column', gap: 10, textDecoration: 'none', color: 'inherit' }}>
+            <Link
+              key={kpi.key}
+              to={kpi.to}
+              className="card card--hover card--pad"
+              {...menu.bind((): CtxItem[] => [
+                { header: kpi.label },
+                { label: 'Abrir', icon: kpi.icon, onClick: () => navigate(kpi.to) },
+                { separator: true },
+                { label: 'Copiar valor', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(String(val), 'Valor copiado') },
+                { label: 'Atualizar', icon: <Activity size={15} strokeWidth={1.8} />, onClick: loadData },
+              ])}
+              style={{ display: 'flex', flexDirection: 'column', gap: 10, textDecoration: 'none', color: 'inherit' }}
+            >
               <div className="row--between">
                 <span className="dim" style={{ fontSize: 11, fontWeight: 500 }}>{kpi.label}</span>
                 <span style={{ color: kpi.color, opacity: 0.75 }}>{kpi.icon}</span>
@@ -397,7 +428,7 @@ export default function Dashboard() {
           <div className="panel-body" style={{ padding: 12 }}>
             <div className="grid grid--cards">
               {agentEntries.map(([name, agent]) => (
-                <AgentCard key={name} name={name} agent={agent} onClick={() => setSelectedAgent({ name, agent })} />
+                <AgentCard key={name} name={name} agent={agent} onClick={() => setSelectedAgent({ name, agent })} onChanged={loadData} />
               ))}
             </div>
           </div>
@@ -414,7 +445,17 @@ export default function Dashboard() {
                 <p className="dim mono" style={{ fontSize: 12 }}>Sem atividade ainda</p>
               ) : (
                 logLines.slice().reverse().map((line, i) => (
-                  <div key={i} className="mono" style={{ fontSize: 12, lineHeight: 1.7, color: classifyLog(line), wordBreak: 'break-word', padding: '1px 0' }}>
+                  <div
+                    key={i}
+                    className="mono"
+                    {...menu.bind((): CtxItem[] => [
+                      { label: 'Copiar linha', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(line, 'Linha copiada') },
+                      { label: 'Copiar tudo', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(logLines.join('\n'), 'Logs copiados') },
+                      { separator: true },
+                      { label: 'Ver todos os logs', icon: <Activity size={15} strokeWidth={1.8} />, onClick: () => navigate('/logs') },
+                    ])}
+                    style={{ fontSize: 12, lineHeight: 1.7, color: classifyLog(line), wordBreak: 'break-word', padding: '1px 0' }}
+                  >
                     {line}
                   </div>
                 ))
