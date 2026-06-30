@@ -4,7 +4,7 @@ import { api } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard, CheckSquare, BarChart3, FolderOpen, ScrollText,
-  Shield, LogOut, Settings, Zap, Menu, X, Briefcase, MessagesSquare,
+  Shield, LogOut, Settings, Zap, Menu, X, Briefcase, MessagesSquare, Plug,
 } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 
@@ -20,6 +20,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} strokeWidth={1.6} />, primary: true },
   { to: '/conversas', label: 'Conversas', icon: <MessagesSquare size={18} strokeWidth={1.6} />, primary: true },
+  { to: '/conexoes', label: 'Conexões', icon: <Plug size={18} strokeWidth={1.6} /> },
   { to: '/aprovacoes', label: 'Aprovações', icon: <CheckSquare size={18} strokeWidth={1.6} />, primary: true, badge: true },
   { to: '/pipelines', label: 'Pipelines', icon: <Zap size={18} strokeWidth={1.6} /> },
   { to: '/workspace', label: 'Workspace', icon: <FolderOpen size={18} strokeWidth={1.6} />, primary: true },

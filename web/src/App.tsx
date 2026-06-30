@@ -13,6 +13,7 @@ import Configuracoes from './pages/Configuracoes'
 import CEO from './pages/CEO'
 import Pipelines from './pages/Pipelines'
 import Conversas from './pages/Conversas'
+import Conexoes from './pages/Conexoes'
 import { ContextMenuProvider } from './components/ContextMenu'
 
 function AppRoutes() {
@@ -40,6 +41,7 @@ function AppRoutes() {
         <Route path="logs" element={<Logs />} />
         <Route path="pipelines" element={<Pipelines />} />
         <Route path="conversas" element={<Conversas />} />
+        <Route path="conexoes" element={<Conexoes />} />
         {user.isAdmin && <Route path="admin" element={<Admin />} />}
         <Route path="configuracoes" element={<Configuracoes />} />
         {user.isAdmin && <Route path="ceo" element={<CEO />} />}

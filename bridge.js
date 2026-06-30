@@ -40,13 +40,11 @@ function readEnvKey(name) {
 
 const NXS_KEY = readEnvKey('NXS_STUDIO_KEY');
 
-let ayrshare = null;
-let waLink = () => '';
+let social = null;
 try {
-  const mod = require(path.join(ROOT, 'lib', 'ayrshare.js'));
-  ayrshare = new mod.Ayrshare(readEnvKey('AYRSHARE_API_KEY'));
-  if (typeof mod.whatsappLink === 'function') waLink = mod.whatsappLink;
-} catch (e) { console.error('Ayrshare indisponível:', e.message); }
+  const mod = require(path.join(ROOT, 'lib', 'social', 'index.js'));
+  social = new mod.SocialHub(WORKSPACE);
+} catch (e) { console.error('Social Hub indisponível:', e.message); }
 
 let sdr = { sdrTask: () => '', parseMsgBlocks: () => [], firstDraft: () => null };
 try { sdr = require(path.join(ROOT, 'lib', 'sdr.js')); } catch (e) { console.error('SDR helpers indisponíveis:', e.message); }
@@ -549,28 +547,43 @@ app.get('/crm/sugestao/:jobId', async (req, res) => {
 app.post('/crm/:id/enviar', async (req, res) => {
   try {
     if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    if (!social) return res.status(503).json({ error: 'Social Hub indisponível' });
     const lead = crm.list().find(l => l.id === req.params.id);
     if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
-    const { texto, modo, recipient } = req.body || {};
+    const { texto, modo, recipient, assunto } = req.body || {};
     if (!texto) return res.status(400).json({ error: 'texto obrigatório' });
     const alvo = recipient || lead.contato;
 
-    if (modo === 'whatsapp') {
-      const link = waLink(alvo, texto);
-      if (!link) return res.status(400).json({ error: 'Lead sem telefone válido para WhatsApp' });
-      crm.recordContact(lead.id, { tipo: 'mensagem', canal: 'whatsapp', etapa: 'enviado', texto });
-      const atualizado = crm.clearRascunho(lead.id) || crm.list().find(l => l.id === lead.id);
-      return res.json({ ok: true, modo: 'whatsapp', link, lead: atualizado });
+    const r = await social.send({ canal: lead.canal, recipient: alvo, texto, assunto, modo });
+    if (r.ok) {
+      crm.recordContact(lead.id, { tipo: 'mensagem', canal: r.mode === 'link' ? 'whatsapp' : lead.canal, etapa: 'enviado', texto });
+      crm.clearRascunho(lead.id);
     }
-
-    let resultadoAyr = { ok: false, error: 'Ayrshare não configurado' };
-    if (ayrshare && ayrshare.enabled()) {
-      resultadoAyr = await ayrshare.sendForLead({ canal: lead.canal, recipient: alvo, texto, modo: modo || 'dm' });
-    }
-    crm.recordContact(lead.id, { tipo: 'mensagem', canal: lead.canal, etapa: 'enviado', texto });
-    const atualizado = crm.clearRascunho(lead.id) || crm.list().find(l => l.id === lead.id);
-    res.json({ ok: resultadoAyr.ok, ayrshare: resultadoAyr, lead: atualizado });
+    const atualizado = crm.list().find(l => l.id === lead.id);
+    res.json({ ok: r.ok, mode: r.mode, link: r.link, detail: r.detail, error: r.error, lead: atualizado });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/social', (req, res) => {
+  if (!social) return res.json([]);
+  res.json(social.status());
+});
+
+app.post('/social/:id/connect', (req, res) => {
+  if (!social) return res.status(503).json({ error: 'Social Hub indisponível' });
+  const s = social.connect(req.params.id, req.body || {});
+  if (!s) return res.status(404).json({ error: 'Provider desconhecido' });
+  res.json(s);
+});
+
+app.post('/social/:id/test', async (req, res) => {
+  if (!social) return res.status(503).json({ error: 'Social Hub indisponível' });
+  res.json(await social.test(req.params.id));
+});
+
+app.post('/social/:id/disconnect', (req, res) => {
+  if (!social) return res.status(503).json({ error: 'Social Hub indisponível' });
+  res.json(social.disconnect(req.params.id));
 });
 
 app.post('/crm/:id/descartar-rascunho', (req, res) => {

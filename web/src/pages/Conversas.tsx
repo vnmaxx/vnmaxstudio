@@ -124,15 +124,18 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove, onLea
   const enviar = async (texto: string, idx: number) => {
     setSendingIdx(idx)
     try {
-      const r = await api.enviarMensagem(lead.id, { texto, modo: 'dm' })
+      const r = await api.enviarMensagem(lead.id, { texto })
       if (r.lead) onLeadUpdate(r.lead)
-      menu.toast(r.ok ? 'Enviada via Ayrshare' : 'Registrada (Ayrshare não confirmou o envio)', r.ok ? 'success' : 'info')
+      if (r.ok) menu.toast('Mensagem enviada')
+      else menu.toast(r.error || 'Não foi possível enviar — confira em Conexões', 'error')
     } catch (e: unknown) {
       menu.toast(e instanceof Error ? e.message : 'Erro ao enviar', 'error')
     } finally {
       setSendingIdx(null)
     }
   }
+
+  const podeEnviarApi = ['email', 'instagram', 'facebook', 'telegram'].includes(lead.canal)
 
   const temTelefone = !!waLink(lead.contato)
 
@@ -197,9 +200,9 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove, onLea
                     <MessageCircle size={12} /> Enviar no WhatsApp
                   </button>
                 )}
-                {(lead.canal === 'instagram' || lead.canal === 'email' || lead.canal === 'facebook') && (
+                {podeEnviarApi && (
                   <button className="btn btn--primary btn--sm" onClick={() => enviar(lead.rascunho!.mensagem, -1)} disabled={sendingIdx === -1}>
-                    {sendingIdx === -1 ? <Loader2 size={12} className="spin" /> : <Send size={12} />} Enviar via Ayrshare
+                    {sendingIdx === -1 ? <Loader2 size={12} className="spin" /> : <Send size={12} />} Enviar
                   </button>
                 )}
                 <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(lead.rascunho!.mensagem, 'Mensagem copiada')}><Copy size={12} /> Copiar</button>
@@ -272,9 +275,9 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove, onLea
                       )}
                       <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(s.mensagem, 'Mensagem copiada')}><Copy size={12} /> Copiar</button>
                       <button className="btn btn--ghost btn--sm" onClick={() => registrar(s.mensagem)}><Check size={12} /> Registrar como enviada</button>
-                      {(lead.canal === 'instagram' || lead.canal === 'email' || lead.canal === 'facebook') && (
+                      {podeEnviarApi && (
                         <button className="btn btn--primary btn--sm" onClick={() => enviar(s.mensagem, i)} disabled={sendingIdx === i}>
-                          {sendingIdx === i ? <Loader2 size={12} className="spin" /> : <Send size={12} />} Ayrshare
+                          {sendingIdx === i ? <Loader2 size={12} className="spin" /> : <Send size={12} />} Enviar
                         </button>
                       )}
                     </div>

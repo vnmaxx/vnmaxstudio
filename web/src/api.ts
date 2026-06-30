@@ -104,8 +104,8 @@ export const api = {
   getSugestao: (jobId: string) =>
     fetchJson<{ status: string; mensagens?: Array<{ canal?: string; etapa?: string; assunto?: string; mensagem: string; objetivo?: string; proximo_passo?: string }>; error?: string }>(`/crm/sugestao/${encodeURIComponent(jobId)}`),
 
-  enviarMensagem: (id: string, payload: { texto: string; modo?: string; recipient?: string }) =>
-    fetchJson<{ ok: boolean; modo?: string; link?: string; ayrshare?: unknown; lead: import('./types').CrmLead }>(`/crm/${encodeURIComponent(id)}/enviar`, {
+  enviarMensagem: (id: string, payload: { texto: string; modo?: string; recipient?: string; assunto?: string }) =>
+    fetchJson<{ ok: boolean; mode?: string; link?: string; detail?: string; error?: string; lead: import('./types').CrmLead }>(`/crm/${encodeURIComponent(id)}/enviar`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     }),
 
@@ -114,6 +114,19 @@ export const api = {
 
   sdrLote: () =>
     fetchJson<{ ok: boolean; queued: number; jaNaFila: number }>('/crm/sdr-lote', { method: 'POST' }),
+
+  getSocial: () => fetchJson<import('./types').SocialProvider[]>('/social'),
+
+  connectSocial: (id: string, values: Record<string, string>) =>
+    fetchJson<import('./types').SocialProvider>(`/social/${encodeURIComponent(id)}/connect`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values),
+    }),
+
+  testSocial: (id: string) =>
+    fetchJson<{ ok: boolean; info?: string; error?: string }>(`/social/${encodeURIComponent(id)}/test`, { method: 'POST' }),
+
+  disconnectSocial: (id: string) =>
+    fetchJson<import('./types').SocialProvider>(`/social/${encodeURIComponent(id)}/disconnect`, { method: 'POST' }),
 
   getStats: () => fetchJson<import('./types').Stats>('/stats'),
 

@@ -257,6 +257,22 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('POST', '/crm/sdr-lote', req.body);
     res.status(status).json(data);
   });
+  app.get('/api/social', async (req, res) => {
+    const { status, data } = await bridge('GET', '/social');
+    res.status(status).json(data);
+  });
+  app.post('/api/social/:id/connect', async (req, res) => {
+    const { status, data } = await bridge('POST', `/social/${req.params.id}/connect`, req.body);
+    res.status(status).json(data);
+  });
+  app.post('/api/social/:id/test', async (req, res) => {
+    const { status, data } = await bridge('POST', `/social/${req.params.id}/test`, req.body);
+    res.status(status).json(data);
+  });
+  app.post('/api/social/:id/disconnect', async (req, res) => {
+    const { status, data } = await bridge('POST', `/social/${req.params.id}/disconnect`, req.body);
+    res.status(status).json(data);
+  });
 
 } else {
   const STUDIO_ROOT = process.env.STUDIO_ROOT || path.join(__dirname, '..');
@@ -452,6 +468,22 @@ if (BRIDGE_URL) {
   let CRM_STAGES_LOCAL = ['NOVO', 'CONTATADO', 'RESPONDEU', 'QUALIFICADO', 'PROPOSTA', 'FECHADO', 'PERDIDO'];
   try { const m = require(path.join(STUDIO_ROOT, 'lib', 'crm.js')); crmLocal = new m.Crm(WORKSPACE_DIR); CRM_STAGES_LOCAL = m.STAGES; } catch (e) { console.error('CRM local indisponível:', e.message); }
 
+  let socialLocal = null;
+  try { const m = require(path.join(STUDIO_ROOT, 'lib', 'social', 'index.js')); socialLocal = new m.SocialHub(WORKSPACE_DIR); } catch (e) { console.error('Social local indisponível:', e.message); }
+
+  app.get('/api/social', (req, res) => {
+    try { res.json(socialLocal ? socialLocal.status() : []); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/social/:id/connect', (req, res) => {
+    try { if (!socialLocal) return res.status(503).json({ error: 'Social indisponível' }); const s = socialLocal.connect(req.params.id, req.body || {}); if (!s) return res.status(404).json({ error: 'Provider desconhecido' }); res.json(s); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/social/:id/test', async (req, res) => {
+    try { if (!socialLocal) return res.status(503).json({ error: 'Social indisponível' }); res.json(await socialLocal.test(req.params.id)); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/social/:id/disconnect', (req, res) => {
+    try { if (!socialLocal) return res.status(503).json({ error: 'Social indisponível' }); res.json(socialLocal.disconnect(req.params.id)); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   app.get('/api/crm', (req, res) => {
     try {
       if (!crmLocal) return res.json({ leads: [], stages: CRM_STAGES_LOCAL });
@@ -480,7 +512,18 @@ if (BRIDGE_URL) {
   app.post('/api/crm/:id/descartar-rascunho', (req, res) => {
     try { const lead = crmLocal && crmLocal.clearRascunho(req.params.id); if (!lead) return res.status(404).json({ error: 'Not found' }); res.json(lead); } catch (e) { res.status(500).json({ error: e.message }); }
   });
-  app.post('/api/crm/:id/enviar', (req, res) => res.status(503).json({ error: 'Envio disponível apenas via bridge' }));
+  app.post('/api/crm/:id/enviar', async (req, res) => {
+    try {
+      if (!crmLocal || !socialLocal) return res.status(503).json({ error: 'CRM/Social indisponível' });
+      const lead = crmLocal.list().find(l => l.id === req.params.id);
+      if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
+      const { texto, modo, recipient, assunto } = req.body || {};
+      if (!texto) return res.status(400).json({ error: 'texto obrigatório' });
+      const r = await socialLocal.send({ canal: lead.canal, recipient: recipient || lead.contato, texto, assunto, modo });
+      if (r.ok) { crmLocal.recordContact(lead.id, { tipo: 'mensagem', canal: r.mode === 'link' ? 'whatsapp' : lead.canal, etapa: 'enviado', texto }); crmLocal.clearRascunho(lead.id); }
+      res.json({ ok: r.ok, mode: r.mode, link: r.link, detail: r.detail, error: r.error, lead: crmLocal.list().find(l => l.id === lead.id) });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
 
   app.get('/api/workspace/:dir', (req, res) => {
     try {

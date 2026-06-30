@@ -83,6 +83,25 @@ export interface CrmLead {
   rascunho?: CrmRascunho
 }
 
+export interface SocialField {
+  key: string
+  label: string
+  placeholder?: string
+  secret?: boolean
+}
+
+export interface SocialProvider {
+  id: string
+  label: string
+  canal: string
+  kind: 'api' | 'link'
+  descricao: string
+  fields: SocialField[]
+  connected: boolean
+  values: Record<string, string>
+  atualizadoEm: string | null
+}
+
 export type PipelineState = 'WAITING' | 'RUNNING' | 'RETRY' | 'FAILED' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
 
 export interface PipelineStep {
