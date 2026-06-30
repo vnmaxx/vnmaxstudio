@@ -251,12 +251,12 @@ function AgentCard({ name, agent, onClick }: { name: string; agent: Agent; onCli
 }
 
 const KPI_DEFS = [
-  { key: 'leads',    label: 'Leads',      icon: <Users size={16} strokeWidth={1.5} />,      color: '#0A84FF' },
-  { key: 'conteudo', label: 'Conteúdos',  icon: <FileText size={16} strokeWidth={1.5} />,   color: '#30D158' },
-  { key: 'campanhas',label: 'Campanhas',  icon: <Megaphone size={16} strokeWidth={1.5} />,  color: '#FF9F0A' },
-  { key: 'emails',   label: 'Emails',     icon: <Mail size={16} strokeWidth={1.5} />,        color: '#BF5AF2' },
-  { key: 'produtos', label: 'Produtos',   icon: <Package size={16} strokeWidth={1.5} />,    color: '#FF453A' },
-  { key: 'reports',  label: 'Relatórios', icon: <TrendingUp size={16} strokeWidth={1.5} />, color: '#64D2FF' },
+  { key: 'leads',    label: 'Leads',      icon: <Users size={16} strokeWidth={1.5} />,      color: '#0A84FF', to: '/workspace?p=leads' },
+  { key: 'conteudo', label: 'Conteúdos',  icon: <FileText size={16} strokeWidth={1.5} />,   color: '#30D158', to: '/workspace?p=conteudo' },
+  { key: 'campanhas',label: 'Campanhas',  icon: <Megaphone size={16} strokeWidth={1.5} />,  color: '#FF9F0A', to: '/workspace?p=campanhas' },
+  { key: 'emails',   label: 'Emails',     icon: <Mail size={16} strokeWidth={1.5} />,        color: '#BF5AF2', to: '/workspace?p=emails' },
+  { key: 'produtos', label: 'Produtos',   icon: <Package size={16} strokeWidth={1.5} />,    color: '#FF453A', to: '/workspace?p=produtos' },
+  { key: 'reports',  label: 'Relatórios', icon: <TrendingUp size={16} strokeWidth={1.5} />, color: '#64D2FF', to: '/relatorios' },
 ]
 
 export default function Dashboard() {
@@ -377,13 +377,13 @@ export default function Dashboard() {
         {KPI_DEFS.map(kpi => {
           const val = stats?.counts[kpi.key as keyof typeof stats.counts] ?? 0
           return (
-            <div key={kpi.key} className="card card--pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Link key={kpi.key} to={kpi.to} className="card card--hover card--pad" style={{ display: 'flex', flexDirection: 'column', gap: 10, textDecoration: 'none', color: 'inherit' }}>
               <div className="row--between">
                 <span className="dim" style={{ fontSize: 11, fontWeight: 500 }}>{kpi.label}</span>
                 <span style={{ color: kpi.color, opacity: 0.75 }}>{kpi.icon}</span>
               </div>
               <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{val}</div>
-            </div>
+            </Link>
           )
         })}
       </div>

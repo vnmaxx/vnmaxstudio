@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import type { WorkspaceFile } from '../types'
 import { useIsMobile } from '../hooks/useMediaQuery'
@@ -259,6 +260,7 @@ export default function Workspace() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const isMobile = useIsMobile()
+  const [searchParams] = useSearchParams()
 
   const navigate = useCallback(async (segments: string[]) => {
     setLoading(true)
@@ -280,7 +282,10 @@ export default function Workspace() {
     }
   }, [])
 
-  useEffect(() => { navigate([]) }, [navigate])
+  useEffect(() => {
+    const p = searchParams.get('p')
+    navigate(p ? p.split('/').filter(Boolean) : [])
+  }, [navigate, searchParams])
 
   const goTo = (segments: string[]) => navigate(segments)
   const goBack = () => goTo(pathStack.slice(0, -1))

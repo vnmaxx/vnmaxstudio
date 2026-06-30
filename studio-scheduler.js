@@ -213,7 +213,7 @@ async function cicloSegunda() {
         fn: async (ctx) => {
           const planoResumo = (ctx.plano || '').slice(0, 600);
           const r = await runJob('studio-growth',
-            `Use WebSearch e WebFetch para encontrar 6 negócios locais reais em ${CIDADE} com boa reputação mas presença digital fraca.\n\nVarie os segmentos (escolha 4 entre: nutricionistas via doctoralia.com.br, dentistas via yelp.com.br, personal trainers, contadores, advogados, cabeleireiros, petshops, marcenarias, mercados de bairro). Seja eficiente: para cada negócio faça 1 WebSearch para achar o Instagram e, só se houver site, 1 WebFetch. Não gaste mais de ~3 buscas por negócio.\n\nRetorne:\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / tel","observacao":"Nota X.X em [fonte] - [problema no site]"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[2 roteiros virais]\n<<<FIM_ROTEIROS>>>\n\nPRIORIDADE:\n${planoResumo}`,
+            `Use APENAS WebSearch (NÃO use WebFetch — é lento) para encontrar 5 negócios locais reais em ${CIDADE} com boa reputação mas presença digital fraca.\n\nVarie os segmentos (escolha 3-4 entre: nutricionistas, dentistas, personal trainers, contadores, advogados, cabeleireiros, petshops, marcenarias, mercados de bairro). No máximo 2 buscas por negócio (1 para achar, 1 para o Instagram). Pare em ~10 buscas e retorne o JSON imediatamente.\n\nRetorne:\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / tel","observacao":"Nota X.X em [fonte] - [observação]"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[2 roteiros virais]\n<<<FIM_ROTEIROS>>>\n\nPRIORIDADE:\n${planoResumo}`,
             { timeoutMs: 12 * 60 * 1000 });
           if (r.status === 'error') throw new Error(String(r.result || 'Growth falhou'));
           if (r.result) {
