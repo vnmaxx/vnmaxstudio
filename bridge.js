@@ -20,6 +20,14 @@ const LOGS_FILE = path.join(ROOT, 'logs', 'scheduler.log');
 const PENDENTES = path.join(ROOT, 'workspace', 'aprovacoes', 'pendentes');
 const DISABLED_FILE = path.join(ROOT, 'DISABLED');
 
+let crm = null;
+let CRM_STAGES = ['NOVO', 'CONTATADO', 'RESPONDEU', 'QUALIFICADO', 'PROPOSTA', 'FECHADO', 'PERDIDO'];
+try {
+  const mod = require(path.join(ROOT, 'lib', 'crm.js'));
+  crm = new mod.Crm(WORKSPACE);
+  CRM_STAGES = mod.STAGES;
+} catch (e) { console.error('CRM indisponível:', e.message); }
+
 function auth(req, res, next) {
   if (SECRET && req.headers['x-bridge-secret'] !== SECRET) {
     return res.status(401).json({ error: 'unauthorized' });
@@ -132,6 +140,14 @@ app.post('/aprovar/:id', (req, res) => {
     if (!fs.existsSync(aprovDir)) fs.mkdirSync(aprovDir, { recursive: true });
     fs.writeFileSync(path.join(aprovDir, path.basename(file)), JSON.stringify({ ...data, aprovadoEm: new Date().toISOString() }));
     fs.unlinkSync(file);
+    try {
+      if (crm) {
+        const tipo = String(data.tipo || '').toLowerCase();
+        const texto = typeof data.conteudo === 'string' ? data.conteudo : JSON.stringify(data.conteudo || '');
+        const isProposta = tipo.includes('proposta') || tipo.includes('pacote');
+        crm.matchAndRecord(texto, { tipo: isProposta ? 'proposta' : 'mensagem', canal: data.canal || '', etapa: 'aprovado', texto });
+      }
+    } catch (e) { console.error('CRM hook aprovar:', e.message); }
     res.json({ ok: true, conteudo: data });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -342,6 +358,55 @@ app.get('/pipelines/:id', (req, res) => {
     const file = path.join(PIPELINES_DIR, `pipeline-${req.params.id}.json`);
     if (!fs.existsSync(file)) return res.status(404).json({ error: 'Not found' });
     res.json(JSON.parse(fs.readFileSync(file, 'utf8')));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/crm', (req, res) => {
+  try {
+    if (!crm) return res.json({ leads: [], stages: CRM_STAGES });
+    crm.syncFromLeads();
+    res.json({ leads: crm.list(), stages: CRM_STAGES });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/crm/import', (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    res.json(crm.syncFromLeads());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/crm/lead', (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    const r = crm.upsertLead(req.body || {}, 'manual');
+    if (!r) return res.status(400).json({ error: 'dados inválidos' });
+    res.json(r.lead);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/crm/:id/stage', (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    const lead = crm.setStage(req.params.id, (req.body || {}).stage);
+    if (!lead) return res.status(404).json({ error: 'Not found ou stage inválido' });
+    res.json(lead);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/crm/:id/contato', (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    const lead = crm.recordContact(req.params.id, req.body || {});
+    if (!lead) return res.status(404).json({ error: 'Not found' });
+    res.json(lead);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/crm/:id', (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    res.json({ ok: crm.remove(req.params.id) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

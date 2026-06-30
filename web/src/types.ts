@@ -46,6 +46,30 @@ export interface ReportFile {
   size: number
 }
 
+export type CrmStage = 'NOVO' | 'CONTATADO' | 'RESPONDEU' | 'QUALIFICADO' | 'PROPOSTA' | 'FECHADO' | 'PERDIDO'
+
+export interface CrmEvent {
+  tipo: 'mensagem' | 'proposta' | 'resposta' | 'nota' | 'stage'
+  canal?: string
+  etapa?: string
+  texto: string
+  em: string
+}
+
+export interface CrmLead {
+  id: string
+  nome: string
+  segmento: string
+  contato: string
+  canal: string
+  stage: CrmStage
+  observacao: string
+  origem: string
+  criadoEm: string
+  atualizadoEm: string
+  historico: CrmEvent[]
+}
+
 export type PipelineState = 'WAITING' | 'RUNNING' | 'RETRY' | 'FAILED' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
 
 export interface PipelineStep {

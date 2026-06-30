@@ -76,6 +76,28 @@ export const api = {
 
   getPipeline: (id: string) => fetchJson<import('./types').PipelineRecord>(`/pipelines/${id}`),
 
+  getCrm: () => fetchJson<{ leads: import('./types').CrmLead[]; stages: import('./types').CrmStage[] }>('/crm'),
+
+  importCrm: () => fetchJson<{ added: number }>('/crm/import', { method: 'POST' }),
+
+  addCrmLead: (lead: { nome: string; segmento?: string; contato?: string; canal?: string }) =>
+    fetchJson<import('./types').CrmLead>('/crm/lead', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead),
+    }),
+
+  setCrmStage: (id: string, stage: import('./types').CrmStage) =>
+    fetchJson<import('./types').CrmLead>(`/crm/${encodeURIComponent(id)}/stage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stage }),
+    }),
+
+  addCrmContato: (id: string, contato: { tipo?: string; canal?: string; etapa?: string; texto: string }) =>
+    fetchJson<import('./types').CrmLead>(`/crm/${encodeURIComponent(id)}/contato`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(contato),
+    }),
+
+  deleteCrmLead: (id: string) =>
+    fetchJson<{ ok: boolean }>(`/crm/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
   getStats: () => fetchJson<import('./types').Stats>('/stats'),
 
   getStatus: () => fetchJson<import('./types').SystemStatus>('/status'),

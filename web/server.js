@@ -213,6 +213,31 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
+  app.get('/api/crm', async (req, res) => {
+    const { status, data } = await bridge('GET', '/crm');
+    res.status(status).json(data);
+  });
+  app.post('/api/crm/import', async (req, res) => {
+    const { status, data } = await bridge('POST', '/crm/import');
+    res.status(status).json(data);
+  });
+  app.post('/api/crm/lead', async (req, res) => {
+    const { status, data } = await bridge('POST', '/crm/lead', req.body);
+    res.status(status).json(data);
+  });
+  app.post('/api/crm/:id/stage', async (req, res) => {
+    const { status, data } = await bridge('POST', `/crm/${req.params.id}/stage`, req.body);
+    res.status(status).json(data);
+  });
+  app.post('/api/crm/:id/contato', async (req, res) => {
+    const { status, data } = await bridge('POST', `/crm/${req.params.id}/contato`, req.body);
+    res.status(status).json(data);
+  });
+  app.delete('/api/crm/:id', async (req, res) => {
+    const { status, data } = await bridge('DELETE', `/crm/${req.params.id}`);
+    res.status(status).json(data);
+  });
+
 } else {
   const STUDIO_ROOT = process.env.STUDIO_ROOT || path.join(__dirname, '..');
   
@@ -318,7 +343,20 @@ if (BRIDGE_URL) {
   });
 
   app.post('/api/aprovar/:id', async (req, res) => {
-    try { res.json({ ok: true, conteudo: await aprovacoes.aprovar(req.params.id) }); } catch (e) { res.status(500).json({ error: e.message }); }
+    try {
+      let item = null;
+      try { item = JSON.parse(fs.readFileSync(path.join(PENDENTES_DIR, `${req.params.id}.json`), 'utf8')); } catch {}
+      const conteudo = await aprovacoes.aprovar(req.params.id);
+      try {
+        if (crmLocal && item) {
+          const tipo = String(item.tipo || '').toLowerCase();
+          const texto = typeof item.conteudo === 'string' ? item.conteudo : JSON.stringify(item.conteudo || '');
+          const isProposta = tipo.includes('proposta') || tipo.includes('pacote');
+          crmLocal.matchAndRecord(texto, { tipo: isProposta ? 'proposta' : 'mensagem', canal: item.canal || '', etapa: 'aprovado', texto });
+        }
+      } catch (e) { console.error('CRM hook local:', e.message); }
+      res.json({ ok: true, conteudo });
+    } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
   app.post('/api/rejeitar/:id', async (req, res) => {
@@ -388,6 +426,33 @@ if (BRIDGE_URL) {
       fs.renameSync(src, dest);
       res.json({ ok: true, name: newName });
     } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  let crmLocal = null;
+  let CRM_STAGES_LOCAL = ['NOVO', 'CONTATADO', 'RESPONDEU', 'QUALIFICADO', 'PROPOSTA', 'FECHADO', 'PERDIDO'];
+  try { const m = require(path.join(STUDIO_ROOT, 'lib', 'crm.js')); crmLocal = new m.Crm(WORKSPACE_DIR); CRM_STAGES_LOCAL = m.STAGES; } catch (e) { console.error('CRM local indisponível:', e.message); }
+
+  app.get('/api/crm', (req, res) => {
+    try {
+      if (!crmLocal) return res.json({ leads: [], stages: CRM_STAGES_LOCAL });
+      crmLocal.syncFromLeads();
+      res.json({ leads: crmLocal.list(), stages: CRM_STAGES_LOCAL });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/crm/import', (req, res) => {
+    try { res.json(crmLocal ? crmLocal.syncFromLeads() : { added: 0 }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/crm/lead', (req, res) => {
+    try { const r = crmLocal && crmLocal.upsertLead(req.body || {}, 'manual'); if (!r) return res.status(400).json({ error: 'dados inválidos' }); res.json(r.lead); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/crm/:id/stage', (req, res) => {
+    try { const lead = crmLocal && crmLocal.setStage(req.params.id, (req.body || {}).stage); if (!lead) return res.status(404).json({ error: 'Not found ou stage inválido' }); res.json(lead); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/crm/:id/contato', (req, res) => {
+    try { const lead = crmLocal && crmLocal.recordContact(req.params.id, req.body || {}); if (!lead) return res.status(404).json({ error: 'Not found' }); res.json(lead); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.delete('/api/crm/:id', (req, res) => {
+    try { res.json({ ok: crmLocal ? crmLocal.remove(req.params.id) : false }); } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
   app.get('/api/workspace/:dir', (req, res) => {
