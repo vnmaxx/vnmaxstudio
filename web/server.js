@@ -27,7 +27,13 @@ async function bridge(method, route, body) {
       const r = await fetch(url, opts);
       clearTimeout(timer);
       const text = await r.text();
-      try { return { status: r.status, data: JSON.parse(text) }; } catch { return { status: r.status, data: text }; }
+      try {
+        return { status: r.status, data: JSON.parse(text) };
+      } catch {
+        // Resposta não-JSON (ex: página de erro do Cloudflare Tunnel) — normaliza pra não vazar HTML pro front
+        console.error(`bridge ${method} ${route}: resposta não-JSON (status ${r.status}), túnel provavelmente fora do ar`);
+        return { status: 503, data: { error: 'Bridge indisponível: túnel de conexão com o servidor fora do ar.' } };
+      }
     } finally {
       clearTimeout(timer);
     }
@@ -49,6 +55,8 @@ if (BRIDGE_URL) {
     '/relatorios': 120000,
     '/workspace': 120000,
     '/agents': 90000,
+    '/pipelines': 60000,
+    '/pipelines/metrics': 90000,
   };
   const DEFAULTS = {
     '/status': { disabled: false },
@@ -58,6 +66,8 @@ if (BRIDGE_URL) {
     '/relatorios': [],
     '/workspace': [],
     '/agents': {},
+    '/pipelines': [],
+    '/pipelines/metrics': {},
   };
 
   function getCache(key) {
@@ -190,13 +200,13 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
-  app.get('/api/pipelines', async (req, res) => {
-    const { status, data } = await bridge('GET', '/pipelines');
+  app.get('/api/pipelines', (req, res) => {
+    const { status, data } = bridgeCached('/pipelines');
     res.status(status).json(data);
   });
 
-  app.get('/api/pipelines/metrics', async (req, res) => {
-    const { status, data } = await bridge('GET', '/pipelines/metrics');
+  app.get('/api/pipelines/metrics', (req, res) => {
+    const { status, data } = bridgeCached('/pipelines/metrics');
     res.status(status).json(data);
   });
 
