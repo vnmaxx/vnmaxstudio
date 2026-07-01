@@ -4,7 +4,7 @@ import type { CrmLead, CrmStage } from '../types'
 import { useIsMobile } from '../hooks/useMediaQuery'
 import { useContextMenu, type CtxItem } from '../components/ContextMenu'
 import {
-  RefreshCw, Plus, Download, Users, AtSign, Phone, Mail, Globe, X, Copy,
+  RefreshCw, Plus, Download, Users, AtSign, Mail, Globe, X, Copy,
   Trash2, ArrowRightLeft, MessageSquarePlus, Clock, ExternalLink, MapPin, MessageCircle,
   Sparkles, Send, Loader2, Check,
 } from 'lucide-react'
@@ -21,15 +21,23 @@ const STAGE_META: Record<CrmStage, { label: string; color: string }> = {
 const STAGE_ORDER: CrmStage[] = ['NOVO', 'CONTATADO', 'RESPONDEU', 'QUALIFICADO', 'PROPOSTA', 'FECHADO', 'PERDIDO']
 
 function parseContato(raw?: string) {
-  const parts = String(raw || '').split('/').map(s => s.trim())
-  const handle = parts.find(p => p.startsWith('@')) || ''
-  const phone = (String(raw || '').match(/\(?\d{2}\)?[\s-]?\d{4,5}[-\s]?\d{4}/) || [''])[0]
-  const email = (String(raw || '').match(/[\w.+-]+@[\w-]+\.[\w.]+/) || [''])[0]
-  return { handle, phone, email }
+  const parts = String(raw || '').split('/').map(s => s.trim()).filter(Boolean)
+  let handle = '', phone = '', email = '', site = ''
+  const outras: string[] = []
+  for (const p of parts) {
+    if (!handle && p.startsWith('@')) { handle = p; continue }
+    const emailMatch = p.match(/[\w.+-]+@[\w-]+\.[\w.]+/)
+    if (!email && emailMatch) { email = emailMatch[0]; continue }
+    if (!site && /^(https?:\/\/)?(www\.)?[\w-]+\.[a-z]{2,}(\/\S*)?$/i.test(p)) { site = /^https?:\/\//i.test(p) ? p : `https://${p}`; continue }
+    const digits = p.replace(/\D/g, '')
+    if (!phone && digits.length >= 10 && digits.length <= 13) { phone = p; continue }
+    outras.push(p)
+  }
+  return { handle, phone, email, site, outras }
 }
 
 function waLink(contato?: string, texto?: string) {
-  const d = String(contato || '').replace(/\D/g, '')
+  const d = parseContato(contato).phone.replace(/\D/g, '')
   if (!d) return ''
   const phone = d.length > 11 ? d : '55' + d
   return `https://wa.me/${phone}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`
@@ -93,7 +101,7 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove, onLea
   onLeadUpdate: (lead: CrmLead) => void
 }) {
   const menu = useContextMenu()
-  const { handle, phone, email } = parseContato(lead.contato)
+  const { handle, phone, email, site, outras } = parseContato(lead.contato)
   const [suggesting, setSuggesting] = useState(false)
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([])
   const [sendingIdx, setSendingIdx] = useState<number | null>(null)
@@ -211,11 +219,15 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove, onLea
             </div>
           )}
           <div className="row wrap" style={{ gap: 8 }}>
+            {temTelefone && (
+              <a className="chip" href={waLink(lead.contato)} target="_blank" rel="noopener noreferrer" title={phone} style={{ color: 'var(--accent-green)', textDecoration: 'none' }}><MessageCircle size={12} /> WhatsApp</a>
+            )}
             {handle && <a className="chip" href={`https://instagram.com/${handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-purple)', textDecoration: 'none' }}><AtSign size={12} /> {handle}</a>}
-            {phone && (() => { const d = phone.replace(/\D/g, ''); const wa = d.length > 11 ? d : '55' + d; return <a className="chip" href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-green)', textDecoration: 'none' }}><Phone size={12} /> {phone}</a> })()}
             {email && <a className="chip" href={`mailto:${email}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}><Mail size={12} /> {email}</a>}
+            {site && <a className="chip" href={site} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-tertiary)', textDecoration: 'none' }}><Globe size={12} /> Site</a>}
             <a className="chip" href={`https://www.google.com/maps/search/${encodeURIComponent(lead.nome)}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}><MapPin size={12} /> Maps</a>
             <a className="chip" href={`https://www.google.com/search?q=${encodeURIComponent(lead.nome)}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}><ExternalLink size={12} /> Google</a>
+            {outras.map((o, i) => <span key={i} className="chip muted" title="Outra fonte">{o}</span>)}
           </div>
 
           {lead.observacao && (
