@@ -247,21 +247,16 @@ function AgentCard({ name, agent, onClick, onChanged }: { name: string; agent: A
         { label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(name, 'Nome copiado') },
         { label: 'Copiar system prompt', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(agent.system || '', 'Prompt copiado'), disabled: !agent.system },
       ])}
-      style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}
+      style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8, padding: 11 }}
     >
-      <div className="row" style={{ alignItems: 'flex-start', gap: 10 }}>
-        <AgentMascot name={name} size={44} icon={agent.icon} />
+      <div className="row" style={{ alignItems: 'center', gap: 9 }}>
+        <AgentMascot name={name} size={32} icon={agent.icon} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="row--between" style={{ marginBottom: 3 }}>
-            <h3 className="truncate" style={{ fontWeight: 600, fontSize: 12.5, textTransform: 'capitalize', margin: 0 }}>{name.replace('studio-', '')}</h3>
-            <ModelBadge model={agent.model} />
-          </div>
-          <p className="muted clamp-2" style={{ fontSize: 10.5, margin: 0, lineHeight: 1.5 }}>
-            {agent.system?.slice(0, 70) || 'Sem descrição'}
-          </p>
+          <h3 className="truncate" style={{ fontWeight: 600, fontSize: 12.5, textTransform: 'capitalize', margin: 0 }}>{name.replace('studio-', '')}</h3>
+          <ModelBadge model={agent.model} />
         </div>
       </div>
-      <div className="row--between" style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+      <div className="row--between" style={{ borderTop: '1px solid var(--border)', paddingTop: 7 }}>
         <div className="row" style={{ gap: 6 }}>
           {(['shell', 'web', 'edit', 'read'] as const).map(t => (
             <ToolIcon key={t} label={t} active={!!(tools as Record<string, boolean>)[t]} />
@@ -582,28 +577,28 @@ function FunilLeads({ leads }: { leads: import('../types').CrmLead[] }) {
   const conv = total ? Math.round(((counts['FECHADO'] || 0) / total) * 100) : 0
   const max = Math.max(1, ...STAGE_ORD.map(s => counts[s] || 0))
   return (
-    <div className="card card--pad col" style={{ gap: 11 }}>
+    <div className="card col" style={{ gap: 7, padding: 14 }}>
       <div className="row--between">
         <span className="row" style={{ gap: 8, fontSize: 13, fontWeight: 700 }}><Users size={15} style={{ color: '#0A84FF' }} /> Funil de leads</span>
         <span className="dim" style={{ fontSize: 12 }}>{total} no total</span>
       </div>
-      <div className="col" style={{ gap: 6 }}>
+      <div className="col" style={{ gap: 4 }}>
         {STAGE_ORD.map(s => {
           const n = counts[s] || 0
           return (
             <div key={s} className="row" style={{ gap: 9, alignItems: 'center' }}>
-              <span className="dim" style={{ fontSize: 10.5, width: 78, flexShrink: 0 }}>{STAGE_LBL[s]}</span>
-              <div style={{ flex: 1, height: 8, background: 'var(--surface-3)', borderRadius: 6, overflow: 'hidden' }}>
-                <div style={{ width: `${(n / max) * 100}%`, height: '100%', background: STAGE_COLOR[s], borderRadius: 6, transition: 'width .5s var(--ease)' }} />
+              <span className="dim" style={{ fontSize: 10.5, width: 74, flexShrink: 0 }}>{STAGE_LBL[s]}</span>
+              <div style={{ flex: 1, height: 6, background: 'var(--surface-3)', borderRadius: 5, overflow: 'hidden' }}>
+                <div style={{ width: `${(n / max) * 100}%`, height: '100%', background: STAGE_COLOR[s], borderRadius: 5, transition: 'width .5s var(--ease)' }} />
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, width: 18, textAlign: 'right' }}>{n}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, width: 16, textAlign: 'right' }}>{n}</span>
             </div>
           )
         })}
       </div>
-      <div className="row--between" style={{ borderTop: '1px solid var(--border)', paddingTop: 9 }}>
+      <div className="row--between" style={{ borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 1 }}>
         <span className="dim" style={{ fontSize: 12 }}>Taxa de conversão</span>
-        <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent-green)' }}>{conv}%</span>
+        <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--accent-green)' }}>{conv}%</span>
       </div>
     </div>
   )
@@ -613,7 +608,7 @@ function AutomacaoCard({ metrics, lastCycle }: { metrics: import('../types').Pip
   const sr = metrics?.successRate ?? 0
   const cor = sr >= 70 ? 'var(--accent-green)' : sr >= 40 ? 'var(--accent-yellow)' : 'var(--accent-red)'
   return (
-    <div className="card card--pad col" style={{ gap: 12 }}>
+    <div className="card col" style={{ gap: 10, padding: 14 }}>
       <span className="row" style={{ gap: 8, fontSize: 13, fontWeight: 700 }}><Activity size={15} style={{ color: 'var(--accent)' }} /> Automação</span>
       <div className="row" style={{ gap: 14, alignItems: 'center' }}>
         <Ring pct={sr} color={cor} />
@@ -635,11 +630,11 @@ function SituacaoCard({ stats, pend, onNav }: { stats: Stats | null; pend: numbe
     { label: 'Conteúdos', v: stats?.counts.conteudo ?? 0, color: '#30D158', icon: <FileText size={13} />, to: '/workspace?p=conteudo' },
   ]
   return (
-    <div className="card card--pad col" style={{ gap: 12 }}>
+    <div className="card col" style={{ gap: 10, padding: 14 }}>
       <span className="row" style={{ gap: 8, fontSize: 13, fontWeight: 700 }}><TrendingUp size={15} style={{ color: 'var(--accent-cyan)' }} /> Situação</span>
-      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {tiles.map(t => (
-          <button key={t.label} onClick={() => t.to && onNav(t.to)} className="card card--pad" style={{ textAlign: 'left', cursor: t.to ? 'pointer' : 'default', padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 5, background: 'var(--surface-2)' }}>
+          <button key={t.label} onClick={() => t.to && onNav(t.to)} className="card" style={{ textAlign: 'left', cursor: t.to ? 'pointer' : 'default', padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--surface-2)' }}>
             <span className="row" style={{ gap: 6, fontSize: 10.5, color: t.color }}>{t.icon} <span className="dim">{t.label}</span></span>
             <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{t.v}</span>
           </button>
@@ -651,7 +646,7 @@ function SituacaoCard({ stats, pend, onNav }: { stats: Stats | null; pend: numbe
 
 function SitesCard({ data }: { data: { total: number; sites: { clienteId: string; url: string; nome: string; firebase: boolean }[] } }) {
   return (
-    <div className="card card--pad col" style={{ gap: 11 }}>
+    <div className="card col" style={{ gap: 9, padding: 14 }}>
       <div className="row--between">
         <span className="row" style={{ gap: 8, fontSize: 13, fontWeight: 700 }}><Globe size={15} style={{ color: 'var(--accent-green)' }} /> Sites no ar</span>
         <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent-green)' }}>{data.total}</span>
@@ -757,7 +752,7 @@ export default function Dashboard() {
     : 'Nenhum ciclo ainda'
 
   return (
-    <div className="page page--flush page--fit">
+    <div className="page page--flush page--fit" style={{ gap: 12 }}>
       {selectedAgent && (
         <AgentModal
           name={selectedAgent.name}
@@ -814,36 +809,32 @@ export default function Dashboard() {
         <SitesCard data={sites} />
       </div>
 
-      <div className="grid grid--kpi">
+      <div className="grid grid--kpi" style={{ flexShrink: 0 }}>
         {KPI_DEFS.map(kpi => {
           const val = stats?.counts[kpi.key as keyof typeof stats.counts] ?? 0
           return (
             <Link
               key={kpi.key}
               to={kpi.to}
-              className="card card--hover card--pad"
+              className="card card--hover"
               {...menu.bind((): CtxItem[] => [
                 { header: kpi.label },
                 { label: 'Abrir', icon: kpi.icon, onClick: () => navigate(kpi.to) },
-                { separator: true },
-                { label: 'Copiar valor', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(String(val), 'Valor copiado') },
                 { label: 'Atualizar', icon: <Activity size={15} strokeWidth={1.8} />, onClick: loadData },
               ])}
-              style={{ display: 'flex', flexDirection: 'column', gap: 10, textDecoration: 'none', color: 'inherit' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '9px 13px', textDecoration: 'none', color: 'inherit' }}
             >
-              <div className="row--between">
-                <span className="dim" style={{ fontSize: 11, fontWeight: 500 }}>{kpi.label}</span>
-                <span style={{ color: kpi.color, opacity: 0.75 }}>{kpi.icon}</span>
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{val}</div>
+              <span className="row" style={{ gap: 8, minWidth: 0 }}>
+                <span style={{ color: kpi.color, opacity: 0.85, display: 'flex' }}>{kpi.icon}</span>
+                <span className="dim truncate" style={{ fontSize: 11.5, fontWeight: 500 }}>{kpi.label}</span>
+              </span>
+              <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1 }}>{val}</span>
             </Link>
           )
         })}
       </div>
 
-      <PendenciasCard />
-
-      <div className="split">
+      <div className="split" style={{ flex: 1, minHeight: 0 }}>
         <div className="panel" style={{ minHeight: 0 }}>
           <div className="panel-head">
             <span className="panel-title">Agentes <span className="dim" style={{ fontWeight: 400 }}>({agentEntries.length})</span></span>
