@@ -17,23 +17,23 @@ import {
 type AgentsMap = Record<string, Agent>
 
 const AGENT_MASCOT_IMG: Record<string, string> = {
-  'code':            '/mascots/1.png',
-  'design':          '/mascots/2.png',
-  'research':        '/mascots/3.png',
-  'general':         '/mascots/4.png',
-  'studio-ceo':      '/mascots/5.png',
-  'studio-growth':   '/mascots/6.png',
-  'studio-clientes': '/mascots/7.png',
-  'studio-trafego':  '/mascots/8.png',
-  'studio-dados':    '/mascots/9.png',
-  'studio-criacao':  '/mascots/2.png',
-  'studio-sdr':      '/mascots/3.png',
+  'code':            '/mascots/p4.png',   // fones + livro de código
+  'design':          '/mascots/p17.png',  // rolos de tinta
+  'research':        '/mascots/p11.png',  // detetive c/ lupa
+  'general':         '/mascots/p16.png',  // professor (sabe de tudo)
+  'studio-ceo':      '/mascots/p3.png',   // executivo c/ maleta
+  'studio-growth':   '/mascots/p5.png',   // câmera (conteúdo/viral)
+  'studio-clientes': '/mascots/p15.png',  // prancheta/atendimento
+  'studio-trafego':  '/mascots/p12.png',  // guarda de trânsito
+  'studio-dados':    '/mascots/p9.png',   // cientista (análise)
+  'studio-criacao':  '/mascots/p24.png',  // mago (criação)
+  'studio-sdr':      '/mascots/p19.png',  // entregador (abordagem)
 }
 
-const MASCOT_OPTIONS = ['/mascots/1.png', '/mascots/2.png', '/mascots/3.png', '/mascots/4.png', '/mascots/5.png', '/mascots/6.png', '/mascots/7.png', '/mascots/8.png', '/mascots/9.png']
+const MASCOT_OPTIONS = Array.from({ length: 24 }, (_, i) => `/mascots/p${i + 1}.png`)
 
 function AgentMascot({ name, size = 48, icon }: { name: string; size?: number; icon?: string }) {
-  const src = icon || AGENT_MASCOT_IMG[name] || '/mascots/4.png'
+  const src = icon || AGENT_MASCOT_IMG[name] || '/mascots/p16.png'
   return <img src={src} alt={name} width={size} height={size} style={{ flexShrink: 0, objectFit: 'contain' }} />
 }
 
@@ -346,7 +346,7 @@ function NewAgentModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   const [maxTurns, setMaxTurns] = useState(40)
   const [tools, setTools] = useState<Record<string, boolean>>({ shell: false, web: true, edit: false, read: false })
   const [system, setSystem] = useState('')
-  const [icon, setIcon] = useState('/mascots/4.png')
+  const [icon, setIcon] = useState('/mascots/p16.png')
   const [saving, setSaving] = useState(false)
 
   const id = nome.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
