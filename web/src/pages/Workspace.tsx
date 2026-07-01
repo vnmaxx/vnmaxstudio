@@ -12,7 +12,7 @@ import {
   Users, PenLine, Package, Globe, Megaphone, Mail, Handshake, ClipboardList,
   BarChart3, CheckSquare, Folder, File, Braces, Terminal, LayoutGrid,
   Phone, AtSign, Tag, MessageSquare, Star, Code, MapPin, ExternalLink,
-  Copy, FolderInput, Download, Trash2,
+  Copy, FolderInput, Download, Trash2, MessageCircle,
 } from 'lucide-react'
 
 type BrowseResult =
@@ -92,6 +92,13 @@ function googleUrl(nome?: string) {
   return `https://www.google.com/search?q=${encodeURIComponent(nome || '')}`
 }
 
+function waUrl(phone?: string) {
+  const d = (phone || '').replace(/\D/g, '')
+  if (!d) return ''
+  const wa = d.length > 11 ? d : '55' + d
+  return `https://wa.me/${wa}`
+}
+
 function hexToRgb(hex: string) {
   if (!hex || hex.length < 7) return '10,132,255'
   const r = parseInt(hex.slice(1, 3), 16)
@@ -113,6 +120,7 @@ function LeadCard({ lead, index }: { lead: Lead; index: number }) {
   const menuItems = (): CtxItem[] => {
     const items: CtxItem[] = [{ header: lead.nome || `Lead #${index + 1}` }]
     if (handle) items.push({ label: 'Abrir Instagram', icon: <AtSign size={15} strokeWidth={1.8} />, onClick: () => window.open(`https://instagram.com/${handle.replace('@', '')}`, '_blank') })
+    if (phone) items.push({ label: 'Mandar no WhatsApp', icon: <MessageCircle size={15} strokeWidth={1.8} />, onClick: () => window.open(waUrl(phone), '_blank') })
     items.push({ label: 'Pesquisar no Google', icon: <ExternalLink size={15} strokeWidth={1.8} />, onClick: () => window.open(googleUrl(lead.nome), '_blank') })
     items.push({ label: 'Ver no Maps', icon: <MapPin size={15} strokeWidth={1.8} />, onClick: () => window.open(mapsUrl(lead.nome), '_blank') })
     items.push({ separator: true })
@@ -152,6 +160,18 @@ function LeadCard({ lead, index }: { lead: Lead; index: number }) {
         </div>
 
         <div className="row wrap" style={{ gap: 6, flexShrink: 0 }}>
+          {phone && (
+            <a
+              className="btn btn--sm btn--pill"
+              href={waUrl(phone)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Mandar no WhatsApp"
+              style={{ background: 'color-mix(in srgb, var(--accent-green) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-green) 28%, transparent)', color: 'var(--accent-green)' }}
+            >
+              <MessageCircle size={13} strokeWidth={2} /> WhatsApp
+            </a>
+          )}
           <a
             className="btn btn--sm btn--pill"
             href={mapsUrl(lead.nome)}
