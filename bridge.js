@@ -176,6 +176,26 @@ function nxsRequest(method, pathname, body) {
   });
 }
 
+async function criarJob(agent, task, tries = 5) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const r = await nxsRequest('POST', '/v1/jobs', { agent, task });
+      const jobId = r.jobId || r.id;
+      if (!jobId) throw new Error(`resposta sem jobId: ${JSON.stringify(r).slice(0, 160)}`);
+      return jobId;
+    } catch (e) {
+      const is429 = /HTTP 429/.test(e.message || '');
+      if (is429 && attempt < tries) {
+        const wait = Math.min(30000, 4000 * attempt);
+        console.log(`429 ao criar job (${agent}) — retry em ${wait}ms (${attempt}/${tries - 1})`);
+        await sleep(wait);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
 const AUTO_DRAFT_ENABLED = readEnvKey('AUTO_DRAFT') !== '0';
 const draftQueue = [];
 const draftAttempts = new Map();
@@ -184,9 +204,7 @@ const DRAFT_TICK_MS = 20 * 1000;
 let draftBusy = false;
 
 async function generateDraftFor(lead) {
-  const r = await nxsRequest('POST', '/v1/jobs', { agent: 'studio-sdr', task: sdr.sdrTask(lead) });
-  const jobId = r.jobId || r.id;
-  if (!jobId) throw new Error('sem jobId');
+  const jobId = await criarJob('studio-sdr', sdr.sdrTask(lead));
   const started = Date.now();
   while (Date.now() - started < 150000) {
     await sleep(5000);
@@ -662,8 +680,8 @@ app.post('/crm/:id/sugerir', async (req, res) => {
     if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
     const lead = crm.list().find(l => l.id === req.params.id);
     if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
-    const r = await nxsRequest('POST', '/v1/jobs', { agent: 'studio-sdr', task: sdr.sdrTask(lead) });
-    res.json({ jobId: r.jobId || r.id });
+    const jobId = await criarJob('studio-sdr', sdr.sdrTask(lead));
+    res.json({ jobId });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
@@ -742,8 +760,8 @@ app.post('/conteudo/roteiros/gerar', async (req, res) => {
     if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
     const { cliente, theme, count, durationSec, platform, storytelling } = req.body || {};
     const task = viral.buildRoteiristaTask(cliente || {}, { theme, count, durationSec, platform, storytelling });
-    const r = await nxsRequest('POST', '/v1/jobs', { agent: 'general', task });
-    res.json({ jobId: r.jobId || r.id });
+    const jobId = await criarJob('general', task);
+    res.json({ jobId });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
@@ -765,8 +783,8 @@ app.post('/conteudo/blueprint/gerar', async (req, res) => {
     if (!bp) return res.status(503).json({ error: 'blueprint indisponível' });
     if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
     const task = bp.buildBlueprintTask(req.body && req.body.cliente || {});
-    const r = await nxsRequest('POST', '/v1/jobs', { agent: 'general', task });
-    res.json({ jobId: r.jobId || r.id });
+    const jobId = await criarJob('general', task);
+    res.json({ jobId });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
@@ -876,8 +894,8 @@ app.post('/conteudo/produtos/gerar', async (req, res) => {
     if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
     const { cliente, tipo, tema } = req.body || {};
     const task = prod.buildProdutoTask(cliente || {}, tipo || 'landing', { tema });
-    const r = await nxsRequest('POST', '/v1/jobs', { agent: 'general', task });
-    res.json({ jobId: r.jobId || r.id });
+    const jobId = await criarJob('general', task);
+    res.json({ jobId });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 

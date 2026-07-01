@@ -111,13 +111,24 @@ async function runJob(agent, task, opts = {}) {
   log(`runJob → agent=${agent} task="${String(task).slice(0, 80)}..."`);
 
   let jobId;
-  try {
-    const r = await httpRequest('POST', '/v1/jobs', { agent, task });
-    jobId = r.jobId || r.id;
-    if (!jobId) throw new Error(`resposta sem jobId: ${JSON.stringify(r).slice(0, 200)}`);
-  } catch (e) {
-    log(`ERRO ao criar job (${agent}): ${e.message}`);
-    return { status: 'error', result: e.message };
+  const createTries = opts.createTries || 5;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const r = await httpRequest('POST', '/v1/jobs', { agent, task });
+      jobId = r.jobId || r.id;
+      if (!jobId) throw new Error(`resposta sem jobId: ${JSON.stringify(r).slice(0, 200)}`);
+      break;
+    } catch (e) {
+      const is429 = /HTTP 429/.test(e.message || '');
+      if (is429 && attempt < createTries) {
+        const wait = Math.min(30000, 4000 * attempt);
+        log(`429 ao criar job (${agent}) — aguardando ${wait}ms e retentando (${attempt}/${createTries - 1})`);
+        await sleep(wait);
+        continue;
+      }
+      log(`ERRO ao criar job (${agent}): ${e.message}`);
+      return { status: 'error', result: e.message };
+    }
   }
 
   const inicio = Date.now();
