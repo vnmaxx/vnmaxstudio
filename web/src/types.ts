@@ -71,6 +71,14 @@ export interface SitePublicado {
   atualizadoEm?: string
 }
 
+export interface VnmaxConfig {
+  empresa: string
+  dadosOficiais: string
+  docsExtra: string
+  atualizadoEm: string | null
+  systemPrompt?: string
+}
+
 export interface LeadgenConfig {
   cidade: string
   quantidade: number

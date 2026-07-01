@@ -42,6 +42,10 @@ try {
   fbProvision = require(path.join(ROOT, 'lib', 'firebase-provision.js'));
 } catch (e) { console.error('Publish/deploy indisponível:', e.message); }
 
+let vnmaxStore = null;
+try { vnmaxStore = new (require(path.join(ROOT, 'lib', 'vnmax.js')).VnmaxStore)(WORKSPACE); } catch (e) { console.error('VNMAX indisponível:', e.message); }
+function vnmaxCfg() { try { return vnmaxStore ? vnmaxStore.load() : null; } catch { return null; } }
+
 function readEnvKey(name) {
   if (process.env[name]) return process.env[name];
   try {
@@ -213,7 +217,7 @@ const DRAFT_TICK_MS = 20 * 1000;
 let draftBusy = false;
 
 async function generateDraftFor(lead) {
-  const jobId = await criarJob('studio-sdr', sdr.sdrTask(lead));
+  const jobId = await criarJob('studio-sdr', sdr.sdrTask(lead, vnmaxCfg()));
   const started = Date.now();
   while (Date.now() - started < 150000) {
     await sleep(5000);
@@ -460,6 +464,21 @@ app.post('/leadgen', (req, res) => {
   try {
     if (!leadgen) return res.status(503).json({ error: 'Leadgen indisponível' });
     res.json(leadgen.save(req.body || {}));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/vnmax', (req, res) => {
+  try {
+    if (!vnmaxStore) return res.status(503).json({ error: 'VNMAX indisponível' });
+    res.json(vnmaxStore.status());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/vnmax', (req, res) => {
+  try {
+    if (!vnmaxStore) return res.status(503).json({ error: 'VNMAX indisponível' });
+    vnmaxStore.save(req.body || {});
+    res.json(vnmaxStore.status());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -781,7 +800,7 @@ app.post('/crm/:id/sugerir', async (req, res) => {
     if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
     const lead = crm.list().find(l => l.id === req.params.id);
     if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
-    const jobId = await criarJob('studio-sdr', sdr.sdrTask(lead));
+    const jobId = await criarJob('studio-sdr', sdr.sdrTask(lead, vnmaxCfg()));
     res.json({ jobId });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });

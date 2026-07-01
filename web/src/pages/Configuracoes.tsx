@@ -10,11 +10,11 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { useIsMobile } from '../hooks/useMediaQuery'
 import {
   User, Palette, Bell, Check, Eye, EyeOff, Save, RefreshCw, RotateCcw, Send, Plug,
-  Target, X, Plus, RotateCw
+  Target, X, Plus, RotateCw, MessageSquare, Copy
 } from 'lucide-react'
 import { ConexoesSection } from './Conexoes'
 import { api } from '../api'
-import type { LeadgenConfig } from '../types'
+import type { LeadgenConfig, VnmaxConfig } from '../types'
 
 const ACCENT_COLORS = [
   { name: 'Azul', value: '#0A84FF' },
@@ -573,7 +573,63 @@ function LeadgenSection() {
   )
 }
 
-type Section = 'conta' | 'aparencia' | 'notificacoes' | 'conexoes' | 'leads'
+function MarcaSection() {
+  const menu = useContextMenu()
+  const [cfg, setCfg] = useState<VnmaxConfig | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.getVnmax()
+      .then(setCfg)
+      .catch(() => menu.toast('Não foi possível carregar a marca', 'error'))
+      .finally(() => setLoading(false))
+  }, [menu])
+
+  const patch = (p: Partial<VnmaxConfig>) => setCfg(c => (c ? { ...c, ...p } : c))
+
+  const salvar = async () => {
+    if (!cfg) return
+    setSaving(true)
+    try {
+      const salvo = await api.saveVnmax({ empresa: cfg.empresa, dadosOficiais: cfg.dadosOficiais, docsExtra: cfg.docsExtra })
+      setCfg(salvo)
+      menu.toast('Marca salva — vale nas próximas mensagens e atendimentos')
+    } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao salvar', 'error') }
+    finally { setSaving(false) }
+  }
+
+  if (loading || !cfg) return <div className="empty"><RefreshCw size={26} className="spin" /><p className="muted">Carregando...</p></div>
+
+  return (
+    <div className="col gap-6">
+      <div className="card card--pad">
+        <SectionTitle>Identidade</SectionTitle>
+        <Field label="Nome da empresa" hint="Como o assistente se apresenta ao lead/cliente">
+          <Input value={cfg.empresa} onChange={v => patch({ empresa: v })} placeholder="VNMAX" />
+        </Field>
+        <Field label="Dados oficiais" hint="Única fonte de verdade: o que a empresa faz, serviços, diferenciais, horários, contatos, políticas públicas. O assistente só afirma o que estiver aqui.">
+          <textarea className="textarea" style={{ minHeight: 130, resize: 'vertical' }} value={cfg.dadosOficiais} onChange={e => patch({ dadosOficiais: e.target.value })} placeholder="Ex.: A VNMAX oferece software sob medida, produtos de IA, automações e infraestrutura. Atendimento seg-sex 9h-18h. Contato: ..." />
+        </Field>
+        <Field label="Documentos de marca (opcional)" hint="Cole aqui trechos do brand voice, UX bible, apresentação etc. — vira contexto extra do assistente.">
+          <textarea className="textarea" style={{ minHeight: 110, resize: 'vertical' }} value={cfg.docsExtra} onChange={e => patch({ docsExtra: e.target.value })} placeholder="Cole documentos/estilo da empresa aqui…" />
+        </Field>
+        <div className="row wrap"><SaveBtn loading={saving} onClick={salvar} /></div>
+      </div>
+
+      <div className="card card--pad">
+        <div className="row--between" style={{ marginBottom: 12 }}>
+          <SectionTitle>System prompt de atendimento (WhatsApp)</SectionTitle>
+          <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(cfg.systemPrompt || '', 'System prompt copiado')}><Copy size={13} /> Copiar</button>
+        </div>
+        <p className="dim" style={{ fontSize: 12, margin: '0 0 12px' }}>Gerado a partir da identidade acima. É a instrução que rege o assistente ao falar com o cliente (tom, escopo, confidencialidade, transbordo com <code>[TRANSBORDO_HUMANO]</code>).</p>
+        <pre style={{ margin: 0, padding: 14, background: 'var(--surface-2)', borderRadius: 10, fontSize: 12, lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 360, overflow: 'auto', fontFamily: 'ui-monospace, monospace' }}>{cfg.systemPrompt}</pre>
+      </div>
+    </div>
+  )
+}
+
+type Section = 'conta' | 'aparencia' | 'notificacoes' | 'conexoes' | 'leads' | 'marca'
 
 export default function Configuracoes() {
   const [section, setSection] = useState<Section>('conta')
@@ -594,6 +650,7 @@ export default function Configuracoes() {
 
   const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
     { id: 'conta',        label: 'Conta',        icon: <User    size={15} strokeWidth={1.6} /> },
+    { id: 'marca',        label: 'Marca (VNMAX)', icon: <MessageSquare size={15} strokeWidth={1.6} /> },
     { id: 'conexoes',     label: 'Conexões',     icon: <Plug    size={15} strokeWidth={1.6} /> },
     { id: 'leads',        label: 'Busca de Leads', icon: <Target size={15} strokeWidth={1.6} /> },
     { id: 'aparencia',    label: 'Aparência',    icon: <Palette size={15} strokeWidth={1.6} /> },
@@ -603,6 +660,7 @@ export default function Configuracoes() {
   const content = (
     <>
       {section === 'conta'        && <ContaSection />}
+      {section === 'marca'        && <MarcaSection />}
       {section === 'conexoes'     && <ConexoesSection />}
       {section === 'leads'        && <LeadgenSection />}
       {section === 'aparencia'    && <AparenciaSection />}

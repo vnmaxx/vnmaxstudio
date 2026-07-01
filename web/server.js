@@ -208,6 +208,14 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('POST', '/leadgen', req.body);
     res.status(status).json(data);
   });
+  app.get('/api/vnmax', async (req, res) => {
+    const { status, data } = await bridge('GET', '/vnmax');
+    res.status(status).json(data);
+  });
+  app.post('/api/vnmax', async (req, res) => {
+    const { status, data } = await bridge('POST', '/vnmax', req.body);
+    res.status(status).json(data);
+  });
   app.post('/api/clientes/sync', async (req, res) => {
     const { status, data } = await bridge('POST', '/clientes/sync');
     res.status(status).json(data);
@@ -609,6 +617,15 @@ if (BRIDGE_URL) {
 
   let leadgenLocal = null;
   try { const m = require(path.join(STUDIO_ROOT, 'lib', 'leadgen.js')); leadgenLocal = new m.Leadgen(WORKSPACE_DIR); } catch (e) { console.error('Leadgen local indisponível:', e.message); }
+
+  let vnmaxLocal = null;
+  try { vnmaxLocal = new (require(path.join(STUDIO_ROOT, 'lib', 'vnmax.js')).VnmaxStore)(WORKSPACE_DIR); } catch (e) { console.error('VNMAX local indisponível:', e.message); }
+  app.get('/api/vnmax', (req, res) => {
+    try { res.json(vnmaxLocal ? vnmaxLocal.status() : { error: 'indisponível' }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/vnmax', (req, res) => {
+    try { if (!vnmaxLocal) return res.status(503).json({ error: 'VNMAX indisponível' }); vnmaxLocal.save(req.body || {}); res.json(vnmaxLocal.status()); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
 
   let clienteWsLocal = null;
   try {

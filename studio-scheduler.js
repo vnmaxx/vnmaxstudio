@@ -275,17 +275,18 @@ async function cicloSegunda() {
         maxRetries: 1,
         timeoutMs: 14 * 60 * 1000,
         fn: async () => {
-          let crm, sdr;
+          let crm, sdr, vnmaxCfg = null;
           try {
             crm = new (require(path.join(ROOT, 'lib', 'crm.js')).Crm)(WORKSPACE);
             sdr = require(path.join(ROOT, 'lib', 'sdr.js'));
+            try { vnmaxCfg = new (require(path.join(ROOT, 'lib', 'vnmax.js')).VnmaxStore)(WORKSPACE).load(); } catch {}
           } catch (e) { log(`SDR indisponível: ${e.message}`); return '(SDR indisponível)'; }
           crm.syncFromLeads();
           const novos = crm.list().filter(l => l.stage === 'NOVO' && !l.rascunho && (!l.historico || l.historico.length === 0)).slice(0, 8);
           if (novos.length === 0) { log('SDR: nenhum lead novo sem mensagem.'); return 'sem novos'; }
           let n = 0;
           for (const lead of novos) {
-            const r = await runJob('studio-sdr', sdr.sdrTask(lead), { timeoutMs: 3 * 60 * 1000 });
+            const r = await runJob('studio-sdr', sdr.sdrTask(lead, vnmaxCfg), { timeoutMs: 3 * 60 * 1000 });
             if (r.status === 'done') {
               const msg = sdr.firstDraft(r.result);
               if (msg && msg.mensagem) { crm.setRascunho(lead.id, { ...msg, origem: 'ciclo' }); n++; }
