@@ -48,6 +48,7 @@ if (BRIDGE_URL) {
     '/pendentes': 30000,
     '/relatorios': 120000,
     '/workspace': 120000,
+    '/agents': 90000,
   };
   const DEFAULTS = {
     '/status': { disabled: false },
@@ -56,6 +57,7 @@ if (BRIDGE_URL) {
     '/pendentes': [],
     '/relatorios': [],
     '/workspace': [],
+    '/agents': {},
   };
 
   function getCache(key) {
@@ -203,13 +205,15 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
-  app.get('/api/agents', async (req, res) => {
-    const { status, data } = await bridge('GET', '/agents');
+  app.get('/api/agents', (req, res) => {
+    const { status, data } = bridgeCached('/agents');
     res.status(status).json(data);
   });
 
   app.put('/api/agents/:name', async (req, res) => {
+    invalidate('/agents');
     const { status, data } = await bridge('PUT', `/agents/${req.params.name}`, req.body);
+    if (status === 200) invalidate('/agents');
     res.status(status).json(data);
   });
 
