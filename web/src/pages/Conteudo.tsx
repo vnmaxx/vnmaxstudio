@@ -663,6 +663,85 @@ function abrirNova(conteudo: string) {
   if (w) { w.document.open(); w.document.write(conteudo); w.document.close() }
 }
 
+function waLinkC(contato?: string, texto?: string) {
+  const d = String(contato || '').replace(/\D/g, '')
+  if (!d) return ''
+  const phone = d.length > 11 ? d : '55' + d
+  return `https://wa.me/${phone}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`
+}
+
+function PublicarPanel({ clienteId, cliente, landingHtml }: { clienteId: string; cliente: CrmLead | null; landingHtml: string | null }) {
+  const menu = useContextMenu()
+  const [site, setSite] = useState<import('../types').SitePublicado | null>(null)
+  const [publicando, setPublicando] = useState(false)
+
+  useEffect(() => {
+    setSite(null)
+    if (clienteId) api.getPublicacao(clienteId).then(r => setSite(r.site)).catch(() => {})
+  }, [clienteId])
+
+  const publicar = async () => {
+    if (!cliente) { menu.toast('Selecione um cliente', 'error'); return }
+    if (!landingHtml) { menu.toast('Gere uma Landing Page primeiro (tipo de produto = Landing Page)', 'error'); return }
+    setPublicando(true)
+    try {
+      const r = await api.publicar(clienteId, { html: landingHtml, nome: cliente.nome })
+      setSite(r.site)
+      if (r.ok) menu.toast(`Site no ar: ${r.url}`)
+      else menu.toast('Deploy iniciado — pode levar alguns segundos pra ficar pronto', 'info')
+    } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao publicar', 'error') }
+    finally { setPublicando(false) }
+  }
+
+  const enviarCliente = () => {
+    if (!site?.url) return
+    const msg = `Olá! Preparamos o site da ${cliente?.nome || 'sua empresa'}. Dá uma olhada: ${site.url}`
+    const link = waLinkC(cliente?.contato, msg)
+    if (link) { window.open(link, '_blank', 'noopener'); menu.toast('Abrindo WhatsApp com o link…') }
+    else { menu.copy(msg, 'Mensagem com o link copiada'); }
+  }
+
+  if (!cliente) return null
+
+  return (
+    <div className="card card--pad col" style={{ gap: 12, borderColor: site?.url ? 'var(--accent-line)' : undefined }}>
+      <div className="row--between wrap" style={{ gap: 10 }}>
+        <div className="row" style={{ gap: 9, minWidth: 0 }}>
+          <Rocket size={17} style={{ color: 'var(--accent)' }} />
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Publicar site do cliente</p>
+            <p className="dim" style={{ margin: '2px 0 0', fontSize: 12 }}>Sobe a landing ao vivo no Vercel{site?.firebase ? ' · Firebase captando leads' : ''}.</p>
+          </div>
+        </div>
+        <button className="btn btn--primary" onClick={publicar} disabled={publicando || !landingHtml}>
+          {publicando ? <Loader2 size={14} className="spin" /> : <Rocket size={14} />}
+          {publicando ? 'Publicando…' : site?.url ? 'Republicar' : 'Publicar site'}
+        </button>
+      </div>
+
+      {!landingHtml && <p className="dim" style={{ fontSize: 12, margin: 0 }}>Gere uma <b>Landing Page</b> acima para habilitar a publicação.</p>}
+
+      {site?.url && (
+        <div className="card card--pad col" style={{ gap: 10, background: 'var(--surface-2)' }}>
+          <div className="row--between wrap" style={{ gap: 8 }}>
+            <a href={site.url} target="_blank" rel="noopener noreferrer" className="row" style={{ gap: 7, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600, fontSize: 13, minWidth: 0 }}>
+              <ExternalLink size={14} /> <span className="truncate">{site.url.replace('https://', '')}</span>
+            </a>
+            <span className="badge" style={{ background: 'color-mix(in srgb, var(--accent-green) 16%, transparent)', color: 'var(--accent-green)' }}><Check size={11} /> No ar</span>
+          </div>
+          <div className="row wrap" style={{ gap: 7 }}>
+            <button className="btn btn--sm" style={{ background: 'color-mix(in srgb, var(--accent-green) 16%, transparent)', borderColor: 'var(--accent-green)', color: 'var(--accent-green)' }} onClick={enviarCliente}><MessageCircle size={13} /> Enviar ao cliente</button>
+            <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(site.url, 'Link copiado')}><Copy size={13} /> Copiar link</button>
+            <a className="btn btn--ghost btn--sm" href={site.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={13} /> Abrir</a>
+          </div>
+          {site.firebase && <p className="dim" style={{ fontSize: 11, margin: 0 }}>Firebase: {site.firebase.projectId} · app {String(site.firebase.appId).slice(0, 14)}… — os leads do formulário caem no Firestore.</p>}
+          <p className="dim" style={{ fontSize: 11, margin: 0 }}>Ajustes finais aparecem no <b>Dashboard</b>.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ProdutosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLead | null }) {
   const menu = useContextMenu()
   const [tipo, setTipo] = useState('landing')
@@ -718,8 +797,11 @@ function ProdutosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLe
     try { await api.deleteProduto(id); setSalvos(prev => prev.filter(p => p.id !== id)) } catch { menu.toast('Erro', 'error') }
   }
 
+  const landingHtml = (atual && atual.formato === 'html' ? atual.conteudo : null) || salvos.find(p => p.formato === 'html')?.conteudo || null
+
   return (
     <div className="col gap-6">
+      <PublicarPanel clienteId={clienteId} cliente={cliente} landingHtml={landingHtml} />
       <div className="card card--pad col" style={{ gap: 12 }}>
         {!cliente && <p className="dim" style={{ fontSize: 13, margin: 0 }}>Selecione um cliente acima — o produto é gerado <b>pronto e adaptado</b> a ele.</p>}
         <div className="row wrap" style={{ gap: 10, alignItems: 'flex-end' }}>

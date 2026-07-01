@@ -216,6 +216,27 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('POST', `/clientes/${req.params.id}/sync`);
     res.status(status).json(data);
   });
+  app.get('/api/pendencias', async (req, res) => {
+    const qs = req.query.clienteId ? `?clienteId=${encodeURIComponent(req.query.clienteId)}` : '';
+    const { status, data } = await bridge('GET', `/pendencias${qs}`);
+    res.status(status).json(data);
+  });
+  app.post('/api/pendencias/:id/resolve', async (req, res) => {
+    const { status, data } = await bridge('POST', `/pendencias/${req.params.id}/resolve`);
+    res.status(status).json(data);
+  });
+  app.delete('/api/pendencias/:id', async (req, res) => {
+    const { status, data } = await bridge('DELETE', `/pendencias/${req.params.id}`);
+    res.status(status).json(data);
+  });
+  app.get('/api/publicar/:clienteId', async (req, res) => {
+    const { status, data } = await bridge('GET', `/publicar/${req.params.clienteId}`);
+    res.status(status).json(data);
+  });
+  app.post('/api/publicar/:clienteId', async (req, res) => {
+    const { status, data } = await bridge('POST', `/publicar/${req.params.clienteId}`, req.body);
+    res.status(status).json(data);
+  });
 
   app.get('/api/pipelines', (req, res) => {
     const { status, data } = bridgeCached('/pipelines');
@@ -591,6 +612,26 @@ if (BRIDGE_URL) {
     const conteudoLocal = new (require(path.join(STUDIO_ROOT, 'lib', 'conteudo.js')).Conteudo)(WORKSPACE_DIR);
     clienteWsLocal = new cwm.ClienteWorkspace(WORKSPACE_DIR, crmLocal, conteudoLocal);
   } catch (e) { console.error('ClienteWorkspace local indisponível:', e.message); }
+
+  let pendenciasLocal = null, sitesLocal = null;
+  try {
+    pendenciasLocal = new (require(path.join(STUDIO_ROOT, 'lib', 'pendencias.js')).Pendencias)(WORKSPACE_DIR);
+    sitesLocal = new (require(path.join(STUDIO_ROOT, 'lib', 'publish.js')).Sites)(WORKSPACE_DIR);
+  } catch (e) { console.error('Pendencias local indisponível:', e.message); }
+
+  app.get('/api/pendencias', (req, res) => {
+    try { res.json({ itens: pendenciasLocal ? pendenciasLocal.list(req.query.clienteId).filter(i => i.status !== 'resolvido') : [] }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/pendencias/:id/resolve', (req, res) => {
+    try { const it = pendenciasLocal && pendenciasLocal.resolve(req.params.id); if (!it) return res.status(404).json({ error: 'Not found' }); res.json(it); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.delete('/api/pendencias/:id', (req, res) => {
+    try { res.json({ ok: pendenciasLocal ? pendenciasLocal.remove(req.params.id) : false }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.get('/api/publicar/:clienteId', (req, res) => {
+    try { res.json({ site: sitesLocal ? sitesLocal.get(req.params.clienteId) : null, pendencias: pendenciasLocal ? pendenciasLocal.list(req.params.clienteId).filter(i => i.status !== 'resolvido') : [] }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/publicar/:clienteId', (req, res) => res.status(503).json({ error: 'Publicação disponível apenas via bridge (servidor)' }));
 
   app.get('/api/leadgen', (req, res) => {
     try { res.json(leadgenLocal ? leadgenLocal.status() : { error: 'indisponível' }); } catch (e) { res.status(500).json({ error: e.message }); }

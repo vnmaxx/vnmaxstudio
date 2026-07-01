@@ -48,6 +48,29 @@ export interface ReportFile {
 
 export type CrmStage = 'NOVO' | 'CONTATADO' | 'RESPONDEU' | 'QUALIFICADO' | 'PROPOSTA' | 'FECHADO' | 'PERDIDO'
 
+export interface Pendencia {
+  id: string
+  clienteId: string | null
+  chave: string | null
+  titulo: string
+  detalhe: string
+  tipo: string
+  prioridade: 'alta' | 'media' | 'baixa'
+  status: 'aberto' | 'resolvido'
+  criadoEm: string
+}
+
+export interface SitePublicado {
+  url: string
+  deployUrl?: string
+  project: string
+  deploymentId?: string
+  estado?: string
+  firebase?: { projectId: string; appId: string; config?: Record<string, string> } | null
+  publicadoEm?: string
+  atualizadoEm?: string
+}
+
 export interface LeadgenConfig {
   cidade: string
   quantidade: number

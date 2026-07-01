@@ -280,6 +280,42 @@ const KPI_DEFS = [
   { key: 'reports',  label: 'Relatórios', icon: <TrendingUp size={16} strokeWidth={1.5} />, color: '#64D2FF', to: '/relatorios' },
 ]
 
+function PendenciasCard() {
+  const [itens, setItens] = useState<import('../types').Pendencia[]>([])
+  const menu = useContextMenu()
+  const load = useCallback(() => { api.getPendencias().then(r => setItens(r.itens)).catch(() => {}) }, [])
+  useEffect(() => { load(); const iv = setInterval(load, 15000); return () => clearInterval(iv) }, [load])
+
+  const resolver = async (id: string) => {
+    try { await api.resolvePendencia(id); setItens(prev => prev.filter(i => i.id !== id)); menu.toast('Marcado como resolvido') }
+    catch { menu.toast('Erro', 'error') }
+  }
+  if (itens.length === 0) return null
+  const cor = (p: string) => p === 'alta' ? 'var(--accent-red)' : p === 'media' ? 'var(--accent-yellow)' : 'var(--text-tertiary)'
+
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <span className="panel-title row" style={{ gap: 8 }}><AlertCircle size={14} style={{ color: 'var(--accent-yellow)' }} /> Ajustes pendentes <span className="dim" style={{ fontWeight: 400 }}>({itens.length})</span></span>
+      </div>
+      <div className="panel-body" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {itens.slice(0, 12).map(p => (
+          <div key={p.id} className="card card--pad row--between" style={{ gap: 10, alignItems: 'flex-start' }}>
+            <div style={{ minWidth: 0 }}>
+              <div className="row" style={{ gap: 7 }}>
+                <span className="dot" style={{ background: cor(p.prioridade), width: 7, height: 7, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{p.titulo}</span>
+              </div>
+              {p.detalhe && <p className="dim" style={{ margin: '4px 0 0 14px', fontSize: 11.5, lineHeight: 1.45 }}>{p.detalhe}</p>}
+            </div>
+            <button className="btn btn--ghost btn--sm" onClick={() => resolver(p.id)} style={{ flexShrink: 0 }}><Check size={12} /> Resolver</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [agents,        setAgents]        = useState<AgentsMap>({})
   const [status,        setStatus]        = useState<SystemStatus | null>(null)
@@ -425,6 +461,8 @@ export default function Dashboard() {
           )
         })}
       </div>
+
+      <PendenciasCard />
 
       <div className="split">
         <div className="panel" style={{ minHeight: 0 }}>

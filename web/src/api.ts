@@ -89,6 +89,16 @@ export const api = {
   syncClientes: () => fetchJson<{ clientes: number }>('/clientes/sync', { method: 'POST' }),
   syncCliente: (id: string) => fetchJson<{ slug: string; totais: Record<string, number> }>(`/clientes/${encodeURIComponent(id)}/sync`, { method: 'POST' }),
 
+  getPendencias: (clienteId?: string) => fetchJson<{ itens: import('./types').Pendencia[] }>(`/pendencias${clienteId ? `?clienteId=${encodeURIComponent(clienteId)}` : ''}`),
+  resolvePendencia: (id: string) => fetchJson<import('./types').Pendencia>(`/pendencias/${encodeURIComponent(id)}/resolve`, { method: 'POST' }),
+  removePendencia: (id: string) => fetchJson<{ ok: boolean }>(`/pendencias/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  getPublicacao: (clienteId: string) => fetchJson<{ site: import('./types').SitePublicado | null; pendencias: import('./types').Pendencia[] }>(`/publicar/${encodeURIComponent(clienteId)}`),
+  publicar: (clienteId: string, payload: { html?: string; nome?: string; firebase?: boolean }) =>
+    fetchJson<{ ok: boolean; url: string; deployUrl?: string; project: string; firebase: { projectId: string; appId: string } | null; pendencias: import('./types').Pendencia[]; site: import('./types').SitePublicado }>(`/publicar/${encodeURIComponent(clienteId)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    }),
+
   addCrmLead: (lead: { nome: string; segmento?: string; contato?: string; canal?: string }) =>
     fetchJson<import('./types').CrmLead>('/crm/lead', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead),

@@ -33,6 +33,15 @@ try {
   leadgen = new (require(path.join(ROOT, 'lib', 'leadgen.js')).Leadgen)(WORKSPACE);
 } catch (e) { console.error('Leadgen indisponível:', e.message); }
 
+let pendencias = null, sites = null, deployMod = null, fbProvision = null, publishMod = null;
+try {
+  pendencias = new (require(path.join(ROOT, 'lib', 'pendencias.js')).Pendencias)(WORKSPACE);
+  publishMod = require(path.join(ROOT, 'lib', 'publish.js'));
+  sites = new publishMod.Sites(WORKSPACE);
+  deployMod = require(path.join(ROOT, 'lib', 'deploy.js'));
+  fbProvision = require(path.join(ROOT, 'lib', 'firebase-provision.js'));
+} catch (e) { console.error('Publish/deploy indisponível:', e.message); }
+
 function readEnvKey(name) {
   if (process.env[name]) return process.env[name];
   try {
@@ -468,6 +477,91 @@ app.post('/clientes/:id/sync', (req, res) => {
     if (!r) return res.status(404).json({ error: 'Cliente não encontrado' });
     res.json(r);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/pendencias', (req, res) => {
+  try {
+    if (!pendencias) return res.json({ itens: [] });
+    const itens = pendencias.list(req.query.clienteId).filter(i => req.query.todas === '1' || i.status !== 'resolvido');
+    res.json({ itens });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/pendencias/:id/resolve', (req, res) => {
+  try {
+    if (!pendencias) return res.status(503).json({ error: 'indisponível' });
+    const it = pendencias.resolve(req.params.id);
+    if (!it) return res.status(404).json({ error: 'Not found' });
+    res.json(it);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/pendencias/:id', (req, res) => {
+  try {
+    if (!pendencias) return res.status(503).json({ error: 'indisponível' });
+    res.json({ ok: pendencias.remove(req.params.id) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/publicar/:clienteId', (req, res) => {
+  try {
+    if (!sites) return res.status(503).json({ error: 'indisponível' });
+    res.json({ site: sites.get(req.params.clienteId), pendencias: pendencias ? pendencias.list(req.params.clienteId).filter(i => i.status !== 'resolvido') : [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/publicar/:clienteId', async (req, res) => {
+  try {
+    if (!deployMod || !sites || !pendencias || !publishMod) return res.status(503).json({ error: 'Publicação indisponível' });
+    const clienteId = req.params.clienteId;
+    const lead = crm ? crm.list().find(l => l.id === clienteId) : null;
+    const nome = (lead && lead.nome) || (req.body && req.body.nome) || clienteId;
+
+    let html = req.body && req.body.html;
+    if (!html && conteudo) {
+      const prods = conteudo.listProdutos(clienteId).filter(p => p.formato === 'html' || /<(!doctype|html)/i.test(String(p.conteudo || '')));
+      if (prods[0]) html = prods[0].conteudo;
+    }
+    if (!html) {
+      pendencias.add(clienteId, { chave: 'gerar-landing', titulo: 'Gerar a landing do cliente', detalhe: 'Nenhuma landing HTML encontrada — gere em Clientes › Produção › Produtos › Landing Page.', tipo: 'bloqueio', prioridade: 'alta' });
+      return res.status(400).json({ error: 'Nenhuma landing HTML encontrada. Gere a landing primeiro.' });
+    }
+
+    const token = readEnvKey('VERCEL_TOKEN');
+    if (!token) return res.status(503).json({ error: 'VERCEL_TOKEN não configurado no servidor' });
+    const teamId = readEnvKey('VERCEL_TEAM_ID') || null;
+
+    let firebase = null;
+    const querFirebase = !(req.body && req.body.firebase === false);
+    if (querFirebase && fbProvision && fbProvision.isConfigured()) {
+      try {
+        const existente = sites.get(clienteId);
+        if (existente && existente.firebase && existente.firebase.appId) firebase = existente.firebase;
+        else {
+          const r = await fbProvision.createWebApp({ displayName: `StudioIA — ${nome}` });
+          firebase = { projectId: r.projectId, appId: r.appId, config: r.config };
+        }
+        html = publishMod.injectFirebase(html, firebase.config, clienteId);
+        pendencias.add(clienteId, { chave: 'firebase-rules', titulo: 'Liberar captura de leads no Firestore', detalhe: `No projeto ${firebase.projectId}, permita create na coleção leads_${String(clienteId).toLowerCase().replace(/[^a-z0-9_]+/g, '_')} nas regras do Firestore.`, tipo: 'firebase', prioridade: 'media' });
+      } catch (e) {
+        pendencias.add(clienteId, { chave: 'firebase-app', titulo: 'Conectar Firebase', detalhe: `Falha ao criar app no Firebase: ${e.message}`, tipo: 'firebase', prioridade: 'media' });
+      }
+    } else if (querFirebase) {
+      pendencias.add(clienteId, { chave: 'firebase-sa', titulo: 'Configurar service account do Firebase', detalhe: 'Defina FIREBASE_SA_PATH no servidor para criar apps e captar leads automaticamente.', tipo: 'firebase', prioridade: 'baixa' });
+    }
+
+    const nomeProj = `${deployMod.slugProject(nome)}-${String(clienteId).slice(-4)}`;
+    const dep = await deployMod.publishLanding({ token, teamId, project: nomeProj, html });
+
+    const info = sites.set(clienteId, { url: dep.url, deployUrl: dep.deployUrl, project: dep.project, deploymentId: dep.deploymentId, firebase, estado: dep.state, publicadoEm: new Date().toISOString() });
+
+    pendencias.add(clienteId, { chave: 'dominio', titulo: 'Apontar domínio próprio (opcional)', detalhe: `Conecte um domínio do cliente ao projeto ${dep.project} no Vercel.`, tipo: 'dominio', prioridade: 'baixa' });
+    pendencias.add(clienteId, { chave: 'revisar-copy', titulo: 'Revisar textos e contatos da landing', detalhe: 'Confira telefone/WhatsApp, endereço e ofertas antes de divulgar.', tipo: 'revisao', prioridade: 'media' });
+
+    try { if (clienteWs) clienteWs.syncOne(clienteId); } catch {}
+
+    res.json({ ok: dep.ok, url: dep.url, deployUrl: dep.deployUrl, project: dep.project, firebase: firebase ? { projectId: firebase.projectId, appId: firebase.appId } : null, pendencias: pendencias.list(clienteId).filter(i => i.status !== 'resolvido'), site: info });
+  } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
 app.post('/cycle', (req, res) => {
