@@ -208,6 +208,14 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('POST', '/leadgen', req.body);
     res.status(status).json(data);
   });
+  app.post('/api/clientes/sync', async (req, res) => {
+    const { status, data } = await bridge('POST', '/clientes/sync');
+    res.status(status).json(data);
+  });
+  app.post('/api/clientes/:id/sync', async (req, res) => {
+    const { status, data } = await bridge('POST', `/clientes/${req.params.id}/sync`);
+    res.status(status).json(data);
+  });
 
   app.get('/api/pipelines', (req, res) => {
     const { status, data } = bridgeCached('/pipelines');
@@ -577,11 +585,24 @@ if (BRIDGE_URL) {
   let leadgenLocal = null;
   try { const m = require(path.join(STUDIO_ROOT, 'lib', 'leadgen.js')); leadgenLocal = new m.Leadgen(WORKSPACE_DIR); } catch (e) { console.error('Leadgen local indisponível:', e.message); }
 
+  let clienteWsLocal = null;
+  try {
+    const cwm = require(path.join(STUDIO_ROOT, 'lib', 'cliente-workspace.js'));
+    const conteudoLocal = new (require(path.join(STUDIO_ROOT, 'lib', 'conteudo.js')).Conteudo)(WORKSPACE_DIR);
+    clienteWsLocal = new cwm.ClienteWorkspace(WORKSPACE_DIR, crmLocal, conteudoLocal);
+  } catch (e) { console.error('ClienteWorkspace local indisponível:', e.message); }
+
   app.get('/api/leadgen', (req, res) => {
     try { res.json(leadgenLocal ? leadgenLocal.status() : { error: 'indisponível' }); } catch (e) { res.status(500).json({ error: e.message }); }
   });
   app.post('/api/leadgen', (req, res) => {
     try { if (!leadgenLocal) return res.status(503).json({ error: 'Leadgen indisponível' }); res.json(leadgenLocal.save(req.body || {})); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/clientes/sync', (req, res) => {
+    try { if (!clienteWsLocal) return res.status(503).json({ error: 'Materialização indisponível' }); res.json(clienteWsLocal.syncAll()); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/clientes/:id/sync', (req, res) => {
+    try { if (!clienteWsLocal) return res.status(503).json({ error: 'Materialização indisponível' }); const r = clienteWsLocal.syncOne(req.params.id); if (!r) return res.status(404).json({ error: 'Cliente não encontrado' }); res.json(r); } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
   app.get('/api/social', (req, res) => {

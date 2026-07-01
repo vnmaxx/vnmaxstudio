@@ -118,6 +118,7 @@ a { color: inherit; }
 }
 .page--flush { max-width: none; }
 .page--full { flex: 1; min-height: 0; }
+.page-embed { display: flex; flex-direction: column; gap: 20px; flex: 1; min-height: 0; animation: fade-in 0.3s var(--ease); }
 @media (min-width: 1024px) {
   .page--fit { height: 100%; overflow: hidden; }
 }

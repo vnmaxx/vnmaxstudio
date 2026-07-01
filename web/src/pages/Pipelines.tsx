@@ -209,7 +209,7 @@ function MetricCard({ label, value, sub, color }: { label: string; value: string
   )
 }
 
-export default function Pipelines() {
+export default function Pipelines({ embedded }: { embedded?: boolean } = {}) {
   const [data, setData] = useState<{ running: PipelineRecord[]; history: PipelineRecord[] }>({ running: [], history: [] })
   const [metrics, setMetrics] = useState<PipelineMetrics | null>(null)
   const [loading, setLoading] = useState(true)
@@ -240,7 +240,7 @@ export default function Pipelines() {
   const tabBtn = (active: boolean) => ['btn', 'btn--sm', active ? 'btn--accent-soft' : 'btn--ghost'].join(' ')
 
   return (
-    <div className="page">
+    <div className={embedded ? 'page-embed' : 'page'}>
       <div className="page-head">
         <div>
           <div className="row" style={{ gap: 10 }}>

@@ -86,6 +86,9 @@ export const api = {
   saveLeadgen: (cfg: { cidade?: string; quantidade?: number; rotacao?: boolean; nichos?: string[] }) =>
     fetchJson<import('./types').LeadgenConfig>('/leadgen', { method: 'POST', body: JSON.stringify(cfg) }),
 
+  syncClientes: () => fetchJson<{ clientes: number }>('/clientes/sync', { method: 'POST' }),
+  syncCliente: (id: string) => fetchJson<{ slug: string; totais: Record<string, number> }>(`/clientes/${encodeURIComponent(id)}/sync`, { method: 'POST' }),
+
   addCrmLead: (lead: { nome: string; segmento?: string; contato?: string; canal?: string }) =>
     fetchJson<import('./types').CrmLead>('/crm/lead', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lead),

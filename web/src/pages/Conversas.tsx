@@ -348,7 +348,7 @@ function AddModal({ onClose, onAdd }: { onClose: () => void; onAdd: (d: { nome: 
   )
 }
 
-export default function Conversas() {
+export default function Conversas({ embedded }: { embedded?: boolean } = {}) {
   const [leads, setLeads] = useState<CrmLead[]>([])
   const [stages, setStages] = useState<CrmStage[]>(STAGE_ORDER)
   const [loading, setLoading] = useState(true)
@@ -449,7 +449,7 @@ export default function Conversas() {
   const visibleStages = stages
 
   return (
-    <div className="page page--flush page--fit">
+    <div className={embedded ? 'page-embed' : 'page page--flush page--fit'}>
       {selected && (
         <DetailModal lead={selected} stages={visibleStages} onClose={() => setSelected(null)}
           onMove={s => moveStage(selected.id, s)} onContato={() => registrarContato(selected.id)} onRemove={() => removeLead(selected.id, selected.nome)} onLeadUpdate={onLeadUpdate} />

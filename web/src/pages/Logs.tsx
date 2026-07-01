@@ -12,7 +12,7 @@ function classifyLine(line: string): string {
   return 'var(--text-tertiary)'
 }
 
-export default function Logs() {
+export default function Logs({ embedded }: { embedded?: boolean } = {}) {
   const [lines, setLines] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +53,7 @@ export default function Logs() {
   }, [lines, autoScroll])
 
   return (
-    <div className="page page--flush page--full">
+    <div className={embedded ? 'page-embed' : 'page page--flush page--full'}>
       <div className="page-head">
         <div>
           <h1 className="page-title">Logs</h1>

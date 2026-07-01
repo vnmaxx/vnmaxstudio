@@ -60,6 +60,29 @@ try {
   conteudo = new m.Conteudo(WORKSPACE);
 } catch (e) { console.error('Conteudo indisponível:', e.message); }
 
+let clienteWs = null;
+try {
+  const m = require(path.join(ROOT, 'lib', 'cliente-workspace.js'));
+  clienteWs = new m.ClienteWorkspace(WORKSPACE, crm, conteudo);
+} catch (e) { console.error('ClienteWorkspace indisponível:', e.message); }
+
+let _syncTimer = null;
+function scheduleClienteSync() {
+  if (!clienteWs) return;
+  if (_syncTimer) clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => {
+    _syncTimer = null;
+    try { clienteWs.syncAll(); } catch (e) { console.error('Falha ao materializar clientes:', e.message); }
+  }, 4000);
+}
+
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'DELETE'].includes(req.method) && (req.path.startsWith('/conteudo') || req.path.startsWith('/crm'))) {
+    res.on('finish', () => { if (res.statusCode < 400) scheduleClienteSync(); });
+  }
+  next();
+});
+
 let viral = null, bp = null;
 try { viral = require(path.join(ROOT, 'lib', 'viral-engine.js')); } catch (e) { console.error('viral-engine indisponível:', e.message); }
 try { bp = require(path.join(ROOT, 'lib', 'blueprint.js')); } catch (e) { console.error('blueprint indisponível:', e.message); }
@@ -410,6 +433,22 @@ app.post('/leadgen', (req, res) => {
   try {
     if (!leadgen) return res.status(503).json({ error: 'Leadgen indisponível' });
     res.json(leadgen.save(req.body || {}));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/clientes/sync', (req, res) => {
+  try {
+    if (!clienteWs) return res.status(503).json({ error: 'Materialização indisponível' });
+    res.json(clienteWs.syncAll());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/clientes/:id/sync', (req, res) => {
+  try {
+    if (!clienteWs) return res.status(503).json({ error: 'Materialização indisponível' });
+    const r = clienteWs.syncOne(req.params.id);
+    if (!r) return res.status(404).json({ error: 'Cliente não encontrado' });
+    res.json(r);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

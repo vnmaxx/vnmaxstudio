@@ -288,7 +288,7 @@ function AprovacaoItem({
   )
 }
 
-export default function Aprovacoes() {
+export default function Aprovacoes({ embedded }: { embedded?: boolean } = {}) {
   const [items, setItems] = useState<AprovacaoResumo[]>([])
   const [loading, setLoading] = useState(true)
   const [aprovandoTodos, setAprovandoTodos] = useState(false)
@@ -350,7 +350,7 @@ export default function Aprovacoes() {
   }
 
   return (
-    <div className="page page--flush">
+    <div className={embedded ? 'page-embed' : 'page page--flush'}>
       <div className="page-head">
         <div>
           <h1 className="page-title">Aprovações</h1>

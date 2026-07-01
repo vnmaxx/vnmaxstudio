@@ -14,6 +14,8 @@ import CEO from './pages/CEO'
 import Pipelines from './pages/Pipelines'
 import Conversas from './pages/Conversas'
 import Conteudo from './pages/Conteudo'
+import Clientes from './pages/Clientes'
+import Sistema from './pages/Sistema'
 import { ContextMenuProvider } from './components/ContextMenu'
 
 function AppRoutes() {
@@ -35,9 +37,11 @@ function AppRoutes() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="clientes" element={<Clientes />} />
+        <Route path="sistema" element={<Sistema />} />
+        <Route path="workspace" element={<Workspace />} />
         <Route path="aprovacoes" element={<Aprovacoes />} />
         <Route path="relatorios" element={<Relatorios />} />
-        <Route path="workspace" element={<Workspace />} />
         <Route path="logs" element={<Logs />} />
         <Route path="pipelines" element={<Pipelines />} />
         <Route path="conversas" element={<Conversas />} />

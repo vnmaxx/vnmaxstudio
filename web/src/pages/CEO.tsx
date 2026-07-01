@@ -33,7 +33,7 @@ function Metric({ icon, color, label, value, sub }: { icon: React.ReactNode; col
   )
 }
 
-export default function CEO() {
+export default function CEO({ embedded }: { embedded?: boolean } = {}) {
   const [loading, setLoading] = useState(true)
   const [pipelines, setPipelines] = useState<{ running: PipelineRecord[]; history: PipelineRecord[] }>({ running: [], history: [] })
   const [metrics, setMetrics] = useState<PipelineMetrics | null>(null)
@@ -94,7 +94,7 @@ export default function CEO() {
 
   if (loading) {
     return (
-      <div className="page center" style={{ flex: 1, minHeight: '60vh' }}>
+      <div className={embedded ? 'page-embed center' : 'page center'} style={{ flex: 1, minHeight: '60vh' }}>
         <div className="col center" style={{ gap: 14 }}>
           <RefreshCw size={30} className="spin" style={{ color: 'var(--accent)' }} />
           <span className="muted" style={{ fontSize: 14 }}>Carregando dashboard CEO…</span>
@@ -104,7 +104,7 @@ export default function CEO() {
   }
 
   return (
-    <div className="page">
+    <div className={embedded ? 'page-embed' : 'page'}>
       <div className="page-head">
         <div>
           <h1 className="page-title">Dashboard CEO</h1>

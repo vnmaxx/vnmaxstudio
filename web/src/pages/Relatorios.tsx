@@ -23,7 +23,7 @@ function groupReports(reports: ReportFile[]): Record<string, ReportFile[]> {
   return groups
 }
 
-export default function Relatorios() {
+export default function Relatorios({ embedded }: { embedded?: boolean } = {}) {
   const [reports, setReports] = useState<ReportFile[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<string | null>(null)
@@ -250,7 +250,7 @@ export default function Relatorios() {
   )
 
   return (
-    <div className="page page--flush">
+    <div className={embedded ? 'page-embed' : 'page page--flush'}>
       <div className="page-head">
         <div className="row" style={{ gap: 10 }}>
           {isMobile && selected && (

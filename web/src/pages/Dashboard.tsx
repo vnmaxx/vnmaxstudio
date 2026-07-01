@@ -3,12 +3,15 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { pushNotification } from '../components/NotificationBell'
 import { useContextMenu, type CtxItem } from '../components/ContextMenu'
+import { useAuth } from '../contexts/AuthContext'
 import type { Agent, SystemStatus, Stats } from '../types'
+import CEO from './CEO'
 import {
   Terminal, Globe, Pencil, BookOpen,
   Play, Loader2, X, Check, Save,
   Users, FileText, Megaphone, Mail, Package,
   AlertCircle, Activity, TrendingUp, Clock, Copy, CopyPlus,
+  LayoutDashboard, Briefcase,
 } from 'lucide-react'
 
 type AgentsMap = Record<string, Agent>
@@ -287,6 +290,8 @@ export default function Dashboard() {
   const [selectedAgent, setSelectedAgent] = useState<{ name: string; agent: Agent } | null>(null)
   const menu = useContextMenu()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const [view, setView] = useState<'op' | 'ceo'>('op')
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => menu.toast(msg, type)
 
@@ -368,6 +373,16 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="page-head-actions">
+          {user?.isAdmin && (
+            <div className="row" style={{ gap: 4, padding: 3, background: 'var(--surface-2)', borderRadius: 999 }}>
+              <button className={'btn btn--pill btn--sm' + (view === 'op' ? ' btn--accent-soft' : '')} onClick={() => setView('op')} style={{ border: 'none' }}>
+                <LayoutDashboard size={13} /> Operação
+              </button>
+              <button className={'btn btn--pill btn--sm' + (view === 'ceo' ? ' btn--accent-soft' : '')} onClick={() => setView('ceo')} style={{ border: 'none' }}>
+                <Briefcase size={13} /> Executivo
+              </button>
+            </div>
+          )}
           {stats && stats.totalErrors > 0 && (
             <span className="chip" style={{ background: 'color-mix(in srgb, var(--accent-red) 12%, transparent)', borderColor: 'color-mix(in srgb, var(--accent-red) 24%, transparent)', color: 'var(--accent-red)' }}>
               <AlertCircle size={12} strokeWidth={1.5} /> {stats.totalErrors} erros
@@ -383,6 +398,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {view === 'ceo' && user?.isAdmin ? <CEO embedded /> : <>
       <div className="grid grid--kpi">
         {KPI_DEFS.map(kpi => {
           const val = stats?.counts[kpi.key as keyof typeof stats.counts] ?? 0
@@ -482,6 +498,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </>}
     </div>
   )
 }

@@ -875,16 +875,18 @@ function PerfilTab({ clienteId, cliente, goTab }: { clienteId: string; cliente: 
   )
 }
 
-export default function Conteudo() {
+export default function Conteudo({ embedded, clienteId: extClienteId, onClienteChange }: { embedded?: boolean; clienteId?: string; onClienteChange?: (id: string) => void } = {}) {
   const [leads, setLeads] = useState<CrmLead[]>([])
-  const [clienteId, setClienteId] = useState('')
+  const [clienteIdState, setClienteIdState] = useState('')
+  const clienteId = extClienteId !== undefined ? extClienteId : clienteIdState
+  const setClienteId = (id: string) => { if (onClienteChange) onClienteChange(id); else setClienteIdState(id) }
   const [tab, setTab] = useState<TabId>('perfil')
 
   useEffect(() => { api.getCrm().then(r => setLeads(r.leads)).catch(() => {}) }, [])
   const cliente = leads.find(l => l.id === clienteId) || null
 
   return (
-    <div className="page">
+    <div className={embedded ? 'page-embed' : 'page'}>
       <div className="page-head">
         <div>
           <h1 className="page-title">Conteúdo</h1>
