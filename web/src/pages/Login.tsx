@@ -54,7 +54,7 @@ export default function Login() {
       >
         <div className="col" style={{ alignItems: 'center', gap: 12, marginBottom: 26 }}>
           <img
-            src="/logo.png"
+            src="/vnmax-logo.png"
             alt="VNMAX Studio"
             style={{
               width: 52,
