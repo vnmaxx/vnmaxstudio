@@ -52,12 +52,9 @@ function navClass({ isActive }: { isActive: boolean }) {
 
 function Brand() {
   return (
-    <div className="row" style={{ gap: 11 }}>
-      <img src="/vnmax-logo.png" alt="VNMAX Studio" style={{ width: 32, height: 32, objectFit: 'contain' }} />
-      <div>
-        <h1 style={{ fontWeight: 700, fontSize: 15, lineHeight: 1, margin: 0, letterSpacing: '-0.01em' }}>VNMAX Studio</h1>
-        <p className="dim" style={{ fontSize: 10.5, margin: '3px 0 0' }}>Sistema Autônomo</p>
-      </div>
+    <div className="col" style={{ alignItems: 'center', gap: 0 }}>
+      <img src="/vnmax-logo.png" alt="VNMAX Studio" style={{ width: 150, height: 150, objectFit: 'contain', display: 'block', margin: '-20px 0' }} />
+      <p className="dim" style={{ fontSize: 10.5, margin: '2px 0 0', letterSpacing: '0.26em', textTransform: 'uppercase', textAlign: 'center' }}>Sistema Autônomo</p>
     </div>
   )
 }

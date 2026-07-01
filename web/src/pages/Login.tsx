@@ -57,11 +57,10 @@ export default function Login() {
             src="/vnmax-logo.png"
             alt="VNMAX Studio"
             style={{
-              width: 52,
-              height: 52,
-              borderRadius: 'var(--radius)',
+              width: 160,
+              height: 160,
               objectFit: 'contain',
-              boxShadow: 'var(--shadow)',
+              margin: '-24px 0',
             }}
           />
           <div className="col" style={{ alignItems: 'center', gap: 4, textAlign: 'center' }}>

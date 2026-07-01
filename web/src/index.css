@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --bg: #07070a;
-  --bg-deep: #050507;
-  --bg-elevated: #0e0e12;
+  --bg: #000000;
+  --bg-deep: #000000;
+  --bg-elevated: #0d0d11;
   --surface: rgba(255,255,255,0.035);
   --surface-2: rgba(255,255,255,0.055);
   --surface-3: rgba(255,255,255,0.08);
@@ -29,7 +29,7 @@
   --accent-orange: #FF9F0A;
   --accent-purple: #BF5AF2;
   --accent-cyan: #64D2FF;
-  --bg-primary: #07070a;
+  --bg-primary: #000000;
   --bg-secondary: rgba(255,255,255,0.04);
   --bg-tertiary: rgba(255,255,255,0.07);
 
@@ -240,7 +240,7 @@ a { color: inherit; }
 
 .sidebar {
   width: var(--sidebar-w); flex-shrink: 0; height: 100dvh;
-  background: rgba(10,10,13,0.72); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  background: #000000;
   border-right: 1px solid var(--border); display: flex; flex-direction: column;
 }
 .nav-link {
