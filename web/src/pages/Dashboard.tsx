@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { pushNotification } from '../components/NotificationBell'
@@ -11,7 +11,7 @@ import {
   Play, Loader2, X, Check, Save,
   Users, FileText, Megaphone, Mail, Package,
   AlertCircle, Activity, TrendingUp, Clock, Copy, CopyPlus,
-  LayoutDashboard, Briefcase, GitBranch, Plus, Upload, Trash2, ChevronRight,
+  LayoutDashboard, Briefcase, GitBranch, Plus, Upload, Trash2, GripVertical,
 } from 'lucide-react'
 
 type AgentsMap = Record<string, Agent>
@@ -435,8 +435,12 @@ function AddStepForm({ cicloId, agentNames, onAdded }: { cicloId: string; agentN
 function CicloCard({ ciclo, agentNames, onChange }: { ciclo: import('../types').Ciclo; agentNames: string[]; onChange: () => void }) {
   const menu = useContextMenu()
   const [running, setRunning] = useState(false)
-  const extra = ciclo.extraSteps || []
+  const [steps, setSteps] = useState(ciclo.steps)
+  const [over, setOver] = useState<number | null>(null)
+  const dragIdx = useRef<number | null>(null)
   const custom = !ciclo.builtin
+
+  useEffect(() => { setSteps(ciclo.steps) }, [ciclo])
 
   const rodar = async () => {
     setRunning(true)
@@ -446,6 +450,18 @@ function CicloCard({ ciclo, agentNames, onChange }: { ciclo: import('../types').
   }
   const removerPasso = async (stepId?: string) => { if (!stepId) return; try { await api.removeCicloStep(ciclo.id, stepId); onChange() } catch { menu.toast('Erro', 'error') } }
   const removerCiclo = async () => { const ok = await menu.confirm({ title: 'Excluir ciclo', message: `Remover o ciclo "${ciclo.nome}"?`, danger: true, confirmLabel: 'Excluir' }); if (!ok) return; try { await api.removeCiclo(ciclo.id); onChange() } catch { menu.toast('Erro', 'error') } }
+
+  const soltar = async (to: number) => {
+    const from = dragIdx.current
+    dragIdx.current = null; setOver(null)
+    if (from == null || from === to) return
+    const next = [...steps]
+    const [m] = next.splice(from, 1)
+    next.splice(to, 0, m)
+    setSteps(next)
+    try { await api.reorderCicloSteps(ciclo.id, next.map(s => s.id || '')); menu.toast('Ordem salva') }
+    catch { menu.toast('Erro ao salvar ordem', 'error'); onChange() }
+  }
 
   return (
     <div className="card card--pad col" style={{ gap: 10 }}>
@@ -462,23 +478,28 @@ function CicloCard({ ciclo, agentNames, onChange }: { ciclo: import('../types').
           {custom && <button className="btn-icon btn-icon--sm" title="Excluir ciclo" onClick={removerCiclo} style={{ color: 'var(--accent-red)' }}><Trash2 size={13} /></button>}
         </div>
       </div>
-      <div className="col" style={{ gap: 5 }}>
-        {ciclo.steps.map((s, i) => (
-          <div key={i} className="row" style={{ gap: 8, fontSize: 12.5, padding: '5px 0' }}>
-            <span className="dim" style={{ width: 16 }}>{i + 1}.</span>
-            <ChevronRight size={12} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
-            <span style={{ fontWeight: 600 }}>{s.name}</span>
-            <span className="badge" style={{ background: 'var(--surface-2)' }}>{s.agente.replace('studio-', '')}</span>
-            {custom && s.id && <button className="btn-icon btn-icon--sm" title="Remover passo" onClick={() => removerPasso(s.id)} style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}><Trash2 size={12} /></button>}
-          </div>
-        ))}
-        {extra.map((s) => (
-          <div key={s.id} className="row" style={{ gap: 8, fontSize: 12.5, padding: '5px 0' }}>
-            <span className="dim" style={{ width: 16 }}>+</span>
-            <ChevronRight size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-            <span style={{ fontWeight: 600 }}>{s.name}</span>
-            <span className="badge" style={{ background: 'color-mix(in srgb, var(--accent) 14%, transparent)', color: 'var(--accent-text)' }}>{s.agente.replace('studio-', '')}</span>
-            <button className="btn-icon btn-icon--sm" title="Remover passo" onClick={() => removerPasso(s.id)} style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}><Trash2 size={12} /></button>
+      <p className="dim" style={{ fontSize: 10.5, margin: 0 }}>Arraste pelos <GripVertical size={10} style={{ display: 'inline', verticalAlign: 'middle' }} /> para reordenar.</p>
+      <div className="col" style={{ gap: 6 }}>
+        {steps.map((s, i) => (
+          <div
+            key={s.id || i}
+            draggable
+            onDragStart={() => { dragIdx.current = i }}
+            onDragOver={e => { e.preventDefault(); if (over !== i) setOver(i) }}
+            onDragEnd={() => { dragIdx.current = null; setOver(null) }}
+            onDrop={e => { e.preventDefault(); soltar(i) }}
+            className="row"
+            style={{ gap: 8, fontSize: 12.5, padding: '8px 10px', borderRadius: 8, cursor: 'grab',
+              background: over === i ? 'var(--accent-soft)' : 'var(--surface-2)',
+              border: `1px solid ${over === i ? 'var(--accent-line)' : 'transparent'}`, transition: 'background .12s' }}
+          >
+            <GripVertical size={14} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
+            <span className="dim" style={{ width: 14, flexShrink: 0 }}>{i + 1}</span>
+            <span className="truncate" style={{ fontWeight: 600, minWidth: 0 }}>{s.name}</span>
+            <span className="badge" style={{ background: s.base ? 'var(--surface-3)' : 'color-mix(in srgb, var(--accent) 14%, transparent)', color: s.base ? 'var(--text-secondary)' : 'var(--accent-text)', flexShrink: 0 }}>{s.agente.replace('studio-', '')}</span>
+            {!s.base && s.id
+              ? <button className="btn-icon btn-icon--sm" title="Remover passo" onClick={() => removerPasso(s.id)} style={{ marginLeft: 'auto', color: 'var(--accent-red)', flexShrink: 0 }}><Trash2 size={12} /></button>
+              : <span className="dim" style={{ marginLeft: 'auto', fontSize: 9.5, flexShrink: 0 }}>fixo</span>}
           </div>
         ))}
       </div>

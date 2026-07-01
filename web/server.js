@@ -236,6 +236,10 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('DELETE', `/ciclos/${req.params.id}/steps/${req.params.stepId}`);
     res.status(status).json(data);
   });
+  app.put('/api/ciclos/:id/order', async (req, res) => {
+    const { status, data } = await bridge('PUT', `/ciclos/${req.params.id}/order`, req.body);
+    res.status(status).json(data);
+  });
   app.post('/api/clientes/sync', async (req, res) => {
     const { status, data } = await bridge('POST', '/clientes/sync');
     res.status(status).json(data);
@@ -654,6 +658,7 @@ if (BRIDGE_URL) {
   app.delete('/api/ciclos/:id', (req, res) => { try { res.json({ ok: ciclosLocal ? ciclosLocal.removeCustom(req.params.id) : false }); } catch (e) { res.status(500).json({ error: e.message }); } });
   app.post('/api/ciclos/:id/steps', (req, res) => { try { if (!ciclosLocal) return res.status(503).json({ error: 'indisponível' }); const b = req.body || {}; const s = ciclosLocal.addStep(req.params.id, b, b.index); if (!s) return res.status(404).json({ error: 'Ciclo não encontrado' }); res.json(s); } catch (e) { res.status(500).json({ error: e.message }); } });
   app.delete('/api/ciclos/:id/steps/:stepId', (req, res) => { try { res.json({ ok: ciclosLocal ? ciclosLocal.removeStep(req.params.id, req.params.stepId) : false }); } catch (e) { res.status(500).json({ error: e.message }); } });
+  app.put('/api/ciclos/:id/order', (req, res) => { try { res.json({ ok: ciclosLocal ? ciclosLocal.reorder(req.params.id, (req.body || {}).order || []) : false }); } catch (e) { res.status(500).json({ error: e.message }); } });
 
   let clienteWsLocal = null;
   try {

@@ -639,6 +639,13 @@ app.delete('/ciclos/:id/steps/:stepId', (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.put('/ciclos/:id/order', (req, res) => {
+  try {
+    if (!ciclosStore) return res.status(503).json({ error: 'Ciclos indisponível' });
+    res.json({ ok: ciclosStore.reorder(req.params.id, (req.body || {}).order || []) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/cycle', (req, res) => {
   const { cycle } = req.body;
   const valido = ['segunda', 'diario', 'sexta'].includes(cycle) || (ciclosStore && ciclosStore.getCustom(cycle));

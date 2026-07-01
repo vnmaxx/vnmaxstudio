@@ -204,6 +204,7 @@ function slugStep(s) {
 function stepFromConfig(step, data) {
   const to = (step.timeoutMin || 8) * 60 * 1000;
   return {
+    id: step.id,
     name: step.name,
     maxRetries: 1,
     timeoutMs: to,
@@ -228,6 +229,18 @@ function extrasDoCiclo(cicloId, data) {
   let steps = [];
   try { steps = store.extraSteps(cicloId); } catch { steps = []; }
   return steps.map(s => stepFromConfig(s, data));
+}
+
+function ordenarSteps(cicloId, baseSteps, data) {
+  const all = [...baseSteps, ...extrasDoCiclo(cicloId, data)];
+  let ordem = [];
+  try { const store = ciclosStore(); ordem = store ? store.ordemBuiltin(cicloId) : []; } catch { ordem = []; }
+  if (!ordem.length) return all;
+  const byId = new Map(all.map(s => [s.id, s]));
+  const out = [];
+  for (const id of ordem) { if (byId.has(id)) { out.push(byId.get(id)); byId.delete(id); } }
+  for (const s of all) if (byId.has(s.id)) out.push(s);
+  return out;
 }
 
 async function cicloCustom(id) {
@@ -265,8 +278,9 @@ async function cicloSegunda() {
   await runPipeline({
     name: 'ciclo-segunda',
     cycle: 'segunda',
-    steps: [
+    steps: ordenarSteps('segunda', [
       {
+        id: 'seg-ceo',
         name: 'CEO — Plano Semanal',
         maxRetries: 1,
         timeoutMs: 9 * 60 * 1000,
@@ -284,6 +298,7 @@ async function cicloSegunda() {
         },
       },
       {
+        id: 'seg-growth',
         name: 'Growth — Leads',
         maxRetries: 2,
         timeoutMs: 13 * 60 * 1000,
@@ -311,6 +326,7 @@ async function cicloSegunda() {
         },
       },
       {
+        id: 'seg-criacao',
         name: 'Criação — Produto',
         maxRetries: 1,
         timeoutMs: 9 * 60 * 1000,
@@ -328,6 +344,7 @@ async function cicloSegunda() {
         },
       },
       {
+        id: 'seg-sdr',
         name: 'SDR — Primeiras mensagens',
         maxRetries: 1,
         timeoutMs: 14 * 60 * 1000,
@@ -353,8 +370,7 @@ async function cicloSegunda() {
           return `${n} rascunhos gerados`;
         },
       },
-      ...extrasDoCiclo('segunda', data),
-    ],
+    ], data),
   }, { priority: 7 });
 
   log('=== CICLO SEGUNDA concluído ===');
@@ -371,8 +387,9 @@ async function cicloDiario() {
   await runPipeline({
     name: 'ciclo-diario',
     cycle: 'diario',
-    steps: [
+    steps: ordenarSteps('diario', [
       {
+        id: 'dia-trafego',
         name: 'Tráfego — Campanhas',
         maxRetries: 1,
         timeoutMs: 7 * 60 * 1000,
@@ -389,6 +406,7 @@ async function cicloDiario() {
         },
       },
       {
+        id: 'dia-clientes',
         name: 'Clientes — Emails',
         maxRetries: 1,
         timeoutMs: 7 * 60 * 1000,
@@ -413,8 +431,7 @@ async function cicloDiario() {
           return r.result;
         },
       },
-      ...extrasDoCiclo('diario', data),
-    ],
+    ], data),
   }, { priority: 5 });
 
   log('=== CICLO DIÁRIO concluído ===');
@@ -433,8 +450,9 @@ async function cicloSexta() {
   await runPipeline({
     name: 'ciclo-sexta',
     cycle: 'sexta',
-    steps: [
+    steps: ordenarSteps('sexta', [
       {
+        id: 'sex-dados',
         name: 'Dados — Relatório Semanal',
         maxRetries: 1,
         timeoutMs: 9 * 60 * 1000,
@@ -453,6 +471,7 @@ async function cicloSexta() {
         },
       },
       {
+        id: 'sex-ceo',
         name: 'CEO — Relatório do Fundador',
         maxRetries: 1,
         timeoutMs: 9 * 60 * 1000,
@@ -472,8 +491,7 @@ async function cicloSexta() {
           return r.result;
         },
       },
-      ...extrasDoCiclo('sexta', data),
-    ],
+    ], data),
   }, { priority: 8 });
 
   log('=== CICLO SEXTA concluído ===');

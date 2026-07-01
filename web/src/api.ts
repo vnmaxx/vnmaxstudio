@@ -26,6 +26,7 @@ export const api = {
   addCicloStep: (id: string, step: import('./types').CicloStep & { index?: number }) =>
     fetchJson<import('./types').CicloStep>(`/ciclos/${encodeURIComponent(id)}/steps`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(step) }),
   removeCicloStep: (id: string, stepId: string) => fetchJson<{ ok: boolean }>(`/ciclos/${encodeURIComponent(id)}/steps/${encodeURIComponent(stepId)}`, { method: 'DELETE' }),
+  reorderCicloSteps: (id: string, order: string[]) => fetchJson<{ ok: boolean }>(`/ciclos/${encodeURIComponent(id)}/order`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) }),
 
   getPendentes: () => fetchJson<import('./types').AprovacaoResumo[]>('/pendentes'),
 

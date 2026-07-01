@@ -22,6 +22,7 @@ export interface CicloStep {
   desc?: string
   timeoutMin?: number
   saveComoRelatorio?: boolean
+  base?: boolean
 }
 
 export interface Ciclo {
