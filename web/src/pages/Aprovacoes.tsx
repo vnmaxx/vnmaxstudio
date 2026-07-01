@@ -352,14 +352,16 @@ export default function Aprovacoes({ embedded }: { embedded?: boolean } = {}) {
   return (
     <div className={embedded ? 'page-embed' : 'page page--flush'}>
       <div className="page-head">
-        <div>
-          <h1 className="page-title">Aprovações</h1>
-          <p className="page-sub">
-            {items.length > 0
-              ? `${items.length} item${items.length > 1 ? 's' : ''} aguardando`
-              : 'Nada pendente'}
-          </p>
-        </div>
+        {!embedded && (
+          <div>
+            <h1 className="page-title">Aprovações</h1>
+            <p className="page-sub">
+              {items.length > 0
+                ? `${items.length} item${items.length > 1 ? 's' : ''} aguardando`
+                : 'Nada pendente'}
+            </p>
+          </div>
+        )}
         <div className="page-head-actions">
           <button
             className="btn-icon"

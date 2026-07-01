@@ -118,7 +118,7 @@ a { color: inherit; }
 }
 .page--flush { max-width: none; }
 .page--full { flex: 1; min-height: 0; }
-.page-embed { display: flex; flex-direction: column; gap: 20px; flex: 1; min-height: 0; animation: fade-in 0.3s var(--ease); }
+.page-embed { display: flex; flex-direction: column; gap: 20px; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 2px; animation: fade-in 0.3s var(--ease); }
 @media (min-width: 1024px) {
   .page--fit { height: 100%; overflow: hidden; }
 }
@@ -265,6 +265,7 @@ a { color: inherit; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.66); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: fade-in 0.2s var(--ease); }
 .modal { width: 100%; max-width: 580px; max-height: min(88dvh, 760px); display: flex; flex-direction: column; background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); animation: pop 0.26s var(--ease-out); overflow: hidden; }
+.modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 
 .ctx-menu {
   position: fixed; z-index: 400; min-width: 196px; max-width: 280px;

@@ -130,7 +130,7 @@ function VideoStudioModal({ v, cliente, clienteId, onClose }: { v: RoteiroVariat
           <button className={'btn btn--pill btn--sm' + (tab === 'edicao' ? ' btn--accent-soft' : '')} onClick={() => setTab('edicao')}><Wand2 size={13} /> Edição (video-use)</button>
         </div>
 
-        <div className="scroll" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="modal-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
           {tab === 'servidor' && (
             <>
               <p className="dim" style={{ fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>
@@ -887,11 +887,14 @@ export default function Conteudo({ embedded, clienteId: extClienteId, onClienteC
 
   return (
     <div className={embedded ? 'page-embed' : 'page'}>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Conteúdo</h1>
-          <p className="page-sub">Roteiros virais, calendário e publicações por cliente</p>
-        </div>
+      <div className="page-head" style={embedded ? { alignItems: 'center' } : undefined}>
+        {!embedded && (
+          <div>
+            <h1 className="page-title">Conteúdo</h1>
+            <p className="page-sub">Roteiros virais, calendário e publicações por cliente</p>
+          </div>
+        )}
+        {embedded && <span className="label" style={{ margin: 0 }}>Cliente</span>}
         <div className="page-head-actions">
           <select className="select" value={clienteId} onChange={e => setClienteId(e.target.value)} style={{ minWidth: 180 }}>
             <option value="">Sem cliente (genérico)</option>
@@ -900,7 +903,7 @@ export default function Conteudo({ embedded, clienteId: extClienteId, onClienteC
         </div>
       </div>
 
-      <div className="row scroll" style={{ gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 4 }}>
+      <div className="row scroll" style={{ gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 4, flexShrink: 0 }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={'btn btn--pill' + (tab === t.id ? ' btn--accent-soft' : '')} style={{ flexShrink: 0 }}>

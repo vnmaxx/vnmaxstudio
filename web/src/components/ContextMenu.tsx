@@ -203,7 +203,7 @@ function Dialog({ state, onClose }: { state: DialogState; onClose: () => void })
   return (
     <div className="modal-backdrop" onClick={doCancel}>
       <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-        <div style={{ padding: 'clamp(18px, 3vw, 24px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="modal-body" style={{ padding: 'clamp(18px, 3vw, 24px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
             {opts.danger && (
               <div className="center" style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, background: 'color-mix(in srgb, var(--accent-red) 14%, transparent)', color: 'var(--accent-red)' }}>

@@ -55,15 +55,17 @@ export default function Logs({ embedded }: { embedded?: boolean } = {}) {
   return (
     <div className={embedded ? 'page-embed' : 'page page--flush page--full'}>
       <div className="page-head">
-        <div>
-          <h1 className="page-title">Logs</h1>
-          <p className="page-sub">
-            <span className="row gap-2" style={{ display: 'inline-flex', verticalAlign: 'middle' }}>
-              <span className="dot dot--live" />
-              {lines.length} linhas em tempo real
-            </span>
-          </p>
-        </div>
+        {!embedded && (
+          <div>
+            <h1 className="page-title">Logs</h1>
+            <p className="page-sub">
+              <span className="row gap-2" style={{ display: 'inline-flex', verticalAlign: 'middle' }}>
+                <span className="dot dot--live" />
+                {lines.length} linhas em tempo real
+              </span>
+            </p>
+          </div>
+        )}
         <div className="page-head-actions">
           <button
             className="toggle"

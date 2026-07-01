@@ -178,7 +178,7 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove, onLea
           <button onClick={onClose} className="btn-icon btn-icon--sm" style={{ borderRadius: '50%' }}><X size={14} strokeWidth={2} /></button>
         </div>
 
-        <div className="scroll" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="modal-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {lead.rascunho?.mensagem && (
             <div className="card card--pad anim-fade" style={{ background: 'var(--accent-softer)', borderColor: 'var(--accent-line)' }}>
               <div className="row--between" style={{ marginBottom: 8 }}>
@@ -321,11 +321,11 @@ function AddModal({ onClose, onAdd }: { onClose: () => void; onAdd: (d: { nome: 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
-        <div className="row--between" style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)' }}>
+        <div className="row--between" style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Adicionar lead</h2>
           <button onClick={onClose} className="btn-icon btn-icon--sm" style={{ borderRadius: '50%' }}><X size={14} strokeWidth={2} /></button>
         </div>
-        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="modal-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div><label className="label">Nome</label><input className="input" value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome do negócio" autoFocus /></div>
           <div><label className="label">Segmento</label><input className="input" value={segmento} onChange={e => setSegmento(e.target.value)} placeholder="Ex.: nutricionista" /></div>
           <div><label className="label">Contato</label><input className="input" value={contato} onChange={e => setContato(e.target.value)} placeholder="@handle / (11) 99999-9999 / email" /></div>
@@ -457,10 +457,12 @@ export default function Conversas({ embedded }: { embedded?: boolean } = {}) {
       {addOpen && <AddModal onClose={() => setAddOpen(false)} onAdd={addLead} />}
 
       <div className="page-head">
-        <div>
-          <h1 className="page-title">Conversas</h1>
-          <p className="page-sub">{leads.length} lead{leads.length === 1 ? '' : 's'} no pipeline</p>
-        </div>
+        {!embedded && (
+          <div>
+            <h1 className="page-title">Conversas</h1>
+            <p className="page-sub">{leads.length} lead{leads.length === 1 ? '' : 's'} no pipeline</p>
+          </div>
+        )}
         <div className="page-head-actions">
           <button className="btn btn--ghost" onClick={importLeads}><Download size={14} /> Importar leads</button>
           <button className="btn btn--ghost" onClick={removerDuplicados} title="Mescla leads repetidos (mesmo telefone, e-mail ou @, em qualquer formato)"><Copy size={14} /> Remover duplicados</button>

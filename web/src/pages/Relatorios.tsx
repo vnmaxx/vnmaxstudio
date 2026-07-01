@@ -263,12 +263,14 @@ export default function Relatorios({ embedded }: { embedded?: boolean } = {}) {
               <ArrowLeft size={18} strokeWidth={1.7} />
             </button>
           )}
-          <div>
-            <h1 className="page-title">Relatórios</h1>
-            <p className="page-sub">
-              {reports.length} arquivo{reports.length !== 1 ? 's' : ''}
-            </p>
-          </div>
+          {!embedded && (
+            <div>
+              <h1 className="page-title">Relatórios</h1>
+              <p className="page-sub">
+                {reports.length} arquivo{reports.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          )}
         </div>
         <div className="page-head-actions">
           <button

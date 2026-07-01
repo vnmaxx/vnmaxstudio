@@ -242,19 +242,21 @@ export default function Pipelines({ embedded }: { embedded?: boolean } = {}) {
   return (
     <div className={embedded ? 'page-embed' : 'page'}>
       <div className="page-head">
-        <div>
-          <div className="row" style={{ gap: 10 }}>
-            <Zap size={20} color="var(--accent)" strokeWidth={2} />
-            <h1 className="page-title">Pipelines</h1>
-            {data.running.length > 0 && (
-              <span className="chip" style={{ background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', color: 'var(--accent-text)', fontWeight: 600 }}>
-                <span className="dot dot--live" />
-                {data.running.length} ativo{data.running.length > 1 ? 's' : ''}
-              </span>
-            )}
+        {!embedded && (
+          <div>
+            <div className="row" style={{ gap: 10 }}>
+              <Zap size={20} color="var(--accent)" strokeWidth={2} />
+              <h1 className="page-title">Pipelines</h1>
+              {data.running.length > 0 && (
+                <span className="chip" style={{ background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', color: 'var(--accent-text)', fontWeight: 600 }}>
+                  <span className="dot dot--live" />
+                  {data.running.length} ativo{data.running.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <p className="page-sub">Painel do Loop Engine — ciclos, etapas e métricas de execução.</p>
           </div>
-          <p className="page-sub">Painel do Loop Engine — ciclos, etapas e métricas de execução.</p>
-        </div>
+        )}
         <div className="page-head-actions">
           <button onClick={load} className="btn btn--sm">
             <RefreshCw size={13} /> Atualizar

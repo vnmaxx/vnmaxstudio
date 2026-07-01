@@ -138,7 +138,7 @@ function AgentModal({ name, agent, onClose, onSaved }: { name: string; agent: Ag
           </div>
         </div>
 
-        <div className="scroll" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="modal-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {editing ? (
             <>
               <div className="grid grid--2" style={{ gap: 12 }}>
