@@ -550,6 +550,105 @@ function PipelineModal({ agentNames, onClose }: { agentNames: string[]; onClose:
   )
 }
 
+const STAGE_ORD = ['NOVO', 'CONTATADO', 'RESPONDEU', 'QUALIFICADO', 'PROPOSTA', 'FECHADO']
+const STAGE_LBL: Record<string, string> = { NOVO: 'Novo', CONTATADO: 'Contatado', RESPONDEU: 'Respondeu', QUALIFICADO: 'Qualificado', PROPOSTA: 'Proposta', FECHADO: 'Fechado', PERDIDO: 'Perdido' }
+const STAGE_COLOR: Record<string, string> = { NOVO: '#0A84FF', CONTATADO: '#64D2FF', RESPONDEU: '#5E5CE6', QUALIFICADO: '#BF5AF2', PROPOSTA: '#FF9F0A', FECHADO: '#30D158' }
+
+function fmtMsShort(ms?: number | null) {
+  if (!ms) return '—'
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60000) return `${(ms / 1000).toFixed(0)}s`
+  return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
+}
+
+function Ring({ pct, size = 66, stroke = 8, color = 'var(--accent)' }: { pct: number; size?: number; stroke?: number; color?: string }) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r
+  const off = c * (1 - Math.max(0, Math.min(1, (pct || 0) / 100)))
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--surface-3)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} style={{ transition: 'stroke-dashoffset .6s var(--ease)' }} />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800 }}>{Math.round(pct || 0)}%</div>
+    </div>
+  )
+}
+
+function FunilLeads({ leads }: { leads: import('../types').CrmLead[] }) {
+  const counts: Record<string, number> = {}
+  for (const l of leads) counts[l.stage] = (counts[l.stage] || 0) + 1
+  const total = leads.length
+  const conv = total ? Math.round(((counts['FECHADO'] || 0) / total) * 100) : 0
+  const max = Math.max(1, ...STAGE_ORD.map(s => counts[s] || 0))
+  return (
+    <div className="card card--pad col" style={{ gap: 11 }}>
+      <div className="row--between">
+        <span className="row" style={{ gap: 8, fontSize: 13, fontWeight: 700 }}><Users size={15} style={{ color: '#0A84FF' }} /> Funil de leads</span>
+        <span className="dim" style={{ fontSize: 12 }}>{total} no total</span>
+      </div>
+      <div className="col" style={{ gap: 6 }}>
+        {STAGE_ORD.map(s => {
+          const n = counts[s] || 0
+          return (
+            <div key={s} className="row" style={{ gap: 9, alignItems: 'center' }}>
+              <span className="dim" style={{ fontSize: 10.5, width: 78, flexShrink: 0 }}>{STAGE_LBL[s]}</span>
+              <div style={{ flex: 1, height: 8, background: 'var(--surface-3)', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ width: `${(n / max) * 100}%`, height: '100%', background: STAGE_COLOR[s], borderRadius: 6, transition: 'width .5s var(--ease)' }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, width: 18, textAlign: 'right' }}>{n}</span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="row--between" style={{ borderTop: '1px solid var(--border)', paddingTop: 9 }}>
+        <span className="dim" style={{ fontSize: 12 }}>Taxa de conversão</span>
+        <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--accent-green)' }}>{conv}%</span>
+      </div>
+    </div>
+  )
+}
+
+function AutomacaoCard({ metrics, lastCycle }: { metrics: import('../types').PipelineMetrics | null; lastCycle: string }) {
+  const sr = metrics?.successRate ?? 0
+  const cor = sr >= 70 ? 'var(--accent-green)' : sr >= 40 ? 'var(--accent-yellow)' : 'var(--accent-red)'
+  return (
+    <div className="card card--pad col" style={{ gap: 12 }}>
+      <span className="row" style={{ gap: 8, fontSize: 13, fontWeight: 700 }}><Activity size={15} style={{ color: 'var(--accent)' }} /> Automação</span>
+      <div className="row" style={{ gap: 14, alignItems: 'center' }}>
+        <Ring pct={sr} color={cor} />
+        <div className="col" style={{ gap: 8, flex: 1, minWidth: 0 }}>
+          <div className="row--between"><span className="dim" style={{ fontSize: 12 }}>Ciclos OK</span><b style={{ fontSize: 14 }}>{metrics?.completed ?? 0}/{metrics?.total ?? 0}</b></div>
+          <div className="row--between"><span className="dim" style={{ fontSize: 12 }}>Tempo médio</span><b style={{ fontSize: 14 }}>{fmtMsShort(metrics?.avgDurationMs)}</b></div>
+        </div>
+      </div>
+      <div className="dim truncate" style={{ fontSize: 11, borderTop: '1px solid var(--border)', paddingTop: 9 }}><Clock size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5 }} />{lastCycle}</div>
+    </div>
+  )
+}
+
+function SituacaoCard({ stats, pend, onNav }: { stats: Stats | null; pend: number; onNav: (to: string) => void }) {
+  const tiles = [
+    { label: 'Aprovações', v: stats?.counts.pendentes ?? 0, color: (stats?.counts.pendentes ?? 0) > 0 ? 'var(--accent-yellow)' : 'var(--text-tertiary)', icon: <AlertCircle size={13} />, to: '/aprovacoes' },
+    { label: 'Ajustes', v: pend, color: pend > 0 ? 'var(--accent-red)' : 'var(--text-tertiary)', icon: <AlertCircle size={13} />, to: '' },
+    { label: 'Produtos', v: stats?.counts.produtos ?? 0, color: '#FF453A', icon: <Package size={13} />, to: '/workspace?p=produtos' },
+    { label: 'Conteúdos', v: stats?.counts.conteudo ?? 0, color: '#30D158', icon: <FileText size={13} />, to: '/workspace?p=conteudo' },
+  ]
+  return (
+    <div className="card card--pad col" style={{ gap: 12 }}>
+      <span className="row" style={{ gap: 8, fontSize: 13, fontWeight: 700 }}><TrendingUp size={15} style={{ color: 'var(--accent-cyan)' }} /> Situação</span>
+      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+        {tiles.map(t => (
+          <button key={t.label} onClick={() => t.to && onNav(t.to)} className="card card--pad" style={{ textAlign: 'left', cursor: t.to ? 'pointer' : 'default', padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 5, background: 'var(--surface-2)' }}>
+            <span className="row" style={{ gap: 6, fontSize: 10.5, color: t.color }}>{t.icon} <span className="dim">{t.label}</span></span>
+            <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{t.v}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [agents,        setAgents]        = useState<AgentsMap>({})
   const [status,        setStatus]        = useState<SystemStatus | null>(null)
@@ -560,6 +659,9 @@ export default function Dashboard() {
   const [selectedAgent, setSelectedAgent] = useState<{ name: string; agent: Agent } | null>(null)
   const [newAgentOpen, setNewAgentOpen] = useState(false)
   const [pipelineOpen, setPipelineOpen] = useState(false)
+  const [crmLeads, setCrmLeads] = useState<import('../types').CrmLead[]>([])
+  const [pipeMetrics, setPipeMetrics] = useState<import('../types').PipelineMetrics | null>(null)
+  const [pendCount, setPendCount] = useState(0)
   const menu = useContextMenu()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -584,6 +686,9 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
+    api.getCrm().then(r => setCrmLeads(r.leads)).catch(() => {})
+    api.getPipelineMetrics().then(setPipeMetrics).catch(() => {})
+    api.getPendencias().then(r => setPendCount(r.itens.length)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -673,6 +778,12 @@ export default function Dashboard() {
       </div>
 
       {view === 'ceo' && user?.isAdmin ? <CEO embedded /> : <>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(258px, 1fr))', gap: 14 }}>
+        <FunilLeads leads={crmLeads} />
+        <AutomacaoCard metrics={pipeMetrics} lastCycle={lastCycleLabel} />
+        <SituacaoCard stats={stats} pend={pendCount} onNav={navigate} />
+      </div>
+
       <div className="grid grid--kpi">
         {KPI_DEFS.map(kpi => {
           const val = stats?.counts[kpi.key as keyof typeof stats.counts] ?? 0
