@@ -19,6 +19,14 @@ export const api = {
       body: JSON.stringify(patch),
     }),
 
+  getCiclos: () => fetchJson<import('./types').CiclosStatus>('/ciclos'),
+  addCiclo: (payload: { nome: string; horario?: string; steps?: import('./types').CicloStep[] }) =>
+    fetchJson<import('./types').Ciclo>('/ciclos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+  removeCiclo: (id: string) => fetchJson<{ ok: boolean }>(`/ciclos/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  addCicloStep: (id: string, step: import('./types').CicloStep & { index?: number }) =>
+    fetchJson<import('./types').CicloStep>(`/ciclos/${encodeURIComponent(id)}/steps`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(step) }),
+  removeCicloStep: (id: string, stepId: string) => fetchJson<{ ok: boolean }>(`/ciclos/${encodeURIComponent(id)}/steps/${encodeURIComponent(stepId)}`, { method: 'DELETE' }),
+
   getPendentes: () => fetchJson<import('./types').AprovacaoResumo[]>('/pendentes'),
 
   getPendente: (id: string) => fetchJson<import('./types').AprovacaoCompleta>(`/pendentes/${id}`),
@@ -226,7 +234,7 @@ export const api = {
   toggleDisabled: () =>
     fetchJson<{ disabled: boolean }>('/toggle-disabled', { method: 'POST' }),
 
-  runCycle: (cycle: 'segunda' | 'diario' | 'sexta') =>
+  runCycle: (cycle: string) =>
     fetchJson<{ started: boolean; pid: number; cycle: string }>('/cycle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

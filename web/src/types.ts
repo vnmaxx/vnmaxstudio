@@ -10,6 +10,33 @@ export interface Agent {
   maxTurns: number
   tools: AgentTools
   system: string
+  icon?: string
+  custom?: boolean
+}
+
+export interface CicloStep {
+  id?: string
+  name: string
+  agente: string
+  prompt?: string
+  desc?: string
+  timeoutMin?: number
+  saveComoRelatorio?: boolean
+}
+
+export interface Ciclo {
+  id: string
+  nome: string
+  horario?: string
+  builtin: boolean
+  descricao?: string
+  steps: CicloStep[]
+  extraSteps?: CicloStep[]
+}
+
+export interface CiclosStatus {
+  builtin: Ciclo[]
+  custom: Ciclo[]
 }
 
 export interface AgentsMap {

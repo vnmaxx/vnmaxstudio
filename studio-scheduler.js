@@ -186,6 +186,63 @@ function resumoWorkspace() {
   return linhas.join('\n');
 }
 
+function ciclosStore() {
+  try { return new (require(path.join(ROOT, 'lib', 'ciclos.js')).Ciclos)(WORKSPACE); } catch { return null; }
+}
+
+function interpolar(tpl, ctx) {
+  return String(tpl || '').replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, k) => {
+    const v = ctx && ctx[k];
+    return v == null ? '' : (typeof v === 'string' ? v : JSON.stringify(v));
+  });
+}
+
+function slugStep(s) {
+  return String(s || 'passo').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'passo';
+}
+
+function stepFromConfig(step, data) {
+  const to = (step.timeoutMin || 8) * 60 * 1000;
+  return {
+    name: step.name,
+    maxRetries: 1,
+    timeoutMs: to,
+    fn: async (ctx) => {
+      const prompt = interpolar(step.prompt, ctx);
+      if (!prompt.trim()) { log(`passo "${step.name}": prompt vazio, pulado`); return '(prompt vazio)'; }
+      const r = await runJob(step.agente || 'general', prompt, { timeoutMs: to });
+      if (r.status === 'error') throw new Error(String(r.result || 'falhou'));
+      if (r.result && step.saveComoRelatorio !== false) {
+        const p = path.join(REPORTS, `${slugStep(step.name)}-${data}.md`);
+        if (salvarResultado(p, r.result)) log(`passo "${step.name}" salvo → ${p}`);
+      }
+      ctx[step.name] = r.result;
+      return r.result;
+    },
+  };
+}
+
+function extrasDoCiclo(cicloId, data) {
+  const store = ciclosStore();
+  if (!store) return [];
+  let steps = [];
+  try { steps = store.extraSteps(cicloId); } catch { steps = []; }
+  return steps.map(s => stepFromConfig(s, data));
+}
+
+async function cicloCustom(id) {
+  ensureDirs();
+  const data = hojeISO();
+  const store = ciclosStore();
+  const ciclo = store && store.getCustom(id);
+  if (!ciclo) { console.error(`Ciclo custom desconhecido: ${id}`); process.exitCode = 1; return; }
+  log(`=== CICLO ${ciclo.nome} (${id}) ===`);
+  const steps = (ciclo.steps || []).map(s => stepFromConfig(s, data));
+  if (!steps.length) { log('ciclo sem passos.'); return; }
+  await runPipeline({ name: `ciclo-${id}`, cycle: id, steps }, { priority: 6 });
+  log(`=== CICLO ${ciclo.nome} concluído ===`);
+}
+
 async function cicloSegunda() {
   ensureDirs();
   const data = hojeISO();
@@ -296,6 +353,7 @@ async function cicloSegunda() {
           return `${n} rascunhos gerados`;
         },
       },
+      ...extrasDoCiclo('segunda', data),
     ],
   }, { priority: 7 });
 
@@ -355,6 +413,7 @@ async function cicloDiario() {
           return r.result;
         },
       },
+      ...extrasDoCiclo('diario', data),
     ],
   }, { priority: 5 });
 
@@ -413,6 +472,7 @@ async function cicloSexta() {
           return r.result;
         },
       },
+      ...extrasDoCiclo('sexta', data),
     ],
   }, { priority: 8 });
 
@@ -620,9 +680,7 @@ async function main() {
     if (args.cycle === 'segunda') return cicloSegunda();
     if (args.cycle === 'diario') return cicloDiario();
     if (args.cycle === 'sexta') return cicloSexta();
-    console.error(`Ciclo desconhecido: ${args.cycle}`);
-    process.exitCode = 1;
-    return;
+    return cicloCustom(args.cycle);
   }
 
   if (args.agent && args.task) {

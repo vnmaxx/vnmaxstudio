@@ -11,7 +11,7 @@ import {
   Play, Loader2, X, Check, Save,
   Users, FileText, Megaphone, Mail, Package,
   AlertCircle, Activity, TrendingUp, Clock, Copy, CopyPlus,
-  LayoutDashboard, Briefcase,
+  LayoutDashboard, Briefcase, GitBranch, Plus, Upload, Trash2, ChevronRight,
 } from 'lucide-react'
 
 type AgentsMap = Record<string, Agent>
@@ -30,8 +30,10 @@ const AGENT_MASCOT_IMG: Record<string, string> = {
   'studio-sdr':      '/mascots/3.png',
 }
 
-function AgentMascot({ name, size = 48 }: { name: string; size?: number }) {
-  const src = AGENT_MASCOT_IMG[name] || '/mascots/4.png'
+const MASCOT_OPTIONS = ['/mascots/1.png', '/mascots/2.png', '/mascots/3.png', '/mascots/4.png', '/mascots/5.png', '/mascots/6.png', '/mascots/7.png', '/mascots/8.png', '/mascots/9.png']
+
+function AgentMascot({ name, size = 48, icon }: { name: string; size?: number; icon?: string }) {
+  const src = icon || AGENT_MASCOT_IMG[name] || '/mascots/4.png'
   return <img src={src} alt={name} width={size} height={size} style={{ flexShrink: 0, objectFit: 'contain' }} />
 }
 
@@ -248,7 +250,7 @@ function AgentCard({ name, agent, onClick, onChanged }: { name: string; agent: A
       style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}
     >
       <div className="row" style={{ alignItems: 'flex-start', gap: 10 }}>
-        <AgentMascot name={name} size={44} />
+        <AgentMascot name={name} size={44} icon={agent.icon} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="row--between" style={{ marginBottom: 3 }}>
             <h3 className="truncate" style={{ fontWeight: 600, fontSize: 12.5, textTransform: 'capitalize', margin: 0 }}>{name.replace('studio-', '')}</h3>
@@ -316,6 +318,217 @@ function PendenciasCard() {
   )
 }
 
+function IconPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="row wrap" style={{ gap: 8 }}>
+      {MASCOT_OPTIONS.map(m => (
+        <button key={m} type="button" onClick={() => onChange(m)}
+          style={{ padding: 4, borderRadius: 10, background: value === m ? 'var(--accent-soft)' : 'var(--surface-2)', border: `1.5px solid ${value === m ? 'var(--accent-line)' : 'transparent'}`, cursor: 'pointer' }}>
+          <img src={m} alt="" width={34} height={34} style={{ objectFit: 'contain', display: 'block' }} />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ToolToggle({ id, active, onClick }: { id: string; active: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={'btn btn--sm' + (active ? ' btn--accent-soft' : '')} style={{ opacity: active ? 1 : 0.65 }}>
+      <ToolIcon label={id} active={active} /> {TOOL_META[id]?.label}
+    </button>
+  )
+}
+
+function NewAgentModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const menu = useContextMenu()
+  const [nome, setNome] = useState('')
+  const [model, setModel] = useState<'opus' | 'sonnet' | 'haiku'>('sonnet')
+  const [maxTurns, setMaxTurns] = useState(40)
+  const [tools, setTools] = useState<Record<string, boolean>>({ shell: false, web: true, edit: false, read: false })
+  const [system, setSystem] = useState('')
+  const [icon, setIcon] = useState('/mascots/4.png')
+  const [saving, setSaving] = useState(false)
+
+  const id = nome.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
+  const onFile = async (f?: File) => {
+    if (!f) return
+    const txt = await f.text()
+    setSystem(txt)
+    if (!nome.trim()) setNome(f.name.replace(/\.(md|txt)$/i, ''))
+  }
+  const salvar = async () => {
+    if (!id) { menu.toast('Dê um nome ao agente', 'error'); return }
+    if (!system.trim()) { menu.toast('Envie o .md ou escreva como o agente se comporta', 'error'); return }
+    setSaving(true)
+    try { await api.updateAgent(id, { model, maxTurns, tools: tools as never, system, icon }); onSaved() }
+    catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao criar', 'error') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+        <div className="row--between" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <div className="row" style={{ gap: 10 }}><AgentMascot name="" size={30} icon={icon} /><h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Novo agente</h2></div>
+          <button onClick={onClose} className="btn-icon btn-icon--sm" style={{ borderRadius: '50%' }}><X size={14} strokeWidth={2} /></button>
+        </div>
+        <div className="modal-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="grid grid--2" style={{ gap: 12 }}>
+            <div><label className="label">Nome do agente</label><input className="input" value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex.: Copywriter" />{id && <p className="dim" style={{ fontSize: 10.5, margin: '4px 0 0' }}>id: {id}</p>}</div>
+            <div><label className="label">Modelo</label><select className="select" value={model} onChange={e => setModel(e.target.value as 'opus' | 'sonnet' | 'haiku')}><option value="opus">opus</option><option value="sonnet">sonnet</option><option value="haiku">haiku</option></select></div>
+          </div>
+          <div><label className="label">Máx. turns</label><input className="input" type="number" min={1} max={200} value={maxTurns} onChange={e => setMaxTurns(Math.max(1, Math.min(200, Number(e.target.value) || 40)))} style={{ maxWidth: 130 }} /></div>
+          <div>
+            <label className="label">Comportamento (system prompt)</label>
+            <label className="btn btn--ghost btn--sm" style={{ marginBottom: 8, cursor: 'pointer' }}>
+              <Upload size={13} /> Enviar arquivo .md
+              <input type="file" accept=".md,.txt,text/markdown,text/plain" style={{ display: 'none' }} onChange={e => onFile(e.target.files?.[0])} />
+            </label>
+            <textarea className="textarea" style={{ minHeight: 150, resize: 'vertical', fontSize: 12.5, lineHeight: 1.5 }} value={system} onChange={e => setSystem(e.target.value)} placeholder="Cole o markdown de como o agente deve se comportar, ou envie o .md acima." />
+          </div>
+          <div><label className="label">Capacidades</label><div className="row wrap" style={{ gap: 7 }}>{(['shell', 'web', 'edit', 'read'] as const).map(t => <ToolToggle key={t} id={t} active={!!tools[t]} onClick={() => setTools(s => ({ ...s, [t]: !s[t] }))} />)}</div></div>
+          <div><label className="label">Ícone</label><IconPicker value={icon} onChange={setIcon} /></div>
+        </div>
+        <div className="row" style={{ gap: 8, justifyContent: 'flex-end', padding: '14px 20px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+          <button className="btn btn--ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn btn--primary" onClick={salvar} disabled={saving}>{saving ? <Loader2 size={14} className="spin" /> : <Check size={14} />} Criar agente</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AddStepForm({ cicloId, agentNames, onAdded }: { cicloId: string; agentNames: string[]; onAdded: () => void }) {
+  const menu = useContextMenu()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [agente, setAgente] = useState(agentNames[0] || 'general')
+  const [prompt, setPrompt] = useState('')
+  const [timeoutMin, setTimeoutMin] = useState(8)
+  const [saving, setSaving] = useState(false)
+
+  const add = async () => {
+    if (!name.trim() || !prompt.trim()) { menu.toast('Preencha nome e instrução do passo', 'error'); return }
+    setSaving(true)
+    try { await api.addCicloStep(cicloId, { name, agente, prompt, timeoutMin }); setName(''); setPrompt(''); setOpen(false); onAdded(); menu.toast('Passo adicionado') }
+    catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro', 'error') }
+    finally { setSaving(false) }
+  }
+  if (!open) return <button className="btn btn--ghost btn--sm" onClick={() => setOpen(true)}><Plus size={12} /> Adicionar passo (agente)</button>
+  return (
+    <div className="card card--pad col" style={{ gap: 8, background: 'var(--surface-2)' }}>
+      <div className="grid grid--2" style={{ gap: 8 }}>
+        <div><label className="label">Nome do passo</label><input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Análise de concorrência" /></div>
+        <div><label className="label">Agente</label><select className="select" value={agente} onChange={e => setAgente(e.target.value)}>{agentNames.map(n => <option key={n} value={n}>{n.replace('studio-', '')}</option>)}</select></div>
+      </div>
+      <div><label className="label">Instrução (use {'{{plano}}'}, {'{{dadosSemana}}'} p/ reaproveitar resultados anteriores)</label><textarea className="textarea" style={{ minHeight: 70, resize: 'vertical', fontSize: 12.5 }} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="O que esse agente deve fazer neste ciclo…" /></div>
+      <div className="row" style={{ gap: 8, alignItems: 'flex-end' }}>
+        <div><label className="label">Timeout (min)</label><input className="input" type="number" min={1} max={20} value={timeoutMin} onChange={e => setTimeoutMin(Math.max(1, Math.min(20, Number(e.target.value) || 8)))} style={{ maxWidth: 90 }} /></div>
+        <button className="btn btn--primary btn--sm" onClick={add} disabled={saving}>{saving ? <Loader2 size={12} className="spin" /> : <Check size={12} />} Adicionar</button>
+        <button className="btn btn--ghost btn--sm" onClick={() => setOpen(false)}>Cancelar</button>
+      </div>
+    </div>
+  )
+}
+
+function CicloCard({ ciclo, agentNames, onChange }: { ciclo: import('../types').Ciclo; agentNames: string[]; onChange: () => void }) {
+  const menu = useContextMenu()
+  const [running, setRunning] = useState(false)
+  const extra = ciclo.extraSteps || []
+  const custom = !ciclo.builtin
+
+  const rodar = async () => {
+    setRunning(true)
+    try { await api.runCycle(ciclo.id); menu.toast(`Ciclo "${ciclo.nome}" iniciado`) }
+    catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao rodar', 'error') }
+    finally { setTimeout(() => setRunning(false), 1500) }
+  }
+  const removerPasso = async (stepId?: string) => { if (!stepId) return; try { await api.removeCicloStep(ciclo.id, stepId); onChange() } catch { menu.toast('Erro', 'error') } }
+  const removerCiclo = async () => { const ok = await menu.confirm({ title: 'Excluir ciclo', message: `Remover o ciclo "${ciclo.nome}"?`, danger: true, confirmLabel: 'Excluir' }); if (!ok) return; try { await api.removeCiclo(ciclo.id); onChange() } catch { menu.toast('Erro', 'error') } }
+
+  return (
+    <div className="card card--pad col" style={{ gap: 10 }}>
+      <div className="row--between wrap" style={{ gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="row" style={{ gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{ciclo.nome}</span>
+            {ciclo.builtin ? <span className="badge" style={{ background: 'var(--surface-3)' }}>{ciclo.horario}</span> : <span className="badge" style={{ background: 'color-mix(in srgb, var(--accent-purple) 16%, transparent)', color: 'var(--accent-purple)' }}>seu ciclo</span>}
+          </div>
+          {ciclo.descricao && <p className="dim" style={{ fontSize: 11.5, margin: '3px 0 0' }}>{ciclo.descricao}</p>}
+        </div>
+        <div className="row" style={{ gap: 6 }}>
+          <button className="btn btn--ghost btn--sm" onClick={rodar} disabled={running}>{running ? <Loader2 size={12} className="spin" /> : <Play size={12} />} Rodar</button>
+          {custom && <button className="btn-icon btn-icon--sm" title="Excluir ciclo" onClick={removerCiclo} style={{ color: 'var(--accent-red)' }}><Trash2 size={13} /></button>}
+        </div>
+      </div>
+      <div className="col" style={{ gap: 5 }}>
+        {ciclo.steps.map((s, i) => (
+          <div key={i} className="row" style={{ gap: 8, fontSize: 12.5, padding: '5px 0' }}>
+            <span className="dim" style={{ width: 16 }}>{i + 1}.</span>
+            <ChevronRight size={12} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
+            <span style={{ fontWeight: 600 }}>{s.name}</span>
+            <span className="badge" style={{ background: 'var(--surface-2)' }}>{s.agente.replace('studio-', '')}</span>
+            {custom && s.id && <button className="btn-icon btn-icon--sm" title="Remover passo" onClick={() => removerPasso(s.id)} style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}><Trash2 size={12} /></button>}
+          </div>
+        ))}
+        {extra.map((s) => (
+          <div key={s.id} className="row" style={{ gap: 8, fontSize: 12.5, padding: '5px 0' }}>
+            <span className="dim" style={{ width: 16 }}>+</span>
+            <ChevronRight size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+            <span style={{ fontWeight: 600 }}>{s.name}</span>
+            <span className="badge" style={{ background: 'color-mix(in srgb, var(--accent) 14%, transparent)', color: 'var(--accent-text)' }}>{s.agente.replace('studio-', '')}</span>
+            <button className="btn-icon btn-icon--sm" title="Remover passo" onClick={() => removerPasso(s.id)} style={{ marginLeft: 'auto', color: 'var(--accent-red)' }}><Trash2 size={12} /></button>
+          </div>
+        ))}
+      </div>
+      <AddStepForm cicloId={ciclo.id} agentNames={agentNames} onAdded={onChange} />
+    </div>
+  )
+}
+
+function PipelineModal({ agentNames, onClose }: { agentNames: string[]; onClose: () => void }) {
+  const menu = useContextMenu()
+  const [data, setData] = useState<import('../types').CiclosStatus | null>(null)
+  const [novoNome, setNovoNome] = useState('')
+  const [criando, setCriando] = useState(false)
+
+  const load = useCallback(() => { api.getCiclos().then(setData).catch(() => menu.toast('Erro ao carregar pipeline', 'error')) }, [menu])
+  useEffect(() => { load() }, [load])
+
+  const criar = async () => {
+    if (!novoNome.trim()) { menu.toast('Dê um nome ao ciclo', 'error'); return }
+    setCriando(true)
+    try { await api.addCiclo({ nome: novoNome.trim(), steps: [] }); setNovoNome(''); load(); menu.toast('Ciclo criado — adicione passos') }
+    catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro', 'error') }
+    finally { setCriando(false) }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 760 }} onClick={e => e.stopPropagation()}>
+        <div className="row--between" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <div className="row" style={{ gap: 10 }}><GitBranch size={18} style={{ color: 'var(--accent)' }} /><h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Pipeline de produção</h2></div>
+          <button onClick={onClose} className="btn-icon btn-icon--sm" style={{ borderRadius: '50%' }}><X size={14} strokeWidth={2} /></button>
+        </div>
+        <div className="modal-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <p className="dim" style={{ fontSize: 12.5, margin: 0, lineHeight: 1.5 }}>Cada ciclo é uma sequência de passos que rodam agentes em ordem. Você pode <b>adicionar passos</b> aos ciclos existentes e <b>criar novos ciclos</b> do zero.</p>
+          {!data ? <div className="empty"><Loader2 size={24} className="spin" /></div> : (
+            <>
+              {data.builtin.map(c => <CicloCard key={c.id} ciclo={c} agentNames={agentNames} onChange={load} />)}
+              {data.custom.map(c => <CicloCard key={c.id} ciclo={c} agentNames={agentNames} onChange={load} />)}
+              <div className="card card--pad row wrap" style={{ gap: 8, alignItems: 'flex-end', borderStyle: 'dashed' }}>
+                <div style={{ flex: 1, minWidth: 180 }}><label className="label">Novo ciclo</label><input className="input" value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Nome do ciclo (ex.: Pós-venda)" /></div>
+                <button className="btn btn--primary" onClick={criar} disabled={criando}>{criando ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Criar ciclo</button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [agents,        setAgents]        = useState<AgentsMap>({})
   const [status,        setStatus]        = useState<SystemStatus | null>(null)
@@ -324,6 +537,8 @@ export default function Dashboard() {
   const [loading,       setLoading]       = useState(true)
   const [cycleLoading,  setCycleLoading]  = useState<string | null>(null)
   const [selectedAgent, setSelectedAgent] = useState<{ name: string; agent: Agent } | null>(null)
+  const [newAgentOpen, setNewAgentOpen] = useState(false)
+  const [pipelineOpen, setPipelineOpen] = useState(false)
   const menu = useContextMenu()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -400,6 +615,8 @@ export default function Dashboard() {
           }}
         />
       )}
+      {newAgentOpen && <NewAgentModal onClose={() => setNewAgentOpen(false)} onSaved={() => { setNewAgentOpen(false); loadData(); showToast('Agente criado') }} />}
+      {pipelineOpen && <PipelineModal agentNames={agentEntries.map(([n]) => n)} onClose={() => setPipelineOpen(false)} />}
 
       <div className="page-head">
         <div>
@@ -468,7 +685,10 @@ export default function Dashboard() {
         <div className="panel" style={{ minHeight: 0 }}>
           <div className="panel-head">
             <span className="panel-title">Agentes <span className="dim" style={{ fontWeight: 400 }}>({agentEntries.length})</span></span>
-            <Activity size={13} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} />
+            <div className="row" style={{ gap: 6 }}>
+              <button className="btn btn--ghost btn--sm" onClick={() => setPipelineOpen(true)}><GitBranch size={13} /> Pipeline</button>
+              <button className="btn btn--accent-soft btn--sm" onClick={() => setNewAgentOpen(true)}><Plus size={13} /> Novo agente</button>
+            </div>
           </div>
           <div className="panel-body" style={{ padding: 12 }}>
             <div className="grid grid--cards">

@@ -216,6 +216,26 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('POST', '/vnmax', req.body);
     res.status(status).json(data);
   });
+  app.get('/api/ciclos', async (req, res) => {
+    const { status, data } = await bridge('GET', '/ciclos');
+    res.status(status).json(data);
+  });
+  app.post('/api/ciclos', async (req, res) => {
+    const { status, data } = await bridge('POST', '/ciclos', req.body);
+    res.status(status).json(data);
+  });
+  app.delete('/api/ciclos/:id', async (req, res) => {
+    const { status, data } = await bridge('DELETE', `/ciclos/${req.params.id}`);
+    res.status(status).json(data);
+  });
+  app.post('/api/ciclos/:id/steps', async (req, res) => {
+    const { status, data } = await bridge('POST', `/ciclos/${req.params.id}/steps`, req.body);
+    res.status(status).json(data);
+  });
+  app.delete('/api/ciclos/:id/steps/:stepId', async (req, res) => {
+    const { status, data } = await bridge('DELETE', `/ciclos/${req.params.id}/steps/${req.params.stepId}`);
+    res.status(status).json(data);
+  });
   app.post('/api/clientes/sync', async (req, res) => {
     const { status, data } = await bridge('POST', '/clientes/sync');
     res.status(status).json(data);
@@ -627,6 +647,14 @@ if (BRIDGE_URL) {
     try { if (!vnmaxLocal) return res.status(503).json({ error: 'VNMAX indisponível' }); vnmaxLocal.save(req.body || {}); res.json(vnmaxLocal.status()); } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  let ciclosLocal = null;
+  try { ciclosLocal = new (require(path.join(STUDIO_ROOT, 'lib', 'ciclos.js')).Ciclos)(WORKSPACE_DIR); } catch (e) { console.error('Ciclos local indisponível:', e.message); }
+  app.get('/api/ciclos', (req, res) => { try { res.json(ciclosLocal ? ciclosLocal.status() : { builtin: [], custom: [] }); } catch (e) { res.status(500).json({ error: e.message }); } });
+  app.post('/api/ciclos', (req, res) => { try { if (!ciclosLocal) return res.status(503).json({ error: 'indisponível' }); res.json(ciclosLocal.addCustom(req.body || {})); } catch (e) { res.status(500).json({ error: e.message }); } });
+  app.delete('/api/ciclos/:id', (req, res) => { try { res.json({ ok: ciclosLocal ? ciclosLocal.removeCustom(req.params.id) : false }); } catch (e) { res.status(500).json({ error: e.message }); } });
+  app.post('/api/ciclos/:id/steps', (req, res) => { try { if (!ciclosLocal) return res.status(503).json({ error: 'indisponível' }); const b = req.body || {}; const s = ciclosLocal.addStep(req.params.id, b, b.index); if (!s) return res.status(404).json({ error: 'Ciclo não encontrado' }); res.json(s); } catch (e) { res.status(500).json({ error: e.message }); } });
+  app.delete('/api/ciclos/:id/steps/:stepId', (req, res) => { try { res.json({ ok: ciclosLocal ? ciclosLocal.removeStep(req.params.id, req.params.stepId) : false }); } catch (e) { res.status(500).json({ error: e.message }); } });
+
   let clienteWsLocal = null;
   try {
     const cwm = require(path.join(STUDIO_ROOT, 'lib', 'cliente-workspace.js'));
@@ -826,7 +854,8 @@ if (BRIDGE_URL) {
   app.post('/api/cycle', (req, res) => {
     try {
       const { cycle } = req.body;
-      if (!['segunda', 'diario', 'sexta'].includes(cycle)) return res.status(400).json({ error: 'Invalid cycle' });
+      const valido = ['segunda', 'diario', 'sexta'].includes(cycle) || (ciclosLocal && ciclosLocal.getCustom(cycle));
+      if (!valido) return res.status(400).json({ error: 'Invalid cycle' });
       const { spawn } = require('child_process');
       const schedulerPath = path.join(STUDIO_ROOT, 'studio-scheduler.js');
       const child = spawn('node', [schedulerPath, `--cycle=${cycle}`], { detached: true, stdio: 'ignore', cwd: STUDIO_ROOT });

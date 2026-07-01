@@ -46,6 +46,9 @@ let vnmaxStore = null, vnmaxMod = null;
 try { vnmaxMod = require(path.join(ROOT, 'lib', 'vnmax.js')); vnmaxStore = new vnmaxMod.VnmaxStore(WORKSPACE); } catch (e) { console.error('VNMAX indisponível:', e.message); }
 function vnmaxCfg() { try { return vnmaxStore ? vnmaxStore.load() : null; } catch { return null; } }
 
+let ciclosStore = null, ciclosMod = null;
+try { ciclosMod = require(path.join(ROOT, 'lib', 'ciclos.js')); ciclosStore = new ciclosMod.Ciclos(WORKSPACE); } catch (e) { console.error('Ciclos indisponível:', e.message); }
+
 function readEnvKey(name) {
   if (process.env[name]) return process.env[name];
   try {
@@ -598,9 +601,48 @@ app.post('/publicar/:clienteId', async (req, res) => {
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
+app.get('/ciclos', (req, res) => {
+  try {
+    if (!ciclosStore) return res.status(503).json({ error: 'Ciclos indisponível' });
+    res.json(ciclosStore.status());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/ciclos', (req, res) => {
+  try {
+    if (!ciclosStore) return res.status(503).json({ error: 'Ciclos indisponível' });
+    res.json(ciclosStore.addCustom(req.body || {}));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/ciclos/:id', (req, res) => {
+  try {
+    if (!ciclosStore) return res.status(503).json({ error: 'Ciclos indisponível' });
+    res.json({ ok: ciclosStore.removeCustom(req.params.id) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/ciclos/:id/steps', (req, res) => {
+  try {
+    if (!ciclosStore) return res.status(503).json({ error: 'Ciclos indisponível' });
+    const b = req.body || {};
+    const s = ciclosStore.addStep(req.params.id, b, b.index);
+    if (!s) return res.status(404).json({ error: 'Ciclo não encontrado' });
+    res.json(s);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/ciclos/:id/steps/:stepId', (req, res) => {
+  try {
+    if (!ciclosStore) return res.status(503).json({ error: 'Ciclos indisponível' });
+    res.json({ ok: ciclosStore.removeStep(req.params.id, req.params.stepId) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/cycle', (req, res) => {
   const { cycle } = req.body;
-  if (!['segunda', 'diario', 'sexta'].includes(cycle)) {
+  const valido = ['segunda', 'diario', 'sexta'].includes(cycle) || (ciclosStore && ciclosStore.getCustom(cycle));
+  if (!valido) {
     return res.status(400).json({ error: 'Ciclo inválido' });
   }
   const { spawn } = require('child_process');
@@ -636,6 +678,8 @@ app.get('/agents', (req, res) => {
         maxTurns: merged.maxTurns || 40,
         tools: merged.tools || { shell: false, web: false, edit: false, read: false },
         system: merged.system || merged.systemPrompt || '',
+        icon: merged.icon || '',
+        custom: !AGENTS[name],
       };
     }
     res.json(normalized);
