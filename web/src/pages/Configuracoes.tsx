@@ -9,10 +9,12 @@ import {
 import { doc, updateDoc } from 'firebase/firestore'
 import { useIsMobile } from '../hooks/useMediaQuery'
 import {
-  User, Palette, Bell, Check, Eye, EyeOff, Save, RefreshCw, RotateCcw, Send, Plug
+  User, Palette, Bell, Check, Eye, EyeOff, Save, RefreshCw, RotateCcw, Send, Plug,
+  Target, X, Plus, RotateCw
 } from 'lucide-react'
 import { ConexoesSection } from './Conexoes'
 import { api } from '../api'
+import type { LeadgenConfig } from '../types'
 
 const ACCENT_COLORS = [
   { name: 'Azul', value: '#0A84FF' },
@@ -426,7 +428,152 @@ function NotificacoesSection() {
   )
 }
 
-type Section = 'conta' | 'aparencia' | 'notificacoes' | 'conexoes'
+function LeadgenSection() {
+  const menu = useContextMenu()
+  const [cfg, setCfg] = useState<LeadgenConfig | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [novoNicho, setNovoNicho] = useState('')
+
+  useEffect(() => {
+    api.getLeadgen()
+      .then(c => setCfg({ ...c, nichos: c.nichos || [] }))
+      .catch(() => menu.toast('Não foi possível carregar a configuração de leads', 'error'))
+      .finally(() => setLoading(false))
+  }, [menu])
+
+  const patch = (p: Partial<LeadgenConfig>) => setCfg(c => (c ? { ...c, ...p } : c))
+
+  const addNicho = (n: string) => {
+    const v = n.trim().toLowerCase()
+    if (!v || !cfg) return
+    if (cfg.nichos.some(x => x.toLowerCase() === v)) { menu.toast('Esse tipo já está na lista'); return }
+    patch({ nichos: [...cfg.nichos, v] })
+    setNovoNicho('')
+  }
+
+  const removeNicho = (n: string) => cfg && patch({ nichos: cfg.nichos.filter(x => x !== n) })
+
+  const addCategoria = (itens: string[]) => {
+    if (!cfg) return
+    const set = new Set(cfg.nichos.map(x => x.toLowerCase()))
+    const novos = itens.filter(i => !set.has(i.toLowerCase()))
+    if (!novos.length) { menu.toast('Todos dessa categoria já estão na lista'); return }
+    patch({ nichos: [...cfg.nichos, ...novos] })
+    menu.toast(`${novos.length} tipo(s) adicionado(s)`)
+  }
+
+  const salvar = async () => {
+    if (!cfg) return
+    setSaving(true)
+    try {
+      const salvo = await api.saveLeadgen({ cidade: cfg.cidade, quantidade: cfg.quantidade, rotacao: cfg.rotacao, nichos: cfg.nichos })
+      setCfg({ ...salvo, nichos: salvo.nichos || [] })
+      menu.toast('Configuração de leads salva — vale no próximo ciclo de busca')
+    } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao salvar', 'error') }
+    finally { setSaving(false) }
+  }
+
+  if (loading || !cfg) {
+    return <div className="empty"><RefreshCw size={26} className="spin" /><p className="muted">Carregando...</p></div>
+  }
+
+  const catalogo = cfg.catalogo || {}
+
+  return (
+    <div className="col gap-6">
+      <div className="card card--pad">
+        <SectionTitle>Onde e quanto buscar</SectionTitle>
+        <Field label="Cidade / região" hint="Onde o agente Growth procura os negócios locais">
+          <Input value={cfg.cidade} onChange={v => patch({ cidade: v })} placeholder="Ex.: São Paulo, Zona Sul" />
+        </Field>
+        <Field label="Quantos leads por ciclo" hint="Quanto maior, mais leads por busca (recomendado 6–12; acima disso a busca pode demorar mais)">
+          <input
+            className="input" type="number" min={1} max={20} value={cfg.quantidade}
+            onChange={e => patch({ quantidade: Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)) })}
+            style={{ maxWidth: 140 }}
+          />
+        </Field>
+        <div className="row--between" style={{ marginTop: 4 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>Rodar os tipos de negócio</p>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>A cada ciclo prioriza tipos diferentes da sua lista, cobrindo mais nichos ao longo do tempo</p>
+          </div>
+          <button className="toggle" data-on={String(cfg.rotacao)} onClick={() => patch({ rotacao: !cfg.rotacao })} aria-label="Rodar tipos" />
+        </div>
+      </div>
+
+      <div className="card card--pad">
+        <SectionTitle>Tipos de negócio na busca ({cfg.nichos.length})</SectionTitle>
+        <p className="dim" style={{ fontSize: 12.5, margin: '0 0 12px', lineHeight: 1.5 }}>
+          O Growth só procura leads dentro destes tipos. Adicione os seus para ampliar o alcance.
+        </p>
+        <div className="row" style={{ gap: 8, marginBottom: 14 }}>
+          <input
+            className="input" value={novoNicho} onChange={e => setNovoNicho(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNicho(novoNicho) } }}
+            placeholder="Adicionar tipo (ex.: clínicas de estética)"
+          />
+          <button className="btn btn--primary" onClick={() => addNicho(novoNicho)} disabled={!novoNicho.trim()}>
+            <Plus size={14} /> Adicionar
+          </button>
+        </div>
+        <div className="row wrap" style={{ gap: 7 }}>
+          {cfg.nichos.length === 0 && <p className="dim" style={{ fontSize: 12 }}>Nenhum tipo — adicione ao menos um.</p>}
+          {cfg.nichos.map(n => (
+            <span key={n} className="badge" style={{ gap: 6, padding: '5px 8px 5px 11px', background: 'var(--surface-2)', fontSize: 12.5 }}>
+              {n}
+              <button onClick={() => removeNicho(n)} title="Remover" style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                <X size={13} />
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {Object.keys(catalogo).length > 0 && (
+        <div className="card card--pad">
+          <SectionTitle>Catálogo — clique para adicionar</SectionTitle>
+          <div className="col" style={{ gap: 16 }}>
+            {Object.entries(catalogo).map(([cat, itens]) => (
+              <div key={cat}>
+                <div className="row--between" style={{ marginBottom: 8 }}>
+                  <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)' }}>{cat}</p>
+                  <button className="btn btn--ghost btn--sm" onClick={() => addCategoria(itens)}>
+                    <Plus size={12} /> Adicionar todos
+                  </button>
+                </div>
+                <div className="row wrap" style={{ gap: 6 }}>
+                  {itens.map(i => {
+                    const ativo = cfg.nichos.some(x => x.toLowerCase() === i.toLowerCase())
+                    return (
+                      <button
+                        key={i} onClick={() => !ativo && addNicho(i)} disabled={ativo}
+                        className="badge"
+                        style={{ gap: 5, padding: '5px 10px', fontSize: 12, cursor: ativo ? 'default' : 'pointer',
+                          background: ativo ? 'color-mix(in srgb, var(--accent-green) 14%, transparent)' : 'var(--surface-2)',
+                          color: ativo ? 'var(--accent-green)' : 'var(--text-secondary)', border: 'none' }}
+                      >
+                        {ativo ? <Check size={12} /> : <Plus size={12} />} {i}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="row wrap">
+        <SaveBtn loading={saving} onClick={salvar} />
+        <span className="dim row" style={{ fontSize: 11.5, gap: 6 }}><RotateCw size={12} /> Vale a partir do próximo ciclo de busca</span>
+      </div>
+    </div>
+  )
+}
+
+type Section = 'conta' | 'aparencia' | 'notificacoes' | 'conexoes' | 'leads'
 
 export default function Configuracoes() {
   const [section, setSection] = useState<Section>('conta')
@@ -448,6 +595,7 @@ export default function Configuracoes() {
   const sections: { id: Section; label: string; icon: React.ReactNode }[] = [
     { id: 'conta',        label: 'Conta',        icon: <User    size={15} strokeWidth={1.6} /> },
     { id: 'conexoes',     label: 'Conexões',     icon: <Plug    size={15} strokeWidth={1.6} /> },
+    { id: 'leads',        label: 'Busca de Leads', icon: <Target size={15} strokeWidth={1.6} /> },
     { id: 'aparencia',    label: 'Aparência',    icon: <Palette size={15} strokeWidth={1.6} /> },
     { id: 'notificacoes', label: 'Notificações', icon: <Bell    size={15} strokeWidth={1.6} /> },
   ]
@@ -456,6 +604,7 @@ export default function Configuracoes() {
     <>
       {section === 'conta'        && <ContaSection />}
       {section === 'conexoes'     && <ConexoesSection />}
+      {section === 'leads'        && <LeadgenSection />}
       {section === 'aparencia'    && <AparenciaSection />}
       {section === 'notificacoes' && <NotificacoesSection />}
     </>

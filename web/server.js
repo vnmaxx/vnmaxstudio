@@ -200,6 +200,15 @@ if (BRIDGE_URL) {
     res.status(status).json(data);
   });
 
+  app.get('/api/leadgen', async (req, res) => {
+    const { status, data } = await bridge('GET', '/leadgen');
+    res.status(status).json(data);
+  });
+  app.post('/api/leadgen', async (req, res) => {
+    const { status, data } = await bridge('POST', '/leadgen', req.body);
+    res.status(status).json(data);
+  });
+
   app.get('/api/pipelines', (req, res) => {
     const { status, data } = bridgeCached('/pipelines');
     res.status(status).json(data);
@@ -233,6 +242,10 @@ if (BRIDGE_URL) {
   });
   app.post('/api/crm/import', async (req, res) => {
     const { status, data } = await bridge('POST', '/crm/import');
+    res.status(status).json(data);
+  });
+  app.post('/api/crm/dedupe', async (req, res) => {
+    const { status, data } = await bridge('POST', '/crm/dedupe');
     res.status(status).json(data);
   });
   app.post('/api/crm/lead', async (req, res) => {
@@ -561,6 +574,16 @@ if (BRIDGE_URL) {
   let socialLocal = null;
   try { const m = require(path.join(STUDIO_ROOT, 'lib', 'social', 'index.js')); socialLocal = new m.SocialHub(WORKSPACE_DIR); } catch (e) { console.error('Social local indisponível:', e.message); }
 
+  let leadgenLocal = null;
+  try { const m = require(path.join(STUDIO_ROOT, 'lib', 'leadgen.js')); leadgenLocal = new m.Leadgen(WORKSPACE_DIR); } catch (e) { console.error('Leadgen local indisponível:', e.message); }
+
+  app.get('/api/leadgen', (req, res) => {
+    try { res.json(leadgenLocal ? leadgenLocal.status() : { error: 'indisponível' }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/leadgen', (req, res) => {
+    try { if (!leadgenLocal) return res.status(503).json({ error: 'Leadgen indisponível' }); res.json(leadgenLocal.save(req.body || {})); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   app.get('/api/social', (req, res) => {
     try { res.json(socialLocal ? socialLocal.status() : []); } catch (e) { res.status(500).json({ error: e.message }); }
   });
@@ -626,6 +649,9 @@ if (BRIDGE_URL) {
   });
   app.post('/api/crm/import', (req, res) => {
     try { res.json(crmLocal ? crmLocal.syncFromLeads() : { added: 0 }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.post('/api/crm/dedupe', (req, res) => {
+    try { res.json(crmLocal ? crmLocal.dedupe() : { removed: 0 }); } catch (e) { res.status(500).json({ error: e.message }); }
   });
   app.post('/api/crm/lead', (req, res) => {
     try { const r = crmLocal && crmLocal.upsertLead(req.body || {}, 'manual'); if (!r) return res.status(400).json({ error: 'dados inválidos' }); res.json(r.lead); } catch (e) { res.status(500).json({ error: e.message }); }

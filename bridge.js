@@ -28,6 +28,11 @@ try {
   CRM_STAGES = mod.STAGES;
 } catch (e) { console.error('CRM indisponível:', e.message); }
 
+let leadgen = null;
+try {
+  leadgen = new (require(path.join(ROOT, 'lib', 'leadgen.js')).Leadgen)(WORKSPACE);
+} catch (e) { console.error('Leadgen indisponível:', e.message); }
+
 function readEnvKey(name) {
   if (process.env[name]) return process.env[name];
   try {
@@ -394,6 +399,20 @@ app.get('/workspace/:dir/:file', (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/leadgen', (req, res) => {
+  try {
+    if (!leadgen) return res.status(503).json({ error: 'Leadgen indisponível' });
+    res.json(leadgen.status());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/leadgen', (req, res) => {
+  try {
+    if (!leadgen) return res.status(503).json({ error: 'Leadgen indisponível' });
+    res.json(leadgen.save(req.body || {}));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/cycle', (req, res) => {
   const { cycle } = req.body;
   if (!['segunda', 'diario', 'sexta'].includes(cycle)) {
@@ -554,6 +573,13 @@ app.post('/crm/import', (req, res) => {
   try {
     if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
     res.json(crm.syncFromLeads());
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/crm/dedupe', (req, res) => {
+  try {
+    if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
+    res.json(crm.dedupe());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -78,7 +78,13 @@ export const api = {
 
   getCrm: () => fetchJson<{ leads: import('./types').CrmLead[]; stages: import('./types').CrmStage[] }>('/crm'),
 
-  importCrm: () => fetchJson<{ added: number }>('/crm/import', { method: 'POST' }),
+  importCrm: () => fetchJson<{ added: number; merged?: number }>('/crm/import', { method: 'POST' }),
+
+  dedupeCrm: () => fetchJson<{ removed: number }>('/crm/dedupe', { method: 'POST' }),
+
+  getLeadgen: () => fetchJson<import('./types').LeadgenConfig>('/leadgen'),
+  saveLeadgen: (cfg: { cidade?: string; quantidade?: number; rotacao?: boolean; nichos?: string[] }) =>
+    fetchJson<import('./types').LeadgenConfig>('/leadgen', { method: 'POST', body: JSON.stringify(cfg) }),
 
   addCrmLead: (lead: { nome: string; segmento?: string; contato?: string; canal?: string }) =>
     fetchJson<import('./types').CrmLead>('/crm/lead', {

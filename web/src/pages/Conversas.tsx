@@ -385,8 +385,20 @@ export default function Conversas() {
   }
 
   const importLeads = async () => {
-    try { const r = await api.importCrm(); menu.toast(r.added > 0 ? `${r.added} lead(s) importado(s)` : 'Nenhum lead novo'); load() }
-    catch { menu.toast('Erro ao importar', 'error') }
+    try {
+      const r = await api.importCrm()
+      const partes = []
+      if (r.added > 0) partes.push(`${r.added} novo(s)`)
+      if (r.merged && r.merged > 0) partes.push(`${r.merged} duplicado(s) mesclado(s)`)
+      menu.toast(partes.length ? partes.join(' · ') : 'Nenhum lead novo'); load()
+    } catch { menu.toast('Erro ao importar', 'error') }
+  }
+
+  const removerDuplicados = async () => {
+    try {
+      const r = await api.dedupeCrm()
+      menu.toast(r.removed > 0 ? `${r.removed} lead(s) duplicado(s) mesclado(s)` : 'Nenhum duplicado encontrado'); load()
+    } catch { menu.toast('Erro ao remover duplicados', 'error') }
   }
 
   const registrarContato = async (id: string) => {
@@ -451,6 +463,7 @@ export default function Conversas() {
         </div>
         <div className="page-head-actions">
           <button className="btn btn--ghost" onClick={importLeads}><Download size={14} /> Importar leads</button>
+          <button className="btn btn--ghost" onClick={removerDuplicados} title="Mescla leads repetidos (mesmo telefone, e-mail ou @, em qualquer formato)"><Copy size={14} /> Remover duplicados</button>
           {novosSemRascunho > 0 && (
             <button className="btn btn--accent-soft" onClick={gerarLote} title="Gera a 1ª mensagem do SDR para todos os leads novos">
               <Sparkles size={14} /> Gerar 1ª msg ({novosSemRascunho})

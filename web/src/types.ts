@@ -48,6 +48,14 @@ export interface ReportFile {
 
 export type CrmStage = 'NOVO' | 'CONTATADO' | 'RESPONDEU' | 'QUALIFICADO' | 'PROPOSTA' | 'FECHADO' | 'PERDIDO'
 
+export interface LeadgenConfig {
+  cidade: string
+  quantidade: number
+  rotacao: boolean
+  nichos: string[]
+  catalogo?: Record<string, string[]>
+}
+
 export interface CrmEvent {
   tipo: 'mensagem' | 'proposta' | 'resposta' | 'nota' | 'stage'
   canal?: string
