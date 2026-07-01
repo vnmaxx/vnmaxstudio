@@ -28,7 +28,7 @@ function parseContato(raw?: string) {
     if (!handle && p.startsWith('@')) { handle = p; continue }
     const emailMatch = p.match(/[\w.+-]+@[\w-]+\.[\w.]+/)
     if (!email && emailMatch) { email = emailMatch[0]; continue }
-    if (!site && /^(https?:\/\/)?(www\.)?[\w-]+\.[a-z]{2,}(\/\S*)?$/i.test(p)) { site = /^https?:\/\//i.test(p) ? p : `https://${p}`; continue }
+    if (!site && /^(https?:\/\/)?(www\.)?([\w-]+\.)+[a-z]{2,}(\/\S*)?$/i.test(p)) { site = /^https?:\/\//i.test(p) ? p : `https://${p}`; continue }
     const digits = p.replace(/\D/g, '')
     if (!phone && digits.length >= 10 && digits.length <= 13) { phone = p; continue }
     outras.push(p)
