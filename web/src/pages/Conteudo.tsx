@@ -548,7 +548,13 @@ function BlueprintTab({ clienteId, cliente }: { clienteId: string; cliente: CrmL
       for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 2500))
         const r = await api.getBlueprintJob(jobId)
-        if (r.status === 'done') { if (r.blueprint) setBp(r.blueprint); else menu.toast('Não consegui montar — tente de novo', 'info'); break }
+        if (r.status === 'done') {
+          if (r.blueprint) {
+            try { await api.saveBlueprint(clienteId || null, r.blueprint); menu.toast('Prompt gerado e salvo no cliente'); load() }
+            catch { setBp(r.blueprint); menu.toast('Gerado, mas falhou ao salvar — use o botão Salvar', 'error') }
+          } else menu.toast('Não consegui montar — tente de novo', 'info')
+          break
+        }
         if (r.status === 'error') { menu.toast(r.error || 'Erro', 'error'); break }
       }
     } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro', 'error') }
@@ -557,7 +563,7 @@ function BlueprintTab({ clienteId, cliente }: { clienteId: string; cliente: CrmL
 
   const salvar = async () => {
     if (!bp) return
-    try { await api.saveBlueprint(clienteId || null, bp); load(); menu.toast('Blueprint salvo') } catch { menu.toast('Erro', 'error') }
+    try { await api.saveBlueprint(clienteId || null, bp); setBp(null); load(); menu.toast('Prompt salvo no cliente') } catch { menu.toast('Erro', 'error') }
   }
   const excluir = async (id?: string) => {
     if (!id) return
@@ -617,9 +623,12 @@ function BlueprintTab({ clienteId, cliente }: { clienteId: string; cliente: CrmL
 
       {salvos.length > 0 && (
         <div className="col gap-4">
-          <label className="label">Blueprints salvos ({salvos.length})</label>
+          <label className="label">Prompts salvos ({salvos.length})</label>
           {salvos.map(b => <div key={b.id}>{render(b, true)}</div>)}
         </div>
+      )}
+      {salvos.length === 0 && !bp && !gerando && cliente && (
+        <p className="dim" style={{ fontSize: 12.5, margin: 0 }}>Nenhum prompt salvo para {cliente.nome} ainda. Clique em <b>Gerar prompt ideal</b>.</p>
       )}
     </div>
   )
