@@ -6,6 +6,7 @@ import {
   Wand2, Calendar, Megaphone, Lightbulb, Sparkles, Copy, Trash2, Plus, Loader2,
   Check, RefreshCw, Send, Eye, Heart, MessageCircle, Share2, Rocket, Film, Save,
   Download, X, Clapperboard, Upload, Server, Package, ExternalLink, User,
+  CheckSquare, Square,
 } from 'lucide-react'
 import { hyperframesComposition, videoUseBrief, downloadText } from '../lib/videoStudio'
 
@@ -769,50 +770,65 @@ function PublicarPanel({ clienteId, cliente, landingHtml }: { clienteId: string;
 
 function ProdutosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLead | null }) {
   const menu = useContextMenu()
-  const [tipo, setTipo] = useState('landing')
+  const [tipos, setTipos] = useState<string[]>(['landing'])
   const [tema, setTema] = useState('')
   const [gerando, setGerando] = useState(false)
-  const [atual, setAtual] = useState<{ formato: string; conteudo: string } | null>(null)
+  const [progresso, setProgresso] = useState('')
+  const [atual, setAtual] = useState<{ formato: string; conteudo: string; tipo: string } | null>(null)
   const [salvos, setSalvos] = useState<Produto[]>([])
   const [aberto, setAberto] = useState<string | null>(null)
 
   const load = useCallback(() => { api.getProdutos(clienteId || undefined).then(r => setSalvos(r.produtos)).catch(() => {}) }, [clienteId])
   useEffect(() => { load(); setAtual(null); setAberto(null) }, [load])
 
-  const tipoMeta = PRODUTO_TIPOS.find(t => t.id === tipo) || PRODUTO_TIPOS[0]
+  const toggleTipo = (id: string) => setTipos(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
+  const atualMeta = atual ? (PRODUTO_TIPOS.find(t => t.id === atual.tipo) || PRODUTO_TIPOS[0]) : PRODUTO_TIPOS[0]
+
+  const gerarUm = async (tipo: string): Promise<boolean> => {
+    const meta = PRODUTO_TIPOS.find(t => t.id === tipo) || PRODUTO_TIPOS[0]
+    let jobId: string | undefined
+    try { ({ jobId } = await api.gerarProduto({ cliente: { nome: cliente!.nome, segmento: cliente!.segmento, contato: cliente!.contato, observacao: cliente!.observacao }, tipo, tema: tema.trim() || undefined })) }
+    catch (e: unknown) { menu.toast(`${meta.label}: ${e instanceof Error ? e.message : 'erro'}`, 'error'); return false }
+    if (!jobId) { menu.toast(`${meta.label}: o servidor não iniciou a geração`, 'error'); return false }
+    for (let i = 0; i < 160; i++) {
+      await sleep(2500)
+      let r
+      try { r = await api.getProdutoJob(jobId, tipo) } catch { continue }
+      if (r.status === 'done') {
+        if (r.produto) {
+          setAtual({ ...r.produto, tipo })
+          try { await api.saveProduto(clienteId || null, { tipo, titulo: `${meta.label} — ${cliente!.nome}`, formato: r.produto.formato, conteudo: r.produto.conteudo, tema: tema || undefined }) } catch {}
+          return true
+        }
+        menu.toast(`${meta.label}: resposta inválida — tente de novo`, 'info'); return false
+      }
+      if (r.status === 'error' || r.status === 'interrupted') { menu.toast(`${meta.label}: ${r.error || 'a geração falhou'}`, 'error'); return false }
+    }
+    menu.toast(`${meta.label}: demorando mais que o normal — pode aparecer em instantes`, 'info'); return false
+  }
 
   const gerar = async () => {
     if (!cliente) { menu.toast('Selecione um cliente', 'error'); return }
+    if (!tipos.length) { menu.toast('Marque ao menos um material', 'error'); return }
     setGerando(true); setAtual(null)
+    let ok = 0
     try {
-      const { jobId } = await api.gerarProduto({ cliente: { nome: cliente.nome, segmento: cliente.segmento, contato: cliente.contato, observacao: cliente.observacao }, tipo, tema: tema.trim() || undefined })
-      if (!jobId) { menu.toast('O servidor não iniciou a geração (verifique o deploy do bridge)', 'error'); return }
-      let done = false
-      for (let i = 0; i < 160; i++) {
-        await sleep(2500)
-        let r
-        try { r = await api.getProdutoJob(jobId, tipo) } catch { continue }
-        if (r.status === 'done') {
-          done = true
-          if (r.produto) {
-            setAtual(r.produto)
-            try { await api.saveProduto(clienteId || null, { tipo, titulo: `${tipoMeta.label} — ${cliente.nome}`, formato: r.produto.formato, conteudo: r.produto.conteudo, tema: tema || undefined }); load() } catch {}
-            menu.toast('Produto pronto e salvo no perfil do cliente')
-          } else menu.toast('A IA respondeu mas não veio um arquivo válido — tente de novo', 'info')
-          break
-        }
-        if (r.status === 'error' || r.status === 'interrupted') { done = true; menu.toast(r.error || 'A geração falhou no servidor', 'error'); break }
+      for (let i = 0; i < tipos.length; i++) {
+        const meta = PRODUTO_TIPOS.find(t => t.id === tipos[i]) || PRODUTO_TIPOS[0]
+        setProgresso(`Gerando ${i + 1}/${tipos.length}: ${meta.label}…`)
+        if (await gerarUm(tipos[i])) ok++
       }
-      if (!done) menu.toast('Está demorando mais que o normal. Pode aparecer salvo em instantes — clique em Atualizar.', 'info')
+      load()
+      menu.toast(ok === tipos.length ? `${ok} material(is) pronto(s) e salvo(s) no cliente` : `${ok}/${tipos.length} gerado(s) — veja os avisos`, ok ? 'success' : 'error')
     } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro', 'error') }
-    finally { setGerando(false) }
+    finally { setGerando(false); setProgresso('') }
   }
 
   const baixar = (formato: string, conteudo: string, titulo: string) => downloadText(fileSlug(titulo, formato), conteudo, formato === 'html' ? 'text/html' : 'text/markdown')
 
   const salvar = async () => {
     if (!atual) return
-    try { await api.saveProduto(clienteId || null, { tipo, titulo: `${tipoMeta.label} — ${cliente?.nome || ''}`.trim(), formato: atual.formato as 'html' | 'md', conteudo: atual.conteudo, tema: tema || undefined }); load(); menu.toast('Produto salvo') }
+    try { await api.saveProduto(clienteId || null, { tipo: atual.tipo, titulo: `${atualMeta.label} — ${cliente?.nome || ''}`.trim(), formato: atual.formato as 'html' | 'md', conteudo: atual.conteudo, tema: tema || undefined }); load(); menu.toast('Produto salvo') }
     catch { menu.toast('Erro ao salvar', 'error') }
   }
 
@@ -829,34 +845,42 @@ function ProdutosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLe
       <PublicarPanel clienteId={clienteId} cliente={cliente} landingHtml={landingHtml} />
       <div className="card card--pad col" style={{ gap: 12 }}>
         {!cliente && <p className="dim" style={{ fontSize: 13, margin: 0 }}>Selecione um cliente acima — o produto é gerado <b>pronto e adaptado</b> a ele.</p>}
-        <div className="row wrap" style={{ gap: 10, alignItems: 'flex-end' }}>
-          <div style={{ minWidth: 170 }}>
-            <label className="label">Tipo de produto</label>
-            <select className="select" value={tipo} onChange={e => setTipo(e.target.value)}>
-              {PRODUTO_TIPOS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
+        <div>
+          <label className="label">Materiais a gerar (marque um ou mais)</label>
+          <div className="row wrap" style={{ gap: 7 }}>
+            {PRODUTO_TIPOS.map(t => {
+              const on = tipos.includes(t.id)
+              return (
+                <button key={t.id} type="button" onClick={() => toggleTipo(t.id)} disabled={gerando}
+                  className={'btn btn--pill btn--sm' + (on ? ' btn--accent-soft' : '')}>
+                  {on ? <CheckSquare size={13} /> : <Square size={13} />} {t.label}
+                </button>
+              )
+            })}
           </div>
+        </div>
+        <div className="row wrap" style={{ gap: 10, alignItems: 'flex-end' }}>
           <div style={{ flex: 1, minWidth: 180 }}>
             <label className="label">Foco (opcional)</label>
             <input className="input" value={tema} onChange={e => setTema(e.target.value)} placeholder="Ex.: promoção de inverno, novo serviço…" />
           </div>
-          <button className="btn btn--primary" onClick={gerar} disabled={gerando || !cliente}>
+          <button className="btn btn--primary" onClick={gerar} disabled={gerando || !cliente || !tipos.length}>
             {gerando ? <Loader2 size={15} className="spin" /> : <Package size={15} />}
-            {gerando ? 'Gerando…' : 'Gerar produto pronto'}
+            {gerando ? 'Gerando…' : `Gerar ${tipos.length || ''} material${tipos.length === 1 ? '' : 'is'}`.trim()}
           </button>
         </div>
       </div>
 
-      {gerando && !atual && <p className="dim" style={{ fontSize: 13, margin: 0 }}>Produzindo o entregável final adaptado a {cliente?.nome}… (~20–60s)</p>}
+      {gerando && <p className="dim" style={{ fontSize: 13, margin: 0 }}>{progresso || `Produzindo os materiais adaptados a ${cliente?.nome}…`} (~20–60s cada)</p>}
 
       {atual && (
         <div className="card card--pad col" style={{ gap: 10 }}>
           <div className="row--between wrap" style={{ gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>{tipoMeta.label} — pronto</span>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{atualMeta.label} — pronto</span>
             <div className="row wrap" style={{ gap: 6 }}>
               <button className="btn btn--primary btn--sm" onClick={salvar}><Save size={13} /> Salvar</button>
               {atual.formato === 'html' && <button className="btn btn--ghost btn--sm" onClick={() => abrirNova(atual.conteudo)}><ExternalLink size={13} /> Abrir</button>}
-              <button className="btn btn--ghost btn--sm" onClick={() => baixar(atual.formato, atual.conteudo, `${tipoMeta.label}-${cliente?.nome || ''}`)}><Download size={13} /> Baixar</button>
+              <button className="btn btn--ghost btn--sm" onClick={() => baixar(atual.formato, atual.conteudo, `${atualMeta.label}-${cliente?.nome || ''}`)}><Download size={13} /> Baixar</button>
               <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(atual.conteudo, 'Copiado')}><Copy size={13} /> Copiar</button>
             </div>
           </div>
