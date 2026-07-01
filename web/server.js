@@ -697,10 +697,11 @@ if (BRIDGE_URL) {
       if (!crmLocal || !socialLocal) return res.status(503).json({ error: 'CRM/Social indisponível' });
       const lead = crmLocal.list().find(l => l.id === req.params.id);
       if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
-      const { texto, modo, recipient, assunto } = req.body || {};
+      const { texto, modo, canal, recipient, assunto } = req.body || {};
       if (!texto) return res.status(400).json({ error: 'texto obrigatório' });
-      const r = await socialLocal.send({ canal: lead.canal, recipient: recipient || lead.contato, texto, assunto, modo });
-      if (r.ok) { crmLocal.recordContact(lead.id, { tipo: 'mensagem', canal: r.mode === 'link' ? 'whatsapp' : lead.canal, etapa: 'enviado', texto }); crmLocal.clearRascunho(lead.id); }
+      const canalUsar = canal || lead.canal;
+      const r = await socialLocal.send({ canal: canalUsar, recipient: recipient || lead.contato, texto, assunto, modo });
+      if (r.ok) { crmLocal.recordContact(lead.id, { tipo: 'mensagem', canal: r.mode === 'link' ? 'whatsapp' : canalUsar, etapa: 'enviado', texto }); crmLocal.clearRascunho(lead.id); }
       res.json({ ok: r.ok, mode: r.mode, link: r.link, detail: r.detail, error: r.error, lead: crmLocal.list().find(l => l.id === lead.id) });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });

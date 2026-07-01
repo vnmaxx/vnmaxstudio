@@ -113,7 +113,7 @@ export const api = {
   getSugestao: (jobId: string) =>
     fetchJson<{ status: string; mensagens?: Array<{ canal?: string; etapa?: string; assunto?: string; mensagem: string; objetivo?: string; proximo_passo?: string }>; error?: string }>(`/crm/sugestao/${encodeURIComponent(jobId)}`),
 
-  enviarMensagem: (id: string, payload: { texto: string; modo?: string; recipient?: string; assunto?: string }) =>
+  enviarMensagem: (id: string, payload: { texto: string; modo?: string; canal?: string; recipient?: string; assunto?: string }) =>
     fetchJson<{ ok: boolean; mode?: string; link?: string; detail?: string; error?: string; lead: import('./types').CrmLead }>(`/crm/${encodeURIComponent(id)}/enviar`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     }),

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
-import type { AprovacaoResumo, AprovacaoCompleta } from '../types'
+import type { AprovacaoResumo, AprovacaoCompleta, CrmLead, SocialProvider } from '../types'
 import { useIsMobile } from '../hooks/useMediaQuery'
 import { useContextMenu, type CtxItem } from '../components/ContextMenu'
 import {
@@ -13,7 +13,140 @@ import {
   ChevronUp,
   Eye,
   Copy,
+  MessageCircle,
+  Mail,
+  Send,
+  AtSign,
+  Trash2,
+  Sparkles,
+  ExternalLink,
 } from 'lucide-react'
+
+function waLink(contato?: string, texto?: string) {
+  const d = String(contato || '').replace(/\D/g, '')
+  if (!d) return ''
+  const phone = d.length > 11 ? d : '55' + d
+  return `https://wa.me/${phone}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`
+}
+
+const CANAL_META: Record<string, { label: string; icon: typeof Mail; color: string }> = {
+  whatsapp: { label: 'WhatsApp', icon: MessageCircle, color: 'var(--accent-green)' },
+  email: { label: 'E-mail', icon: Mail, color: 'var(--accent)' },
+  telegram: { label: 'Telegram', icon: Send, color: '#3aa9ee' },
+  instagram: { label: 'Instagram', icon: AtSign, color: 'var(--accent-purple)' },
+}
+
+function MensagemPendente({ lead, providers, onDone }: { lead: CrmLead; providers: SocialProvider[]; onDone: (l: CrmLead) => void }) {
+  const menu = useContextMenu()
+  const r = lead.rascunho!
+  const [texto, setTexto] = useState(r.mensagem)
+  const [recipient, setRecipient] = useState(lead.contato)
+  const [enviando, setEnviando] = useState(false)
+
+  const temFone = !!waLink(lead.contato)
+  const conectados = new Set(providers.filter(p => p.connected).map(p => p.canal))
+  const canais: string[] = []
+  if (temFone || conectados.has('whatsapp')) canais.push('whatsapp')
+  if (conectados.has('email') || /@[\w.-]+\.\w+/.test(lead.contato)) canais.push('email')
+  if (conectados.has('telegram')) canais.push('telegram')
+  if (conectados.has('instagram') || conectados.has('facebook')) canais.push('instagram')
+  if (!canais.length) canais.push(lead.canal || 'whatsapp')
+  const inicial = canais.includes(lead.canal) ? lead.canal : canais[0]
+  const [canal, setCanal] = useState(inicial)
+
+  const apiPronta = (c: string) => c === 'whatsapp' ? temFone : conectados.has(c) || (c === 'instagram' && conectados.has('facebook'))
+
+  const enviar = async () => {
+    if (!texto.trim()) { menu.toast('Mensagem vazia', 'error'); return }
+    setEnviando(true)
+    try {
+      if (canal === 'whatsapp' && !conectados.has('whatsapp')) {
+        const link = waLink(recipient, texto)
+        if (!link) { menu.toast('Sem telefone para WhatsApp', 'error'); setEnviando(false); return }
+        window.open(link, '_blank', 'noopener')
+        const res = await api.enviarMensagem(lead.id, { texto, modo: 'whatsapp', canal: 'whatsapp', recipient })
+        if (res.lead) onDone(res.lead)
+        menu.toast('WhatsApp aberto — mensagem registrada como enviada')
+      } else {
+        const res = await api.enviarMensagem(lead.id, { texto, canal, recipient, assunto: r.assunto })
+        if (res.ok) { if (res.lead) onDone(res.lead); menu.toast('Mensagem enviada ao cliente') }
+        else menu.toast(res.error || 'Falhou — confira a conexão desse canal em Configurações', 'error')
+      }
+    } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao enviar', 'error') }
+    finally { setEnviando(false) }
+  }
+
+  const marcarEnviada = async () => {
+    try {
+      await api.addCrmContato(lead.id, { tipo: 'mensagem', canal, texto })
+      const l = await api.descartarRascunho(lead.id)
+      onDone(l); menu.toast('Marcada como enviada')
+    } catch { menu.toast('Erro ao registrar', 'error') }
+  }
+
+  const descartar = async () => {
+    const ok = await menu.confirm({ title: 'Descartar mensagem', message: `Descartar a mensagem de ${lead.nome}?`, danger: true, confirmLabel: 'Descartar' })
+    if (!ok) return
+    try { const l = await api.descartarRascunho(lead.id); onDone(l); menu.toast('Descartada') }
+    catch { menu.toast('Erro ao descartar', 'error') }
+  }
+
+  const preview = canal === 'whatsapp'
+    ? (conectados.has('whatsapp') ? 'Envio automático via WhatsApp Cloud' : `Abre a conversa em wa.me/${(waLink(recipient) || '').split('/').pop()}`)
+    : canal === 'email' ? `E-mail para ${recipient}`
+    : canal === 'telegram' ? `Telegram via bot para ${recipient}`
+    : `DM no Instagram para ${recipient} (só responde quem já te chamou)`
+
+  return (
+    <div className="card card--pad col" style={{ gap: 12 }}>
+      <div className="row--between" style={{ gap: 10 }}>
+        <div className="row" style={{ gap: 9, minWidth: 0 }}>
+          <span className="badge" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}><Sparkles size={11} /> 1ª mensagem</span>
+          <span className="truncate" style={{ fontSize: 14, fontWeight: 700 }}>{lead.nome}</span>
+          {lead.segmento && <span className="dim truncate" style={{ fontSize: 12 }}>· {lead.segmento}</span>}
+        </div>
+        <button className="btn-icon btn-icon--sm" title="Descartar" onClick={descartar} style={{ color: 'var(--accent-red)', flexShrink: 0 }}><Trash2 size={13} /></button>
+      </div>
+
+      {r.assunto && <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600 }}>Assunto: {r.assunto}</p>}
+      <textarea className="textarea" value={texto} onChange={e => setTexto(e.target.value)} rows={4} style={{ resize: 'vertical', fontSize: 13, lineHeight: 1.55 }} />
+
+      <div>
+        <label className="label">Como enviar (escolha o canal)</label>
+        <div className="row wrap" style={{ gap: 6 }}>
+          {canais.map(c => {
+            const m = CANAL_META[c] || CANAL_META.whatsapp
+            const Ico = m.icon
+            const ativo = canal === c
+            const pronto = apiPronta(c) || (c === 'whatsapp')
+            return (
+              <button key={c} onClick={() => setCanal(c)}
+                className={'btn btn--pill btn--sm' + (ativo ? ' btn--accent-soft' : '')}
+                style={{ opacity: pronto ? 1 : 0.6 }}
+                title={pronto ? '' : 'Canal não conectado — conecte em Configurações › Conexões'}>
+                <Ico size={13} style={{ color: m.color }} /> {m.label}{!pronto ? ' (off)' : ''}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Destino</label>
+        <input className="input" value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="telefone / e-mail / @handle" />
+        <p className="dim row" style={{ fontSize: 11.5, gap: 6, margin: '6px 0 0' }}><ExternalLink size={12} /> {preview}</p>
+      </div>
+
+      <div className="row wrap" style={{ gap: 7 }}>
+        <button className="btn btn--primary btn--sm" onClick={enviar} disabled={enviando}>
+          {enviando ? <Loader2 size={13} className="spin" /> : <Check size={13} />} Aprovar e enviar
+        </button>
+        <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(texto, 'Mensagem copiada')}><Copy size={13} /> Copiar</button>
+        <button className="btn btn--ghost btn--sm" onClick={marcarEnviada}><Check size={13} /> Já enviei manualmente</button>
+      </div>
+    </div>
+  )
+}
 
 function AprovacaoItem({
   item,
@@ -290,6 +423,8 @@ function AprovacaoItem({
 
 export default function Aprovacoes({ embedded }: { embedded?: boolean } = {}) {
   const [items, setItems] = useState<AprovacaoResumo[]>([])
+  const [mensagens, setMensagens] = useState<CrmLead[]>([])
+  const [providers, setProviders] = useState<SocialProvider[]>([])
   const [loading, setLoading] = useState(true)
   const [aprovandoTodos, setAprovandoTodos] = useState(false)
   const isMobile = useIsMobile()
@@ -299,8 +434,9 @@ export default function Aprovacoes({ embedded }: { embedded?: boolean } = {}) {
 
   const loadItems = useCallback(async () => {
     try {
-      const list = await api.getPendentes()
+      const [list, crm] = await Promise.all([api.getPendentes(), api.getCrm().catch(() => ({ leads: [] }))])
       setItems(list)
+      setMensagens((crm.leads || []).filter(l => l.rascunho && l.rascunho.mensagem))
     } catch (e) {
       showToast('Erro ao carregar aprovações', 'error')
     } finally {
@@ -310,9 +446,14 @@ export default function Aprovacoes({ embedded }: { embedded?: boolean } = {}) {
 
   useEffect(() => {
     loadItems()
+    api.getSocial().then(setProviders).catch(() => {})
     const interval = setInterval(loadItems, 5000)
     return () => clearInterval(interval)
   }, [loadItems])
+
+  const onMensagemDone = (l: CrmLead) => {
+    setMensagens(prev => l.rascunho && l.rascunho.mensagem ? prev.map(m => m.id === l.id ? l : m) : prev.filter(m => m.id !== l.id))
+  }
 
   const handleAprovar = async (id: string) => {
     try {
@@ -356,8 +497,8 @@ export default function Aprovacoes({ embedded }: { embedded?: boolean } = {}) {
           <div>
             <h1 className="page-title">Aprovações</h1>
             <p className="page-sub">
-              {items.length > 0
-                ? `${items.length} item${items.length > 1 ? 's' : ''} aguardando`
+              {items.length + mensagens.length > 0
+                ? `${items.length + mensagens.length} pendente${items.length + mensagens.length > 1 ? 's' : ''}${mensagens.length > 0 ? ` · ${mensagens.length} mensagem(ns) para enviar` : ''}`
                 : 'Nada pendente'}
             </p>
           </div>
@@ -402,33 +543,39 @@ export default function Aprovacoes({ embedded }: { embedded?: boolean } = {}) {
           <Loader2 size={30} strokeWidth={1.5} className="spin" />
           <p className="muted">Carregando...</p>
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && mensagens.length === 0 ? (
         <div className="empty anim-fade">
           <CheckCircle2 size={48} strokeWidth={1} />
-          <p
-            style={{
-              color: 'var(--text-primary)',
-              fontSize: 16,
-              fontWeight: 600,
-              margin: 0,
-            }}
-          >
-            Tudo aprovado
+          <p style={{ color: 'var(--text-primary)', fontSize: 16, fontWeight: 600, margin: 0 }}>
+            Tudo em dia
           </p>
           <p className="muted" style={{ margin: 0 }}>
-            Nenhum item aguardando aprovação.
+            Nenhuma mensagem para enviar nem item aguardando aprovação.
           </p>
         </div>
       ) : (
-        <div className="col gap-3">
-          {items.map(item => (
-            <AprovacaoItem
-              key={item.id}
-              item={item}
-              onAprovar={handleAprovar}
-              onRejeitar={handleRejeitar}
-            />
-          ))}
+        <div className="col gap-6">
+          {mensagens.length > 0 && (
+            <div className="col gap-3">
+              <label className="label" style={{ margin: 0 }}>Mensagens aguardando envio ao cliente ({mensagens.length})</label>
+              {mensagens.map(l => (
+                <MensagemPendente key={l.id} lead={l} providers={providers} onDone={onMensagemDone} />
+              ))}
+            </div>
+          )}
+          {items.length > 0 && (
+            <div className="col gap-3">
+              {mensagens.length > 0 && <label className="label" style={{ margin: 0 }}>Conteúdos aguardando aprovação ({items.length})</label>}
+              {items.map(item => (
+                <AprovacaoItem
+                  key={item.id}
+                  item={item}
+                  onAprovar={handleAprovar}
+                  onRejeitar={handleRejeitar}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

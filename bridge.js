@@ -704,13 +704,14 @@ app.post('/crm/:id/enviar', async (req, res) => {
     if (!social) return res.status(503).json({ error: 'Social Hub indisponível' });
     const lead = crm.list().find(l => l.id === req.params.id);
     if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
-    const { texto, modo, recipient, assunto } = req.body || {};
+    const { texto, modo, canal, recipient, assunto } = req.body || {};
     if (!texto) return res.status(400).json({ error: 'texto obrigatório' });
     const alvo = recipient || lead.contato;
+    const canalUsar = canal || lead.canal;
 
-    const r = await social.send({ canal: lead.canal, recipient: alvo, texto, assunto, modo });
+    const r = await social.send({ canal: canalUsar, recipient: alvo, texto, assunto, modo });
     if (r.ok) {
-      crm.recordContact(lead.id, { tipo: 'mensagem', canal: r.mode === 'link' ? 'whatsapp' : lead.canal, etapa: 'enviado', texto });
+      crm.recordContact(lead.id, { tipo: 'mensagem', canal: r.mode === 'link' ? 'whatsapp' : canalUsar, etapa: 'enviado', texto });
       crm.clearRascunho(lead.id);
     }
     const atualizado = crm.list().find(l => l.id === lead.id);
