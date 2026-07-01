@@ -674,11 +674,14 @@ function PublicarPanel({ clienteId, cliente, landingHtml }: { clienteId: string;
   const menu = useContextMenu()
   const [site, setSite] = useState<import('../types').SitePublicado | null>(null)
   const [publicando, setPublicando] = useState(false)
+  const [fb, setFb] = useState<{ ok: boolean; configurado: boolean; projectId?: string; apps?: number; error?: string } | null>(null)
 
   useEffect(() => {
     setSite(null)
     if (clienteId) api.getPublicacao(clienteId).then(r => setSite(r.site)).catch(() => {})
   }, [clienteId])
+
+  useEffect(() => { api.getFirebaseStatus().then(setFb).catch(() => setFb({ ok: false, configurado: false, error: 'sem resposta' })) }, [])
 
   const publicar = async () => {
     if (!cliente) { menu.toast('Selecione um cliente', 'error'); return }
@@ -718,6 +721,19 @@ function PublicarPanel({ clienteId, cliente, landingHtml }: { clienteId: string;
           {publicando ? 'Publicando…' : site?.url ? 'Republicar' : 'Publicar site'}
         </button>
       </div>
+
+      {fb && (
+        <div className="row" style={{ gap: 7, fontSize: 11.5, padding: '6px 9px', borderRadius: 8, alignItems: 'center',
+          background: fb.ok ? 'color-mix(in srgb, var(--accent-green) 12%, transparent)' : 'color-mix(in srgb, var(--accent-yellow) 12%, transparent)',
+          color: fb.ok ? 'var(--accent-green)' : 'var(--accent-yellow)' }}>
+          {fb.ok ? <Check size={13} /> : <Sparkles size={13} />}
+          <span style={{ flex: 1 }}>
+            {fb.ok ? `Firebase conectado — projeto ${fb.projectId} (${fb.apps} app${fb.apps === 1 ? '' : 's'})`
+              : fb.configurado ? `Firebase com erro: ${fb.error}`
+              : 'Firebase não configurado no servidor (defina FIREBASE_SA_PATH) — o site sobe sem captura de leads'}
+          </span>
+        </div>
+      )}
 
       {!landingHtml && <p className="dim" style={{ fontSize: 12, margin: 0 }}>Gere uma <b>Landing Page</b> acima para habilitar a publicação.</p>}
 

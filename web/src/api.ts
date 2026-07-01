@@ -93,6 +93,8 @@ export const api = {
   resolvePendencia: (id: string) => fetchJson<import('./types').Pendencia>(`/pendencias/${encodeURIComponent(id)}/resolve`, { method: 'POST' }),
   removePendencia: (id: string) => fetchJson<{ ok: boolean }>(`/pendencias/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
+  getFirebaseStatus: () => fetchJson<{ ok: boolean; configurado: boolean; projectId?: string; email?: string; apps?: number; error?: string }>('/firebase/status'),
+
   getPublicacao: (clienteId: string) => fetchJson<{ site: import('./types').SitePublicado | null; pendencias: import('./types').Pendencia[] }>(`/publicar/${encodeURIComponent(clienteId)}`),
   publicar: (clienteId: string, payload: { html?: string; nome?: string; firebase?: boolean }) =>
     fetchJson<{ ok: boolean; url: string; deployUrl?: string; project: string; firebase: { projectId: string; appId: string } | null; pendencias: import('./types').Pendencia[]; site: import('./types').SitePublicado }>(`/publicar/${encodeURIComponent(clienteId)}`, {

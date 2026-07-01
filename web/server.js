@@ -229,6 +229,10 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('DELETE', `/pendencias/${req.params.id}`);
     res.status(status).json(data);
   });
+  app.get('/api/firebase/status', async (req, res) => {
+    const { status, data } = await bridge('GET', '/firebase/status');
+    res.status(status).json(data);
+  });
   app.get('/api/publicar/:clienteId', async (req, res) => {
     const { status, data } = await bridge('GET', `/publicar/${req.params.clienteId}`);
     res.status(status).json(data);
@@ -632,6 +636,10 @@ if (BRIDGE_URL) {
     try { res.json({ site: sitesLocal ? sitesLocal.get(req.params.clienteId) : null, pendencias: pendenciasLocal ? pendenciasLocal.list(req.params.clienteId).filter(i => i.status !== 'resolvido') : [] }); } catch (e) { res.status(500).json({ error: e.message }); }
   });
   app.post('/api/publicar/:clienteId', (req, res) => res.status(503).json({ error: 'Publicação disponível apenas via bridge (servidor)' }));
+  app.get('/api/firebase/status', async (req, res) => {
+    try { const fp = require(path.join(STUDIO_ROOT, 'lib', 'firebase-provision.js')); res.json(await fp.checkAuth()); }
+    catch (e) { res.json({ ok: false, configurado: false, error: e.message }); }
+  });
 
   app.get('/api/leadgen', (req, res) => {
     try { res.json(leadgenLocal ? leadgenLocal.status() : { error: 'indisponível' }); } catch (e) { res.status(500).json({ error: e.message }); }

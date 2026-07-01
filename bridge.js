@@ -503,6 +503,13 @@ app.delete('/pendencias/:id', (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/firebase/status', async (req, res) => {
+  try {
+    if (!fbProvision) return res.json({ ok: false, configurado: false, error: 'módulo indisponível' });
+    res.json(await fbProvision.checkAuth());
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
 app.get('/publicar/:clienteId', (req, res) => {
   try {
     if (!sites) return res.status(503).json({ error: 'indisponível' });
