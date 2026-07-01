@@ -4,7 +4,7 @@
  * nxs-agents — definição de agentes + roteador pickAgent.
  *
  * Mantém os 4 agentes originais (code, design, research, general) e
- * adiciona os 6 agentes do Studio IA (studio-ceo, studio-growth,
+ * adiciona os 6 agentes do VNMAX Studio (studio-ceo, studio-growth,
  * studio-criacao, studio-trafego, studio-clientes, studio-dados).
  *
  * Cada agente segue o mesmo formato:
@@ -17,7 +17,7 @@
  *
  * Observação: se o seu agents.js original tiver os 4 agentes base com
  * prompts/configs diferentes, ajuste apenas o bloco BASE_AGENTS abaixo —
- * o restante (Studio IA + pickAgent) não precisa mudar.
+ * o restante (VNMAX Studio + pickAgent) não precisa mudar.
  */
 
 // ---------------------------------------------------------------------------
@@ -71,7 +71,7 @@ const STUDIO_AGENTS = {
     maxTurns: 60,
     tools: { shell: false, web: false, edit: false, read: false },
     system:
-      'Você é o CEO do Studio IA. Coordena o time de agentes (Growth, Criação, ' +
+      'Você é o CEO do VNMAX Studio. Coordena o time de agentes (Growth, Criação, ' +
       'Tráfego, Clientes, Dados) e apresenta ao fundador apenas o que exige ' +
       'aprovação. Modelo de decisão: (1) resolve problema real de cliente ' +
       'pagante? (2) pode ser feito com IA em < 2h? (3) tem potencial de ' +
@@ -92,7 +92,7 @@ const STUDIO_AGENTS = {
     maxTurns: 70,
     tools: { shell: false, web: true, edit: false, read: false },
     system:
-      'Você é o agente Growth do Studio IA. Missão: encontrar negócios locais reais ' +
+      'Você é o agente Growth do VNMAX Studio. Missão: encontrar negócios locais reais ' +
       'com boa reputação mas presença digital fraca.\n\n' +
       'REGRA #1: nunca use dados do treinamento. Tudo vem de WebSearch feito agora.\n\n' +
       'EFICIÊNCIA (OBRIGATÓRIO — você tem menos de 90 segundos no total):\n' +
@@ -122,7 +122,7 @@ const STUDIO_AGENTS = {
     maxTurns: 50,
     tools: { shell: false, web: true, edit: false, read: false },
     system:
-      'Você é o agente Criação do Studio IA. Cria produtos digitais e landing ' +
+      'Você é o agente Criação do VNMAX Studio. Cria produtos digitais e landing ' +
       'pages. Capacidades: (1) Landing pages — pega conteúdo do site ruim do ' +
       'cliente e melhora estética mantendo cores/logo/identidade. (2) Info ' +
       'produtos — PDFs, ebooks, planilhas de R$10–R$97. (3) Funil completo: ' +
@@ -141,7 +141,7 @@ const STUDIO_AGENTS = {
     maxTurns: 35,
     tools: { shell: false, web: true, edit: false, read: false },
     system:
-      'Você é o agente Tráfego do Studio IA. Facebook Ads low ticket: campanha ' +
+      'Você é o agente Tráfego do VNMAX Studio. Facebook Ads low ticket: campanha ' +
       'manual de vendas (nunca Advantage+), público 20-44 anos aberto, 10 ' +
       'conjuntos @ R$6/dia, monitora até meio-dia do dia seguinte, desativa os ' +
       '9 que não venderam, duplica 10 novos do vencedor, escala dobrando ' +
@@ -158,7 +158,7 @@ const STUDIO_AGENTS = {
     maxTurns: 20,
     tools: { shell: false, web: false, edit: false, read: false },
     system:
-      'Você é o agente Clientes do Studio IA. Redigir emails de prospecção ' +
+      'Você é o agente Clientes do VNMAX Studio. Redigir emails de prospecção ' +
       '(nunca coloque preço no primeiro contato), fazer follow-up em 24h sem ' +
       'resposta, acompanhar pipeline. Pacotes: BÁSICO R$500 + manutenção ' +
       'R$200/mês; COMPLETO R$900 + R$350/mês; PREMIUM R$1.500 + R$500/mês. ' +
@@ -176,7 +176,7 @@ const STUDIO_AGENTS = {
     maxTurns: 30,
     tools: { shell: false, web: false, edit: false, read: false },
     system:
-      'Você é o SDR (primeiro contato) do Studio IA, uma agência que ajuda negócios locais ' +
+      'Você é o SDR (primeiro contato) do VNMAX Studio, uma agência que ajuda negócios locais ' +
       'com boa reputação mas presença digital fraca (nutricionistas, dentistas, petshops, ' +
       'advogados, salões, marcenarias). Missão: iniciar e conduzir a PRIMEIRA conversa com um lead ' +
       'até um micro-compromisso (ele responder, aceitar ver um exemplo, ou marcar 15 min).\n\n' +
@@ -239,7 +239,7 @@ const STUDIO_AGENTS = {
     maxTurns: 20,
     tools: { shell: false, web: false, edit: false, read: false },
     system:
-      'Você é o agente Dados do Studio IA. Compile relatório semanal com base ' +
+      'Você é o agente Dados do VNMAX Studio. Compile relatório semanal com base ' +
       'nos dados fornecidos. Formato obrigatório: ' +
       'RECEITA (novos clientes, recorrência ativa, produtos vendidos, total ' +
       'semana, total mês), CUSTOS (tráfego, ferramentas, hospedagem), ' +
@@ -273,7 +273,7 @@ for (const [key, a] of Object.entries(AGENTS)) {
 // Regras por palavra-chave. A primeira regra que casar vence; se nada casar,
 // cai em 'general'. Studio antes dos base para não roubar tarefas genéricas.
 const ROUTES = [
-  // Studio IA
+  // VNMAX Studio
   { agent: 'studio-ceo',      kw: ['ceo', 'estratégia', 'estrategia', 'prioridade', 'plano da semana', 'relatório final', 'relatorio final', 'aprovação', 'aprovacao', 'decisão', 'decisao'] },
   { agent: 'studio-growth',   kw: ['growth', 'lead', 'leads', 'prospec', 'viral', 'roteiro', 'gancho', 'conteúdo', 'conteudo', 'vídeo', 'video', 'tiktok', 'reels'] },
   { agent: 'studio-criacao',  kw: ['criação', 'criacao', 'landing', 'página', 'pagina', 'produto', 'ebook', 'pdf', 'funil', 'order bump', 'micro app'] },

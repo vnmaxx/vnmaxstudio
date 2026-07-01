@@ -631,7 +631,7 @@ async function main() {
     return;
   }
 
-  console.log(`Studio IA — scheduler
+  console.log(`VNMAX Studio — scheduler
 Uso:
   --cycle=segunda|diario|sexta     roda um ciclo (via Loop Engine)
   --daemon                         modo contínuo: watchers + pipelines por evento

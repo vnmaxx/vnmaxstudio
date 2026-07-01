@@ -881,5 +881,5 @@ process.on('uncaughtException', (err) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Studio IA API na porta ${PORT}`);
+  console.log(`VNMAX Studio API na porta ${PORT}`);
 });

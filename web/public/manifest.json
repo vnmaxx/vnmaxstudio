@@ -1,6 +1,6 @@
 {
-  "name": "Studio IA",
-  "short_name": "Studio IA",
+  "name": "VNMAX Studio",
+  "short_name": "VNMAX Studio",
   "description": "Sistema autônomo de agentes IA",
   "start_url": "/",
   "display": "standalone",

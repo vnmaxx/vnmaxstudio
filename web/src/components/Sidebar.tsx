@@ -43,7 +43,7 @@ export function usePendingCount(): number {
 
 export function navTitle(pathname: string): string {
   const item = NAV_ITEMS.find(i => pathname.startsWith(i.to))
-  return item?.label || 'Studio IA'
+  return item?.label || 'VNMAX Studio'
 }
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -53,9 +53,9 @@ function navClass({ isActive }: { isActive: boolean }) {
 function Brand() {
   return (
     <div className="row" style={{ gap: 11 }}>
-      <img src="/logo.png" alt="Studio IA" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+      <img src="/logo.png" alt="VNMAX Studio" style={{ width: 32, height: 32, objectFit: 'contain' }} />
       <div>
-        <h1 style={{ fontWeight: 700, fontSize: 15, lineHeight: 1, margin: 0, letterSpacing: '-0.01em' }}>Studio IA</h1>
+        <h1 style={{ fontWeight: 700, fontSize: 15, lineHeight: 1, margin: 0, letterSpacing: '-0.01em' }}>VNMAX Studio</h1>
         <p className="dim" style={{ fontSize: 10.5, margin: '3px 0 0' }}>Sistema Autônomo</p>
       </div>
     </div>

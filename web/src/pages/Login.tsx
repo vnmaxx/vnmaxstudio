@@ -55,7 +55,7 @@ export default function Login() {
         <div className="col" style={{ alignItems: 'center', gap: 12, marginBottom: 26 }}>
           <img
             src="/logo.png"
-            alt="Studio IA"
+            alt="VNMAX Studio"
             style={{
               width: 52,
               height: 52,
@@ -74,7 +74,7 @@ export default function Login() {
                 margin: 0,
               }}
             >
-              Studio IA
+              VNMAX Studio
             </h1>
             <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
               {mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}

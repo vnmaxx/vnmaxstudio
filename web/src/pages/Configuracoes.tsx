@@ -673,7 +673,7 @@ export default function Configuracoes() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Configurações</h1>
-          <p className="page-sub">Personalize o Studio IA</p>
+          <p className="page-sub">Personalize o VNMAX Studio</p>
         </div>
       </div>
 

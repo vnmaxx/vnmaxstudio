@@ -101,7 +101,7 @@ export const api = {
 
   getPublicacao: (clienteId: string) => fetchJson<{ site: import('./types').SitePublicado | null; pendencias: import('./types').Pendencia[] }>(`/publicar/${encodeURIComponent(clienteId)}`),
   publicar: (clienteId: string, payload: { html?: string; nome?: string; firebase?: boolean }) =>
-    fetchJson<{ ok: boolean; url: string; deployUrl?: string; project: string; firebase: { projectId: string; appId: string } | null; pendencias: import('./types').Pendencia[]; site: import('./types').SitePublicado }>(`/publicar/${encodeURIComponent(clienteId)}`, {
+    fetchJson<{ ok: boolean; url: string; deployUrl?: string; project: string; firebase: { projectId: string; appId: string } | null; mensagem?: string; pendencias: import('./types').Pendencia[]; site: import('./types').SitePublicado }>(`/publicar/${encodeURIComponent(clienteId)}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     }),
 

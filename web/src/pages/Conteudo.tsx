@@ -674,10 +674,11 @@ function PublicarPanel({ clienteId, cliente, landingHtml }: { clienteId: string;
   const menu = useContextMenu()
   const [site, setSite] = useState<import('../types').SitePublicado | null>(null)
   const [publicando, setPublicando] = useState(false)
+  const [mensagem, setMensagem] = useState<string | null>(null)
   const [fb, setFb] = useState<{ ok: boolean; configurado: boolean; projectId?: string; apps?: number; error?: string } | null>(null)
 
   useEffect(() => {
-    setSite(null)
+    setSite(null); setMensagem(null)
     if (clienteId) api.getPublicacao(clienteId).then(r => setSite(r.site)).catch(() => {})
   }, [clienteId])
 
@@ -690,17 +691,25 @@ function PublicarPanel({ clienteId, cliente, landingHtml }: { clienteId: string;
     try {
       const r = await api.publicar(clienteId, { html: landingHtml, nome: cliente.nome })
       setSite(r.site)
-      if (r.ok) menu.toast(`Site no ar: ${r.url}`)
+      if (r.mensagem) setMensagem(r.mensagem)
+      if (r.ok) menu.toast(`Site no ar: ${r.url} · mensagem pronta em Conversas`)
       else menu.toast('Deploy iniciado — pode levar alguns segundos pra ficar pronto', 'info')
     } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao publicar', 'error') }
     finally { setPublicando(false) }
   }
 
+  const msgEntrega = () => {
+    if (mensagem) return mensagem
+    const nome = cliente?.nome || 'sua empresa'
+    const primeiro = String(nome).trim().split(/\s+/)[0]
+    return `Oi, ${primeiro}! Aqui é da VNMAX 👋\n\nPreparamos o site da ${nome} e ele já está no ar pra você conferir:\n\n${site?.url || ''}\n\nDá uma olhada e me diz o que achou — a gente ajusta o que quiser. 🚀`
+  }
+
   const enviarCliente = () => {
     if (!site?.url) return
-    const msg = `Olá! Preparamos o site da ${cliente?.nome || 'sua empresa'}. Dá uma olhada: ${site.url}`
+    const msg = msgEntrega()
     const link = waLinkC(cliente?.contato, msg)
-    if (link) { window.open(link, '_blank', 'noopener'); menu.toast('Abrindo WhatsApp com o link…') }
+    if (link) { window.open(link, '_blank', 'noopener'); menu.toast('Abrindo WhatsApp com a mensagem e o link…') }
     else { menu.copy(msg, 'Mensagem com o link copiada'); }
   }
 

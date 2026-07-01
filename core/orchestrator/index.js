@@ -29,7 +29,7 @@ const NXS_HOST = process.env.NXS_HOST || '127.0.0.1';
 const NXS_PORT = parseInt(process.env.NXS_PORT || '8006', 10);
 const NXS_KEY = process.env.NXS_STUDIO_KEY || '';
 
-// Mapeamento de agentes Studio IA
+// Mapeamento de agentes VNMAX Studio
 const AGENTS_MAP = {
   'studio-ceo': 'studio-ceo',
   'studio-growth': 'studio-growth',
@@ -203,7 +203,7 @@ async function cicloCEO(meta) {
   const contexto = memory.lerContexto();
   const pipeline = memory.listarPipeline();
   
-  const task = `Você é o CEO do Studio IA. Defina o plano de ação para hoje.
+  const task = `Você é o CEO do VNMAX Studio. Defina o plano de ação para hoje.
 
 META DEFINIDA: ${meta || 'Crescimento de clientes'}
 
@@ -240,7 +240,7 @@ async function agenteGrowth() {
   
   const CIDADE = process.env.STUDIO_CIDADE || 'São Paulo';
   
-  const task = `Você é o agente Growth do Studio IA. Encontre 5 negócios locais reais em ${CIDADE}.
+  const task = `Você é o agente Growth do VNMAX Studio. Encontre 5 negócios locais reais em ${CIDADE}.
 
 Pesquise em segmentos variados: nutricionistas, dentistas, personal trainers, contadores, advogados, petshops.
 
@@ -311,7 +311,7 @@ async function agenteClientes() {
   const propostas = [];
   
   for (const lead of leads) {
-    const task = `Você é o agente Clientes do Studio IA. Crie uma proposta para:
+    const task = `Você é o agente Clientes do VNMAX Studio. Crie uma proposta para:
 
 NOME: ${lead.nome}
 SEGMENTO: ${lead.segmento}
@@ -385,7 +385,7 @@ async function agenteCriacao() {
   const landings = [];
   
   for (const proposta of propostas) {
-    const task = `Você é o agente Criação do Studio IA. Crie o esboço de uma landing page para:
+    const task = `Você é o agente Criação do VNMAX Studio. Crie o esboço de uma landing page para:
 
 CLIENTE: ${proposta.leadId}
 PACOTE: ${proposta.pacote_recomendado || 'COMPLETO'}
@@ -435,7 +435,7 @@ async function agenteTrafego() {
   const campanhas = [];
   
   for (const landing of landings) {
-    const task = `Você é o agente Tráfego do Studio IA. Crie estratégia de campanha para:
+    const task = `Você é o agente Tráfego do VNMAX Studio. Crie estratégia de campanha para:
 
 CLIENTE: ${landing.id}
 
@@ -478,7 +478,7 @@ async function agenteDados() {
   const pipeline = memory.listarPipeline();
   const historico = memory.lerHistorico(50);
   
-  const task = `Você é o agente Dados do Studio IA. Compile o relatório semanal.
+  const task = `Você é o agente Dados do VNMAX Studio. Compile o relatório semanal.
 
 PIPELINE ATUAL:
 ${JSON.stringify(pipeline.map(l => ({ id: l.id, status: l.status, agente: l.proximo_agente })), null, 2)}

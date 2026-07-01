@@ -1,4 +1,4 @@
-# Studio IA
+# VNMAX Studio
 
 Um negócio digital semi-autônomo que roda no seu servidor Ubuntu. Seis agentes de IA (CEO, Growth, Criação, Tráfego, Clientes, Dados) trabalham juntos para prospectar clientes, criar produtos e páginas, rodar tráfego e medir resultados — enquanto **você só lê o relatório de sexta e aprova ou rejeita o que vai para clientes reais.**
 

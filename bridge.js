@@ -42,8 +42,8 @@ try {
   fbProvision = require(path.join(ROOT, 'lib', 'firebase-provision.js'));
 } catch (e) { console.error('Publish/deploy indisponível:', e.message); }
 
-let vnmaxStore = null;
-try { vnmaxStore = new (require(path.join(ROOT, 'lib', 'vnmax.js')).VnmaxStore)(WORKSPACE); } catch (e) { console.error('VNMAX indisponível:', e.message); }
+let vnmaxStore = null, vnmaxMod = null;
+try { vnmaxMod = require(path.join(ROOT, 'lib', 'vnmax.js')); vnmaxStore = new vnmaxMod.VnmaxStore(WORKSPACE); } catch (e) { console.error('VNMAX indisponível:', e.message); }
 function vnmaxCfg() { try { return vnmaxStore ? vnmaxStore.load() : null; } catch { return null; } }
 
 function readEnvKey(name) {
@@ -564,7 +564,7 @@ app.post('/publicar/:clienteId', async (req, res) => {
         const existente = sites.get(clienteId);
         if (existente && existente.firebase && existente.firebase.appId) firebase = existente.firebase;
         else {
-          const r = await fbProvision.createWebApp({ displayName: `StudioIA — ${nome}` });
+          const r = await fbProvision.createWebApp({ displayName: `VNMAX Studio — ${nome}` });
           firebase = { projectId: r.projectId, appId: r.appId, config: r.config };
         }
         html = publishMod.injectFirebase(html, firebase.config, clienteId);
@@ -584,9 +584,17 @@ app.post('/publicar/:clienteId', async (req, res) => {
     pendencias.add(clienteId, { chave: 'dominio', titulo: 'Apontar domínio próprio (opcional)', detalhe: `Conecte um domínio do cliente ao projeto ${dep.project} no Vercel.`, tipo: 'dominio', prioridade: 'baixa' });
     pendencias.add(clienteId, { chave: 'revisar-copy', titulo: 'Revisar textos e contatos da landing', detalhe: 'Confira telefone/WhatsApp, endereço e ofertas antes de divulgar.', tipo: 'revisao', prioridade: 'media' });
 
+    let mensagem = null;
+    try {
+      if (dep.ok && crm && lead && vnmaxMod) {
+        mensagem = vnmaxMod.mensagemEntrega(lead, dep.url, vnmaxCfg());
+        crm.setRascunho(clienteId, { canal: lead.canal || 'whatsapp', etapa: 'entrega', mensagem, objetivo: 'Enviar o site pronto ao cliente', origem: 'publicacao' });
+      }
+    } catch {}
+
     try { if (clienteWs) clienteWs.syncOne(clienteId); } catch {}
 
-    res.json({ ok: dep.ok, url: dep.url, deployUrl: dep.deployUrl, project: dep.project, firebase: firebase ? { projectId: firebase.projectId, appId: firebase.appId } : null, pendencias: pendencias.list(clienteId).filter(i => i.status !== 'resolvido'), site: info });
+    res.json({ ok: dep.ok, url: dep.url, deployUrl: dep.deployUrl, project: dep.project, firebase: firebase ? { projectId: firebase.projectId, appId: firebase.appId } : null, mensagem, pendencias: pendencias.list(clienteId).filter(i => i.status !== 'resolvido'), site: info });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
@@ -1179,7 +1187,7 @@ app.post('/agents/:name/run', (req, res) => {
 
 const PORT = process.env.BRIDGE_PORT || 3002;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Studio IA Bridge rodando na porta ${PORT}`);
+  console.log(`VNMAX Studio Bridge rodando na porta ${PORT}`);
   console.log(`STUDIO_ROOT: ${ROOT}`);
   console.log(`Agents: ${AGENTS_HOST}:${AGENTS_PORT}`);
 });

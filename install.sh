@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# install.sh — instalador idempotente do Studio IA.
+# install.sh — instalador idempotente do VNMAX Studio.
 # Pode rodar várias vezes sem quebrar nada.
 #
 set -euo pipefail
@@ -11,7 +11,7 @@ NXS_AGENTS_FILE="$NXS/lib/agents.js"
 NXS_KEYS_FILE="$NXS/keys.json"
 HOJE="$(date +%Y%m%d)"
 
-echo "==> Studio IA — instalação"
+echo "==> VNMAX Studio — instalação"
 
 # ---------------------------------------------------------------------------
 # 1. Estrutura de diretórios
@@ -85,7 +85,7 @@ else
 
   # Salva a chave em texto SOMENTE no .env do Studio (chmod 600).
   {
-    echo "# Studio IA — gerado pelo install.sh em $(date -Iseconds)"
+    echo "# VNMAX Studio — gerado pelo install.sh em $(date -Iseconds)"
     echo "NXS_STUDIO_KEY=$STUDIO_KEY"
     echo "NXS_HOST=127.0.0.1"
     echo "NXS_PORT=8006"
@@ -114,7 +114,7 @@ SCHED="node $STUDIO/studio-scheduler.js"
 CRON_TMP="$(mktemp)"
 crontab -l 2>/dev/null | grep -v "studio-scheduler.js" > "$CRON_TMP" || true
 cat >> "$CRON_TMP" <<EOF
-# Studio IA (gerado pelo install.sh)
+# VNMAX Studio (gerado pelo install.sh)
 0 8 * * 1 $SCHED --cycle=segunda >> $STUDIO/logs/cron.log 2>&1
 0 9 * * 2,3,4 $SCHED --cycle=diario >> $STUDIO/logs/cron.log 2>&1
 0 17 * * 5 $SCHED --cycle=sexta >> $STUDIO/logs/cron.log 2>&1

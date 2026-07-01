@@ -29,7 +29,7 @@ export function pushNotification(n: Omit<AppNotification, 'id' | 'time' | 'read'
   window.dispatchEvent(new CustomEvent('studio-notif', { detail: notif }))
 
   if (localStorage.getItem('notif_browser') === 'true' && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-    new Notification(`Studio IA — ${n.title}`, { body: n.body, icon: '/favicon.png' })
+    new Notification(`VNMAX Studio — ${n.title}`, { body: n.body, icon: '/favicon.png' })
   }
 }
 

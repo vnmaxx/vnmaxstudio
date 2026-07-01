@@ -108,7 +108,7 @@ export default function CEO({ embedded }: { embedded?: boolean } = {}) {
       <div className="page-head">
         <div>
           <h1 className="page-title">Dashboard CEO</h1>
-          <p className="page-sub">Visão estratégica do Studio IA</p>
+          <p className="page-sub">Visão estratégica do VNMAX Studio</p>
         </div>
         <div className="page-head-actions">
           <button onClick={carregar} className="btn btn--ghost">

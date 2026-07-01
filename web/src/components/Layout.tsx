@@ -24,7 +24,7 @@ export default function Layout() {
   }
 
   const bgMenu = (): CtxItem[] => [
-    { header: 'Studio IA' },
+    { header: 'VNMAX Studio' },
     { label: 'Atualizar página', icon: <RefreshCw size={15} strokeWidth={1.8} />, onClick: () => window.location.reload() },
     { separator: true },
     {
