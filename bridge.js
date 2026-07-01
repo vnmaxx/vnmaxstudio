@@ -501,6 +501,19 @@ app.post('/clientes/:id/sync', (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/clientes/sites', (req, res) => {
+  try {
+    if (!sites) return res.json({ total: 0, sites: [] });
+    const all = sites.all();
+    const leads = crm ? crm.list() : [];
+    const out = Object.entries(all).filter(([, s]) => s && s.url).map(([id, s]) => ({
+      clienteId: id, url: s.url, nome: (leads.find(l => l.id === id) || {}).nome || id,
+      firebase: !!(s.firebase && s.firebase.appId), publicadoEm: s.publicadoEm || s.atualizadoEm || '',
+    })).sort((a, b) => (b.publicadoEm || '').localeCompare(a.publicadoEm || ''));
+    res.json({ total: out.length, sites: out });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/pendencias', (req, res) => {
   try {
     if (!pendencias) return res.json({ itens: [] });

@@ -248,6 +248,10 @@ if (BRIDGE_URL) {
     const { status, data } = await bridge('POST', `/clientes/${req.params.id}/sync`);
     res.status(status).json(data);
   });
+  app.get('/api/clientes/sites', async (req, res) => {
+    const { status, data } = await bridge('GET', '/clientes/sites');
+    res.status(status).json(data);
+  });
   app.get('/api/pendencias', async (req, res) => {
     const qs = req.query.clienteId ? `?clienteId=${encodeURIComponent(req.query.clienteId)}` : '';
     const { status, data } = await bridge('GET', `/pendencias${qs}`);
@@ -684,6 +688,13 @@ if (BRIDGE_URL) {
   });
   app.get('/api/publicar/:clienteId', (req, res) => {
     try { res.json({ site: sitesLocal ? sitesLocal.get(req.params.clienteId) : null, pendencias: pendenciasLocal ? pendenciasLocal.list(req.params.clienteId).filter(i => i.status !== 'resolvido') : [] }); } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  app.get('/api/clientes/sites', (req, res) => {
+    try {
+      const all = sitesLocal ? sitesLocal.all() : {};
+      const out = Object.entries(all).filter(([, s]) => s && s.url).map(([id, s]) => ({ clienteId: id, url: s.url, nome: id, firebase: !!(s.firebase && s.firebase.appId), publicadoEm: s.publicadoEm || '' }));
+      res.json({ total: out.length, sites: out });
+    } catch (e) { res.status(500).json({ error: e.message }); }
   });
   app.post('/api/publicar/:clienteId', (req, res) => res.status(503).json({ error: 'Publicação disponível apenas via bridge (servidor)' }));
   app.get('/api/firebase/status', async (req, res) => {

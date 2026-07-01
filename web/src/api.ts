@@ -106,6 +106,8 @@ export const api = {
   saveVnmax: (cfg: { empresa?: string; dadosOficiais?: string; docsExtra?: string }) =>
     fetchJson<import('./types').VnmaxConfig>('/vnmax', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) }),
 
+  getClientesSites: () => fetchJson<{ total: number; sites: { clienteId: string; url: string; nome: string; firebase: boolean; publicadoEm: string }[] }>('/clientes/sites'),
+
   getFirebaseStatus: () => fetchJson<{ ok: boolean; configurado: boolean; projectId?: string; email?: string; apps?: number; error?: string }>('/firebase/status'),
 
   getPublicacao: (clienteId: string) => fetchJson<{ site: import('./types').SitePublicado | null; pendencias: import('./types').Pendencia[] }>(`/publicar/${encodeURIComponent(clienteId)}`),

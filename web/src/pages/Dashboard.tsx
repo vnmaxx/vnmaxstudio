@@ -11,7 +11,7 @@ import {
   Play, Loader2, X, Check, Save,
   Users, FileText, Megaphone, Mail, Package,
   AlertCircle, Activity, TrendingUp, Clock, Copy, CopyPlus,
-  LayoutDashboard, Briefcase, GitBranch, Plus, Upload, Trash2, GripVertical,
+  LayoutDashboard, Briefcase, GitBranch, Plus, Upload, Trash2, GripVertical, ExternalLink,
 } from 'lucide-react'
 
 type AgentsMap = Record<string, Agent>
@@ -649,6 +649,33 @@ function SituacaoCard({ stats, pend, onNav }: { stats: Stats | null; pend: numbe
   )
 }
 
+function SitesCard({ data }: { data: { total: number; sites: { clienteId: string; url: string; nome: string; firebase: boolean }[] } }) {
+  return (
+    <div className="card card--pad col" style={{ gap: 11 }}>
+      <div className="row--between">
+        <span className="row" style={{ gap: 8, fontSize: 13, fontWeight: 700 }}><Globe size={15} style={{ color: 'var(--accent-green)' }} /> Sites no ar</span>
+        <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent-green)' }}>{data.total}</span>
+      </div>
+      {data.total === 0 ? (
+        <p className="dim" style={{ fontSize: 12, margin: 0 }}>Nenhum site publicado ainda. Gere uma Landing/App e clique em <b>Publicar</b>.</p>
+      ) : (
+        <div className="col" style={{ gap: 6 }}>
+          {data.sites.slice(0, 4).map(s => (
+            <a key={s.clienteId} href={s.url} target="_blank" rel="noopener noreferrer" className="row--between" style={{ gap: 8, textDecoration: 'none', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+              <span className="truncate" style={{ fontSize: 12.5, fontWeight: 600, minWidth: 0 }}>{s.nome}</span>
+              <span className="row" style={{ gap: 6, flexShrink: 0 }}>
+                {s.firebase && <span className="dot" style={{ background: 'var(--accent-green)', width: 6, height: 6 }} title="Firebase ligado" />}
+                <ExternalLink size={12} style={{ color: 'var(--accent)' }} />
+              </span>
+            </a>
+          ))}
+          {data.total > 4 && <span className="dim" style={{ fontSize: 11 }}>+{data.total - 4} outros</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [agents,        setAgents]        = useState<AgentsMap>({})
   const [status,        setStatus]        = useState<SystemStatus | null>(null)
@@ -662,6 +689,7 @@ export default function Dashboard() {
   const [crmLeads, setCrmLeads] = useState<import('../types').CrmLead[]>([])
   const [pipeMetrics, setPipeMetrics] = useState<import('../types').PipelineMetrics | null>(null)
   const [pendCount, setPendCount] = useState(0)
+  const [sites, setSites] = useState<{ total: number; sites: { clienteId: string; url: string; nome: string; firebase: boolean }[] }>({ total: 0, sites: [] })
   const menu = useContextMenu()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -689,6 +717,7 @@ export default function Dashboard() {
     api.getCrm().then(r => setCrmLeads(r.leads)).catch(() => {})
     api.getPipelineMetrics().then(setPipeMetrics).catch(() => {})
     api.getPendencias().then(r => setPendCount(r.itens.length)).catch(() => {})
+    api.getClientesSites().then(setSites).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -778,10 +807,11 @@ export default function Dashboard() {
       </div>
 
       {view === 'ceo' && user?.isAdmin ? <CEO embedded /> : <>
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(258px, 1fr))', gap: 14 }}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
         <FunilLeads leads={crmLeads} />
         <AutomacaoCard metrics={pipeMetrics} lastCycle={lastCycleLabel} />
         <SituacaoCard stats={stats} pend={pendCount} onNav={navigate} />
+        <SitesCard data={sites} />
       </div>
 
       <div className="grid grid--kpi">

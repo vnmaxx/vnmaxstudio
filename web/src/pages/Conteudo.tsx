@@ -637,6 +637,7 @@ function BlueprintTab({ clienteId, cliente }: { clienteId: string; cliente: CrmL
 
 const PRODUTO_TIPOS = [
   { id: 'landing', label: 'Landing Page', formato: 'html' as const },
+  { id: 'app', label: 'App de Vendas (login)', formato: 'html' as const },
   { id: 'crm', label: 'CRM (app)', formato: 'html' as const },
   { id: 'ebook', label: 'E-book / Guia', formato: 'md' as const },
   { id: 'funil', label: 'Funil de vendas', formato: 'md' as const },
