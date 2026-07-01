@@ -247,13 +247,18 @@ function AgentCard({ name, agent, onClick, onChanged }: { name: string; agent: A
         { label: 'Copiar nome', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(name, 'Nome copiado') },
         { label: 'Copiar system prompt', icon: <Copy size={15} strokeWidth={1.8} />, onClick: () => menu.copy(agent.system || '', 'Prompt copiado'), disabled: !agent.system },
       ])}
-      style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8, padding: 11 }}
+      style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 7, padding: 12 }}
     >
-      <div className="row" style={{ alignItems: 'center', gap: 9 }}>
-        <AgentMascot name={name} size={32} icon={agent.icon} />
+      <div className="row" style={{ alignItems: 'flex-start', gap: 10 }}>
+        <AgentMascot name={name} size={38} icon={agent.icon} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 className="truncate" style={{ fontWeight: 600, fontSize: 12.5, textTransform: 'capitalize', margin: 0 }}>{name.replace('studio-', '')}</h3>
-          <ModelBadge model={agent.model} />
+          <div className="row--between" style={{ marginBottom: 3 }}>
+            <h3 className="truncate" style={{ fontWeight: 600, fontSize: 12.5, textTransform: 'capitalize', margin: 0 }}>{name.replace('studio-', '')}</h3>
+            <ModelBadge model={agent.model} />
+          </div>
+          <p className="muted clamp-2" style={{ fontSize: 10.5, margin: 0, lineHeight: 1.45 }}>
+            {agent.system?.slice(0, 80) || 'Sem descrição'}
+          </p>
         </div>
       </div>
       <div className="row--between" style={{ borderTop: '1px solid var(--border)', paddingTop: 7 }}>
