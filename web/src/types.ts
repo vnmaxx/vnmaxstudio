@@ -112,6 +112,11 @@ export interface LeadgenConfig {
   quantidade: number
   rotacao: boolean
   nichos: string[]
+  auto: boolean
+  minNovos: number
+  intervaloHoras: number
+  ultimaCaptacao?: string | null
+  captando?: boolean
   catalogo?: Record<string, string[]>
 }
 
@@ -250,7 +255,16 @@ export interface Produto {
   formato: 'html' | 'md'
   conteudo: string
   tema?: string
+  estilo?: string
   criadoEm?: string
+}
+
+export interface LandingEstilo {
+  key: string
+  label: string
+  tagline: string
+  vibe: 'dark' | 'light'
+  bestFor: string[]
 }
 
 export interface VideoJob {

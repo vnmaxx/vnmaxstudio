@@ -271,6 +271,83 @@ if (AUTO_DRAFT_ENABLED) {
   setInterval(() => { draftTick().catch(() => {}); }, DRAFT_TICK_MS);
 }
 
+const AUTO_LEADGEN_ENABLED = readEnvKey('AUTO_LEADGEN') !== '0';
+const LEADGEN_TICK_MS = 5 * 60 * 1000;
+const LEADGEN_ERROR_COOLDOWN_MS = 30 * 60 * 1000;
+let leadgenBusy = false;
+let leadgenLastError = 0;
+
+function extrairBlocoBridge(texto, abre, fecha) {
+  const s = String(texto || '');
+  const a = s.indexOf(abre);
+  if (a === -1) return null;
+  const b = s.indexOf(fecha, a + abre.length);
+  if (b === -1) return null;
+  return s.slice(a + abre.length, b).trim();
+}
+
+async function runGrowthJob(task) {
+  const jobId = await criarJob('studio-growth', task);
+  const started = Date.now();
+  while (Date.now() - started < 8 * 60 * 1000) {
+    await sleep(8000);
+    let s;
+    try { s = await nxsRequest('GET', `/v1/jobs/${jobId}`); } catch { continue; }
+    if (s.status === 'done') return s.result;
+    if (s.status === 'error') throw new Error(String(s.result || 'erro no job growth'));
+  }
+  throw new Error('timeout no job growth');
+}
+
+async function executarCaptacao(origem) {
+  leadgen.markCaptacao();
+  const leads = crm.list();
+  const evitar = leads.map(l => l.nome).filter(Boolean).slice(-60);
+  const result = await runGrowthJob(leadgen.growthTask({ evitar }));
+  const texto = typeof result === 'string' ? result : JSON.stringify(result);
+  const bloco = extrairBlocoBridge(texto, '<<<LEADS>>>', '<<<FIM_LEADS>>>');
+  if (!bloco) throw new Error('growth não retornou bloco <<<LEADS>>>');
+  const clean = bloco.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```[\s\S]*$/, '').trim();
+  const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+  const leadsDir = path.join(WORKSPACE, 'leads');
+  fs.mkdirSync(leadsDir, { recursive: true });
+  fs.writeFileSync(path.join(leadsDir, `leads-auto-${stamp}.json`), clean, 'utf8');
+  const r = crm.syncFromLeads();
+  console.log(`captacao (${origem}): ${r.added} lead(s) novo(s) importado(s) no CRM (${r.merged} duplicado(s) fundido(s))`);
+  return r;
+}
+
+async function captacaoTick() {
+  if (leadgenBusy || !AUTO_LEADGEN_ENABLED || !crm || !leadgen || !NXS_KEY) return;
+  if (fs.existsSync(DISABLED_FILE)) return;
+  try { crm.syncFromLeads(); } catch (e) { console.error('captacao sync:', e.message); }
+  let cfg;
+  try { cfg = leadgen.load(); } catch { return; }
+  if (!cfg.auto) return;
+  if (Date.now() - leadgenLastError < LEADGEN_ERROR_COOLDOWN_MS) return;
+  let leads;
+  try { leads = crm.list(); } catch { return; }
+  const estoque = leads.filter(l => l.stage === 'NOVO' && (!l.historico || l.historico.length === 0)).length;
+  if (estoque >= cfg.minNovos) return;
+  const ultima = cfg.ultimaCaptacao ? new Date(cfg.ultimaCaptacao).getTime() : 0;
+  if (Date.now() - ultima < cfg.intervaloHoras * 60 * 60 * 1000) return;
+  leadgenBusy = true;
+  try {
+    console.log(`auto-captacao: estoque de leads NOVO baixo (${estoque}/${cfg.minNovos}) — disparando studio-growth`);
+    await executarCaptacao('auto');
+  } catch (e) {
+    leadgenLastError = Date.now();
+    console.error(`auto-captacao: ${e.message}`);
+  } finally {
+    leadgenBusy = false;
+  }
+}
+
+if (AUTO_LEADGEN_ENABLED) {
+  setTimeout(() => { captacaoTick().catch(() => {}); }, 30 * 1000);
+  setInterval(() => { captacaoTick().catch(() => {}); }, LEADGEN_TICK_MS);
+}
+
 function auth(req, res, next) {
   if (SECRET && req.headers['x-bridge-secret'] !== SECRET) {
     return res.status(401).json({ error: 'unauthorized' });
@@ -459,7 +536,7 @@ app.get('/workspace/:dir/:file', (req, res) => {
 app.get('/leadgen', (req, res) => {
   try {
     if (!leadgen) return res.status(503).json({ error: 'Leadgen indisponível' });
-    res.json(leadgen.status());
+    res.json({ ...leadgen.status(), captando: leadgenBusy });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -468,6 +545,26 @@ app.post('/leadgen', (req, res) => {
     if (!leadgen) return res.status(503).json({ error: 'Leadgen indisponível' });
     res.json(leadgen.save(req.body || {}));
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/leadgen/run', async (req, res) => {
+  try {
+    if (!leadgen || !crm) return res.status(503).json({ error: 'Leadgen indisponível' });
+    if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
+    if (leadgenBusy) return res.status(409).json({ error: 'Uma captação já está em andamento' });
+    leadgenBusy = true;
+    res.json({ ok: true, started: true });
+    try {
+      await executarCaptacao('manual');
+    } catch (e) {
+      console.error(`captacao manual: ${e.message}`);
+    } finally {
+      leadgenBusy = false;
+    }
+  } catch (e) {
+    leadgenBusy = false;
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/vnmax', (req, res) => {
@@ -592,8 +689,7 @@ app.post('/publicar/:clienteId', async (req, res) => {
       pendencias.add(clienteId, { chave: 'firebase-sa', titulo: 'Configurar service account do Firebase', detalhe: 'Defina FIREBASE_SA_PATH no servidor para criar apps e captar leads automaticamente.', tipo: 'firebase', prioridade: 'baixa' });
     }
 
-    const nomeProj = `${deployMod.slugProject(nome)}-${String(clienteId).slice(-4)}`;
-    const dep = await deployMod.publishLanding({ token, teamId, project: nomeProj, html });
+    const dep = await deployMod.publishLanding({ token, teamId, project: nome, suffix: String(clienteId).slice(-4), html });
 
     const info = sites.set(clienteId, { url: dep.url, deployUrl: dep.deployUrl, project: dep.project, deploymentId: dep.deploymentId, firebase, estado: dep.state, publicadoEm: new Date().toISOString() });
 
@@ -1085,8 +1181,8 @@ app.post('/conteudo/produtos/gerar', async (req, res) => {
   try {
     if (!prod) return res.status(503).json({ error: 'produtos indisponível' });
     if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
-    const { cliente, tipo, tema } = req.body || {};
-    const task = prod.buildProdutoTask(cliente || {}, tipo || 'landing', { tema });
+    const { cliente, tipo, tema, estilo } = req.body || {};
+    const task = prod.buildProdutoTask(cliente || {}, tipo || 'landing', { tema, estilo });
     const jobId = await criarJob('general', task);
     res.json({ jobId });
   } catch (e) { res.status(502).json({ error: e.message }); }
@@ -1097,12 +1193,19 @@ app.get('/conteudo/produtos/job/:jobId', async (req, res) => {
     if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
     const r = await nxsRequest('GET', `/v1/jobs/${req.params.jobId}`);
     if (r.status === 'done') {
-      const produto = prod ? prod.parseProduto(r.result, req.query.tipo) : null;
+      const produto = prod ? prod.parseProduto(r.result, req.query.tipo, req.query.estilo) : null;
       return res.json({ status: 'done', produto: produto || null, parseError: !produto });
     }
     if (r.status === 'error') return res.json({ status: 'error', error: String(r.result || 'erro') });
     res.json({ status: r.status || 'pending' });
   } catch (e) { res.status(502).json({ error: e.message }); }
+});
+
+app.get('/conteudo/landing/estilos', (req, res) => {
+  if (!prod || !prod.LANDING_STYLES) return res.status(503).json({ error: 'estilos indisponível' });
+  const { segmento, observacao, publico } = req.query || {};
+  const rec = prod.recommendStyle({ segmento, observacao, publico });
+  res.json({ estilos: prod.LANDING_STYLES, recomendado: rec.estilo, niche: rec.niche });
 });
 
 app.get('/conteudo/produtos', (req, res) => {

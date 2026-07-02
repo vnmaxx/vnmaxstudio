@@ -92,8 +92,9 @@ export const api = {
   dedupeCrm: () => fetchJson<{ removed: number }>('/crm/dedupe', { method: 'POST' }),
 
   getLeadgen: () => fetchJson<import('./types').LeadgenConfig>('/leadgen'),
-  saveLeadgen: (cfg: { cidade?: string; quantidade?: number; rotacao?: boolean; nichos?: string[] }) =>
+  saveLeadgen: (cfg: { cidade?: string; quantidade?: number; rotacao?: boolean; nichos?: string[]; auto?: boolean; minNovos?: number; intervaloHoras?: number }) =>
     fetchJson<import('./types').LeadgenConfig>('/leadgen', { method: 'POST', body: JSON.stringify(cfg) }),
+  runLeadgen: () => fetchJson<{ ok: boolean; started: boolean }>('/leadgen/run', { method: 'POST' }),
 
   syncClientes: () => fetchJson<{ clientes: number }>('/clientes/sync', { method: 'POST' }),
   syncCliente: (id: string) => fetchJson<{ slug: string; totais: Record<string, number> }>(`/clientes/${encodeURIComponent(id)}/sync`, { method: 'POST' }),
@@ -206,10 +207,18 @@ export const api = {
     fetchJson<import('./types').Blueprint>('/conteudo/blueprints', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clienteId, blueprint }) }),
   deleteBlueprint: (id: string) => fetchJson<{ ok: boolean }>(`/conteudo/blueprints/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
-  gerarProduto: (payload: { cliente: { nome?: string; segmento?: string; contato?: string; observacao?: string; objetivo?: string; publico?: string }; tipo: string; tema?: string }) =>
+  gerarProduto: (payload: { cliente: { nome?: string; segmento?: string; contato?: string; observacao?: string; objetivo?: string; publico?: string }; tipo: string; tema?: string; estilo?: string }) =>
     fetchJson<{ jobId: string }>('/conteudo/produtos/gerar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
-  getProdutoJob: (jobId: string, tipo: string) =>
-    fetchJson<{ status: string; produto?: { formato: 'html' | 'md'; conteudo: string }; error?: string; parseError?: boolean }>(`/conteudo/produtos/job/${encodeURIComponent(jobId)}?tipo=${encodeURIComponent(tipo)}`),
+  getProdutoJob: (jobId: string, tipo: string, estilo?: string) =>
+    fetchJson<{ status: string; produto?: { formato: 'html' | 'md'; conteudo: string }; error?: string; parseError?: boolean }>(`/conteudo/produtos/job/${encodeURIComponent(jobId)}?tipo=${encodeURIComponent(tipo)}${estilo ? `&estilo=${encodeURIComponent(estilo)}` : ''}`),
+  getLandingEstilos: (cliente?: { segmento?: string; observacao?: string; publico?: string }) => {
+    const qs = new URLSearchParams()
+    if (cliente?.segmento) qs.set('segmento', cliente.segmento)
+    if (cliente?.observacao) qs.set('observacao', cliente.observacao)
+    if (cliente?.publico) qs.set('publico', cliente.publico)
+    const q = qs.toString()
+    return fetchJson<{ estilos: import('./types').LandingEstilo[]; recomendado: string; niche: string }>('/conteudo/landing/estilos' + (q ? `?${q}` : ''))
+  },
   getProdutos: (clienteId?: string) => fetchJson<{ produtos: import('./types').Produto[] }>('/conteudo/produtos' + (clienteId ? `?clienteId=${encodeURIComponent(clienteId)}` : '')),
   saveProduto: (clienteId: string | null, produto: import('./types').Produto) =>
     fetchJson<import('./types').Produto>('/conteudo/produtos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clienteId, produto }) }),

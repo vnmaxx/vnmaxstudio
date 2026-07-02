@@ -434,6 +434,7 @@ function LeadgenSection() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [novoNicho, setNovoNicho] = useState('')
+  const [captando, setCaptando] = useState(false)
 
   useEffect(() => {
     api.getLeadgen()
@@ -467,11 +468,22 @@ function LeadgenSection() {
     if (!cfg) return
     setSaving(true)
     try {
-      const salvo = await api.saveLeadgen({ cidade: cfg.cidade, quantidade: cfg.quantidade, rotacao: cfg.rotacao, nichos: cfg.nichos })
+      const salvo = await api.saveLeadgen({ cidade: cfg.cidade, quantidade: cfg.quantidade, rotacao: cfg.rotacao, nichos: cfg.nichos, auto: cfg.auto, minNovos: cfg.minNovos, intervaloHoras: cfg.intervaloHoras })
       setCfg({ ...salvo, nichos: salvo.nichos || [] })
       menu.toast('Configuração de leads salva — vale no próximo ciclo de busca')
     } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao salvar', 'error') }
     finally { setSaving(false) }
+  }
+
+  const captarAgora = async () => {
+    setCaptando(true)
+    try {
+      await api.runLeadgen()
+      menu.toast('Captação iniciada — os leads aparecem no CRM em alguns minutos e a 1ª mensagem é gerada em seguida')
+    } catch (e: unknown) {
+      menu.toast(e instanceof Error ? e.message : 'Erro ao iniciar captação', 'error')
+      setCaptando(false)
+    }
   }
 
   if (loading || !cfg) {
@@ -479,9 +491,52 @@ function LeadgenSection() {
   }
 
   const catalogo = cfg.catalogo || {}
+  const emCaptacao = captando || !!cfg.captando
 
   return (
     <div className="col gap-6">
+      <div className="card card--pad">
+        <SectionTitle>Captação automática</SectionTitle>
+        <div className="row--between" style={{ marginBottom: 12 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>Repor leads sozinho</p>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>
+              Quando os leads novos acabam, o Growth busca mais, importa no CRM e a 1ª mensagem já sai pronta em Conversas
+            </p>
+          </div>
+          <button className="toggle" data-on={String(cfg.auto)} onClick={() => patch({ auto: !cfg.auto })} aria-label="Captação automática" />
+        </div>
+        {cfg.auto && (
+          <div className="row wrap" style={{ gap: 16 }}>
+            <Field label="Estoque mínimo" hint="Captar quando houver menos leads novos que isso">
+              <input
+                className="input" type="number" min={1} max={20} value={cfg.minNovos}
+                onChange={e => patch({ minNovos: Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)) })}
+                style={{ maxWidth: 120 }}
+              />
+            </Field>
+            <Field label="Intervalo mínimo (horas)" hint="Tempo mínimo entre duas captações">
+              <input
+                className="input" type="number" min={1} max={72} value={cfg.intervaloHoras}
+                onChange={e => patch({ intervaloHoras: Math.max(1, Math.min(72, parseInt(e.target.value, 10) || 1)) })}
+                style={{ maxWidth: 120 }}
+              />
+            </Field>
+          </div>
+        )}
+        <div className="row wrap" style={{ gap: 12, marginTop: 10, alignItems: 'center' }}>
+          <button className="btn" onClick={captarAgora} disabled={emCaptacao}>
+            {emCaptacao ? <RefreshCw size={14} className="spin" /> : <Target size={14} />}
+            {emCaptacao ? 'Captando...' : 'Captar agora'}
+          </button>
+          {cfg.ultimaCaptacao && (
+            <span className="dim" style={{ fontSize: 11.5 }}>
+              Última captação: {new Date(cfg.ultimaCaptacao).toLocaleString('pt-BR')}
+            </span>
+          )}
+        </div>
+      </div>
+
       <div className="card card--pad">
         <SectionTitle>Onde e quanto buscar</SectionTitle>
         <Field label="Cidade / região" hint="Onde o agente Growth procura os negócios locais">

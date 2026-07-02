@@ -265,15 +265,8 @@ async function cicloSegunda() {
   const leadsExistentes = lerDiretorio(path.join(WORKSPACE, 'leads'), { maxArquivos: 5 });
   const produtosExistentes = lerDiretorio(path.join(WORKSPACE, 'produtos'), { maxArquivos: 5 });
 
-  let leadgenCfg = { cidade: '', quantidade: 8, nichos: [] };
-  try { leadgenCfg = new (require(path.join(ROOT, 'lib', 'leadgen.js')).Leadgen)(WORKSPACE).load(); } catch {}
-  const CIDADE = leadgenCfg.cidade || process.env.STUDIO_CIDADE || 'São Paulo';
-  const QTD_LEADS = leadgenCfg.quantidade || 8;
-  let nichosDisponiveis = [];
-  try { nichosDisponiveis = new (require(path.join(ROOT, 'lib', 'leadgen.js')).Leadgen)(WORKSPACE).pickNichos(Math.min(14, Math.max(6, QTD_LEADS + 4))); } catch {}
-  if (!nichosDisponiveis.length) nichosDisponiveis = ['nutricionistas', 'dentistas', 'personal trainers', 'contadores', 'advogados', 'cabeleireiros', 'petshops', 'marcenarias', 'mercados de bairro'];
-  const NICHOS_STR = nichosDisponiveis.join(', ');
-  const NUM_SEGMENTOS = Math.min(nichosDisponiveis.length, Math.max(3, Math.ceil(QTD_LEADS / 2)));
+  let leadgenInst = null;
+  try { leadgenInst = new (require(path.join(ROOT, 'lib', 'leadgen.js')).Leadgen)(WORKSPACE); } catch {}
 
   await runPipeline({
     name: 'ciclo-segunda',
@@ -303,9 +296,14 @@ async function cicloSegunda() {
         maxRetries: 2,
         timeoutMs: 13 * 60 * 1000,
         fn: async (ctx) => {
-          const planoResumo = (ctx.plano || '').slice(0, 600);
+          if (!leadgenInst) throw new Error('Leadgen indisponível');
+          let evitar = [];
+          try {
+            const crmInst = new (require(path.join(ROOT, 'lib', 'crm.js')).Crm)(WORKSPACE);
+            evitar = crmInst.list().map(l => l.nome).filter(Boolean).slice(-60);
+          } catch {}
           const r = await runJob('studio-growth',
-            `Use APENAS WebSearch (NÃO use WebFetch — é lento) para encontrar ${QTD_LEADS} negócios locais reais em ${CIDADE} com boa reputação mas presença digital fraca.\n\nVarie os segmentos (escolha ${NUM_SEGMENTOS} entre: ${NICHOS_STR}). Não repita o mesmo segmento em mais de 2 negócios. No máximo 2 buscas por negócio (1 para achar, 1 para o Instagram). Pare depois de encontrar os ${QTD_LEADS} e retorne o JSON imediatamente.\n\nRetorne:\n<<<LEADS>>>\n[{"nome":"...","segmento":"...","contato":"@handle / tel","observacao":"Nota X.X em [fonte] - [observação]"}]\n<<<FIM_LEADS>>>\n<<<ROTEIROS>>>\n[2 roteiros virais]\n<<<FIM_ROTEIROS>>>\n\nPRIORIDADE:\n${planoResumo}`,
+            leadgenInst.growthTask({ plano: ctx.plano, comRoteiros: true, evitar }),
             { timeoutMs: 12 * 60 * 1000 });
           if (r.status === 'error') throw new Error(String(r.result || 'Growth falhou'));
           if (r.result) {
@@ -315,7 +313,15 @@ async function cicloSegunda() {
             if (leadsBloco) {
               const leadsPath = path.join(WORKSPACE, 'leads', `leads-${data}.json`);
               const cleanLeads = leadsBloco.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```[\s\S]*$/, '').trim();
-              if (salvarResultado(leadsPath, cleanLeads)) log(`leads salvos → ${leadsPath}`);
+              if (salvarResultado(leadsPath, cleanLeads)) {
+                log(`leads salvos → ${leadsPath}`);
+                try { leadgenInst.markCaptacao(); } catch {}
+                try {
+                  const crmInst = new (require(path.join(ROOT, 'lib', 'crm.js')).Crm)(WORKSPACE);
+                  const rs = crmInst.syncFromLeads();
+                  log(`CRM: ${rs.added} lead(s) importado(s), ${rs.merged} fundido(s)`);
+                } catch (e) { log(`AVISO sync CRM: ${e.message}`); }
+              }
             }
             if (roteirosBloco) {
               const rotPath = path.join(WORKSPACE, 'conteudo', `roteiros-${data}.md`);
