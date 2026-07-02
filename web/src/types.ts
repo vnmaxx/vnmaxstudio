@@ -128,13 +128,25 @@ export interface CrmEvent {
   em: string
 }
 
+export interface CrmOpcao {
+  angulo?: string
+  assunto?: string
+  mensagem: string
+  objetivo?: string
+}
+
 export interface CrmRascunho {
   canal?: string
   etapa?: string
+  stage?: string
   assunto?: string
   mensagem: string
   objetivo?: string
   proximo_passo?: string
+  opcoes?: CrmOpcao[]
+  materialTipo?: string
+  materialTitulo?: string
+  materialUrl?: string
   status?: string
   origem?: string
   geradoEm?: string

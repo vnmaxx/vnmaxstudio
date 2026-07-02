@@ -67,8 +67,11 @@ try {
   social = new mod.SocialHub(WORKSPACE);
 } catch (e) { console.error('Social Hub indisponível:', e.message); }
 
-let sdr = { sdrTask: () => '', parseMsgBlocks: () => [], firstDraft: () => null };
+let sdr = { sdrTask: () => '', parseMsgBlocks: () => [], firstDraft: () => null, allDrafts: () => [] };
 try { sdr = require(path.join(ROOT, 'lib', 'sdr.js')); } catch (e) { console.error('SDR helpers indisponíveis:', e.message); }
+
+let esteiraMod = null;
+try { esteiraMod = require(path.join(ROOT, 'lib', 'esteira.js')); } catch (e) { console.error('Esteira indisponível:', e.message); }
 
 let conteudo = null;
 try {
@@ -213,62 +216,157 @@ async function criarJob(agent, task, tries = 5) {
 }
 
 const AUTO_DRAFT_ENABLED = readEnvKey('AUTO_DRAFT') !== '0';
+const AUTO_MATERIAL_ENABLED = readEnvKey('AUTO_MATERIAL') !== '0';
 const draftQueue = [];
 const draftAttempts = new Map();
 const DRAFT_COOLDOWN_MS = 15 * 60 * 1000;
 const DRAFT_TICK_MS = 20 * 1000;
+const ESTEIRA_LEAD_MAX_IDADE_MS = 14 * 24 * 60 * 60 * 1000;
 let draftBusy = false;
 
-async function generateDraftFor(lead) {
-  const jobId = await criarJob('studio-sdr', sdr.sdrTask(lead, vnmaxCfg()));
+async function runNxsJob(agent, task, maxMs) {
+  const jobId = await criarJob(agent, task);
   const started = Date.now();
-  while (Date.now() - started < 150000) {
-    await sleep(5000);
+  while (Date.now() - started < maxMs) {
+    await sleep(6000);
     let s;
     try { s = await nxsRequest('GET', `/v1/jobs/${jobId}`); } catch { continue; }
-    if (s.status === 'done') return sdr.firstDraft(s.result);
+    if (s.status === 'done') return s.result;
     if (s.status === 'error') throw new Error(String(s.result || 'erro no job'));
   }
   throw new Error('timeout');
 }
 
-function nextDraftCandidate() {
+function materialExistente(leadId, tipo) {
+  if (!conteudo) return null;
+  try {
+    return conteudo.listProdutos(leadId).find(p => p.tipo === tipo && p.esteira) || null;
+  } catch { return null; }
+}
+
+function tituloMaterial(tipo, lead, conteudoMd) {
+  if (tipo === 'ebook') {
+    const h1 = String(conteudoMd || '').match(/^#\s+(.+)$/m);
+    if (h1) return h1[1].trim().slice(0, 120);
+    return `Guia prático — ${lead.nome}`;
+  }
+  if (tipo === 'landing') return `Prévia do site — ${lead.nome}`;
+  if (tipo === 'crm') return `Sistema demo — ${lead.nome}`;
+  return `Material — ${lead.nome}`;
+}
+
+async function gerarMaterial(lead, tipo) {
+  if (!prod || !conteudo) throw new Error('módulos de produto indisponíveis');
+  let estilo;
+  if (tipo === 'landing' && prod.recommendStyle) {
+    try { estilo = prod.recommendStyle({ segmento: lead.segmento, observacao: lead.observacao }).estilo; } catch {}
+  }
+  const task = prod.buildProdutoTask(lead, tipo, { estilo });
+  const result = await runNxsJob('general', task, 7 * 60 * 1000);
+  const parsed = prod.parseProduto(result, tipo, estilo);
+  if (!parsed || !parsed.conteudo) throw new Error(`material ${tipo} não parseável`);
+  const titulo = tituloMaterial(tipo, lead, parsed.conteudo);
+
+  let url = '';
+  const token = readEnvKey('VERCEL_TOKEN');
+  if (token && deployMod && esteiraMod) {
+    try {
+      const html = parsed.formato === 'html'
+        ? parsed.conteudo
+        : esteiraMod.renderDocHtml(parsed.conteudo, { titulo, marca: (vnmaxCfg() || {}).empresa || 'VNMAX' });
+      const dep = await deployMod.publishLanding({
+        token,
+        teamId: readEnvKey('VERCEL_TEAM_ID') || null,
+        project: `${lead.nome} ${tipo}`,
+        suffix: String(lead.id).slice(-4),
+        html,
+      });
+      if (dep.ok) url = dep.url;
+    } catch (e) {
+      console.error(`esteira ${lead.id}: publicação do ${tipo} falhou (${e.message}) — segue sem link`);
+    }
+  }
+
+  const salvo = conteudo.addProduto(lead.id, {
+    tipo,
+    titulo,
+    formato: parsed.formato,
+    conteudo: parsed.conteudo,
+    url,
+    esteira: true,
+    stage: lead.stage,
+  });
+  console.log(`esteira: material ${tipo} pronto para ${lead.id}${url ? ` → ${url}` : ''}`);
+  return salvo;
+}
+
+async function gerarOpcoesMensagem(lead, tipo, produto) {
+  const result = await runNxsJob('studio-sdr', sdr.sdrTask(lead, vnmaxCfg(), { materialTipo: tipo, produto }), 150000);
+  const opcoes = sdr.allDrafts(result, 3);
+  if (!opcoes.length) throw new Error('SDR não retornou mensagens');
+  crm.setRascunho(lead.id, {
+    canal: lead.canal,
+    etapa: lead.stage === 'NOVO' ? 'abertura' : 'follow-up',
+    stage: lead.stage,
+    opcoes,
+    materialTipo: tipo || '',
+    materialTitulo: produto ? produto.titulo || '' : '',
+    materialUrl: produto ? produto.url || '' : '',
+    origem: 'auto',
+  });
+  console.log(`esteira: ${opcoes.length} opção(ões) de mensagem prontas para ${lead.id} (${lead.stage})`);
+}
+
+function precisaEsteira(lead) {
+  if (!esteiraMod || !esteiraMod.ETAPAS_ATIVAS.includes(lead.stage)) return false;
+  if (lead.stage === 'NOVO') {
+    return !lead.rascunho && (!lead.historico || lead.historico.length === 0);
+  }
+  const idade = Date.now() - new Date(lead.atualizadoEm || lead.criadoEm || 0).getTime();
+  if (idade > ESTEIRA_LEAD_MAX_IDADE_MS) return false;
+  return !lead.rascunho || lead.rascunho.stage !== lead.stage;
+}
+
+function nextEsteiraCandidate() {
   if (!crm) return null;
   let leads;
   try { leads = crm.list(); } catch { return null; }
   while (draftQueue.length) {
     const id = draftQueue.shift();
     const lead = leads.find(l => l.id === id);
-    if (lead && lead.stage === 'NOVO' && !lead.rascunho) return lead;
+    if (lead && precisaEsteira(lead)) return lead;
   }
   const now = Date.now();
-  return leads.find(l =>
-    l.stage === 'NOVO' && !l.rascunho && (!l.historico || l.historico.length === 0) &&
-    (!draftAttempts.has(l.id) || now - draftAttempts.get(l.id) > DRAFT_COOLDOWN_MS)
-  ) || null;
+  return leads.find(l => {
+    if (!precisaEsteira(l)) return false;
+    const key = `${l.id}:${l.stage}`;
+    return !draftAttempts.has(key) || now - draftAttempts.get(key) > DRAFT_COOLDOWN_MS;
+  }) || null;
 }
 
-async function draftTick() {
+async function esteiraTick() {
   if (draftBusy || !AUTO_DRAFT_ENABLED || !crm || !NXS_KEY) return;
-  const lead = nextDraftCandidate();
+  const lead = nextEsteiraCandidate();
   if (!lead) return;
   draftBusy = true;
-  draftAttempts.set(lead.id, Date.now());
+  draftAttempts.set(`${lead.id}:${lead.stage}`, Date.now());
   try {
-    const msg = await generateDraftFor(lead);
-    if (msg && msg.mensagem) {
-      crm.setRascunho(lead.id, { ...msg, origem: 'auto' });
-      console.log(`auto-draft: rascunho gerado para ${lead.id}`);
+    const tipo = esteiraMod ? esteiraMod.materialDaEtapa(lead.stage) : null;
+    let produto = null;
+    if (tipo && AUTO_MATERIAL_ENABLED) {
+      produto = materialExistente(lead.id, tipo);
+      if (!produto) produto = await gerarMaterial(lead, tipo);
     }
+    await gerarOpcoesMensagem(lead, produto ? tipo : null, produto);
   } catch (e) {
-    console.error(`auto-draft ${lead.id}: ${e.message}`);
+    console.error(`esteira ${lead.id} (${lead.stage}): ${e.message}`);
   } finally {
     draftBusy = false;
   }
 }
 
 if (AUTO_DRAFT_ENABLED) {
-  setInterval(() => { draftTick().catch(() => {}); }, DRAFT_TICK_MS);
+  setInterval(() => { esteiraTick().catch(() => {}); }, DRAFT_TICK_MS);
 }
 
 const AUTO_LEADGEN_ENABLED = readEnvKey('AUTO_LEADGEN') !== '0';
@@ -1292,7 +1390,7 @@ app.post('/crm/sdr-lote', (req, res) => {
   try {
     if (!crm) return res.status(503).json({ error: 'CRM indisponível' });
     if (!NXS_KEY) return res.status(503).json({ error: 'NXS_STUDIO_KEY ausente' });
-    const eligiveis = crm.list().filter(l => l.stage === 'NOVO' && !l.rascunho && (!l.historico || l.historico.length === 0));
+    const eligiveis = crm.list().filter(l => precisaEsteira(l));
     let queued = 0;
     for (const lead of eligiveis) {
       if (!draftQueue.includes(lead.id)) { draftQueue.push(lead.id); queued++; }

@@ -368,8 +368,12 @@ async function cicloSegunda() {
           for (const lead of novos) {
             const r = await runJob('studio-sdr', sdr.sdrTask(lead, vnmaxCfg), { timeoutMs: 3 * 60 * 1000 });
             if (r.status === 'done') {
-              const msg = sdr.firstDraft(r.result);
-              if (msg && msg.mensagem) { crm.setRascunho(lead.id, { ...msg, origem: 'ciclo' }); n++; }
+              const opcoes = sdr.allDrafts ? sdr.allDrafts(r.result, 3) : [];
+              if (opcoes.length) { crm.setRascunho(lead.id, { canal: lead.canal, etapa: 'abertura', stage: lead.stage, opcoes, origem: 'ciclo' }); n++; }
+              else {
+                const msg = sdr.firstDraft(r.result);
+                if (msg && msg.mensagem) { crm.setRascunho(lead.id, { ...msg, stage: lead.stage, origem: 'ciclo' }); n++; }
+              }
             }
           }
           log(`SDR: ${n} primeira(s) mensagem(ns) gerada(s) — rascunhos prontos em Conversas.`);

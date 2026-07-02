@@ -6,8 +6,15 @@ import { useContextMenu, type CtxItem } from '../components/ContextMenu'
 import {
   RefreshCw, Plus, Download, Users, AtSign, Mail, Globe, X, Copy,
   Trash2, ArrowRightLeft, MessageSquarePlus, Clock, ExternalLink, MapPin, MessageCircle,
-  Sparkles, Send, Loader2, Check,
+  Sparkles, Send, Loader2, Check, Paperclip, BookOpen, LayoutTemplate, Kanban,
 } from 'lucide-react'
+
+const ANGULO_LABEL: Record<string, string> = { direto: 'Direta', pessoal: 'Pessoal', prova: 'Com material' }
+const MATERIAL_META: Record<string, { label: string; icon: typeof BookOpen }> = {
+  ebook: { label: 'Guia pronto', icon: BookOpen },
+  landing: { label: 'Prévia do site', icon: LayoutTemplate },
+  crm: { label: 'Sistema demo', icon: Kanban },
+}
 
 const STAGE_META: Record<CrmStage, { label: string; color: string }> = {
   NOVO:        { label: 'Novo',        color: '#64D2FF' },
@@ -70,20 +77,33 @@ function StageBadge({ stage }: { stage: CrmStage }) {
 
 function LeadCard({ lead, onOpen, menuItems }: { lead: CrmLead; onOpen: () => void; menuItems: () => CtxItem[] }) {
   const menu = useContextMenu()
+  const r = lead.rascunho
+  const nOpcoes = r?.opcoes?.length || (r?.mensagem ? 1 : 0)
+  const mat = r?.materialTipo ? MATERIAL_META[r.materialTipo] : null
+  const MatIcon = mat?.icon || Paperclip
   return (
-    <button className="card card--hover card--pad" onClick={onOpen} {...menu.bind(menuItems)}
-      style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+    <button className="card card--hover" onClick={onOpen} {...menu.bind(menuItems)}
+      style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 7, width: '100%', padding: '12px 13px', borderColor: nOpcoes ? 'var(--accent-line)' : 'var(--border)' }}>
       <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
         <CanalIcon canal={lead.canal} size={14} />
         <span className="truncate" style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{lead.nome}</span>
-        {lead.rascunho?.mensagem && (
-          <span className="row" title="Mensagem pronta para enviar" style={{ gap: 3, flexShrink: 0, fontSize: 10, fontWeight: 700, color: 'var(--accent-text)', background: 'var(--accent-soft)', padding: '1px 6px', borderRadius: 999 }}>
-            <Sparkles size={10} /> pronta
-          </span>
-        )}
       </div>
       {lead.segmento && <span className="dim truncate" style={{ fontSize: 11.5 }}>{lead.segmento}</span>}
-      <div className="row--between" style={{ marginTop: 2 }}>
+      {(nOpcoes > 0 || mat) && (
+        <div className="row wrap" style={{ gap: 5 }}>
+          {nOpcoes > 0 && (
+            <span className="row" title="Mensagens prontas — escolha e envie" style={{ gap: 4, fontSize: 10, fontWeight: 700, color: 'var(--accent-text)', background: 'var(--accent-soft)', padding: '2px 7px', borderRadius: 999 }}>
+              <Sparkles size={10} /> {nOpcoes > 1 ? `${nOpcoes} opções` : 'pronta'}
+            </span>
+          )}
+          {mat && (
+            <span className="row" title={r?.materialTitulo || mat.label} style={{ gap: 4, fontSize: 10, fontWeight: 700, color: 'var(--accent-green)', background: 'color-mix(in srgb, var(--accent-green) 13%, transparent)', padding: '2px 7px', borderRadius: 999 }}>
+              <MatIcon size={10} /> {mat.label}
+            </span>
+          )}
+        </div>
+      )}
+      <div className="row--between">
         <span className="dim truncate" style={{ fontSize: 11, maxWidth: 140 }}>{lead.contato || '—'}</span>
         <span className="row dim" style={{ gap: 4, fontSize: 10.5, flexShrink: 0 }}>
           <Clock size={10} strokeWidth={1.8} /> {timeAgo(lead.atualizadoEm)}
@@ -105,6 +125,7 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove, onLea
   const [suggesting, setSuggesting] = useState(false)
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([])
   const [sendingIdx, setSendingIdx] = useState<number | null>(null)
+  const [opIdx, setOpIdx] = useState(0)
 
   const sugerir = async () => {
     setSuggesting(true)
@@ -187,37 +208,68 @@ function DetailModal({ lead, stages, onClose, onMove, onContato, onRemove, onLea
         </div>
 
         <div className="modal-body" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {lead.rascunho?.mensagem && (
-            <div className="card card--pad anim-fade" style={{ background: 'var(--accent-softer)', borderColor: 'var(--accent-line)' }}>
-              <div className="row--between" style={{ marginBottom: 8 }}>
-                <span className="row" style={{ gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--accent-text)' }}>
-                  <Sparkles size={14} /> Mensagem pronta {lead.rascunho.origem === 'auto' ? '· gerada automaticamente' : '· IA'}
-                </span>
-                <button className="btn-icon btn-icon--sm" title="Descartar rascunho" onClick={descartarRascunho}><X size={13} strokeWidth={2} /></button>
-              </div>
-              <div className="row wrap" style={{ gap: 6, marginBottom: 8 }}>
-                {lead.rascunho.etapa && <span className="badge" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>{lead.rascunho.etapa}</span>}
-                {lead.rascunho.canal && <span className="chip" style={{ fontSize: 10.5, padding: '2px 7px' }}>{lead.rascunho.canal}</span>}
-              </div>
-              {lead.rascunho.assunto && <p style={{ margin: '0 0 6px', fontSize: 12.5, fontWeight: 600 }}>Assunto: {lead.rascunho.assunto}</p>}
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{lead.rascunho.mensagem}</p>
-              {lead.rascunho.objetivo && <p className="dim" style={{ fontSize: 11, margin: '8px 0 0' }}>🎯 {lead.rascunho.objetivo}</p>}
-              <div className="row wrap" style={{ gap: 6, marginTop: 10 }}>
-                {temTelefone && (
-                  <button className="btn btn--sm" style={{ background: 'color-mix(in srgb, var(--accent-green) 16%, transparent)', borderColor: 'var(--accent-green)', color: 'var(--accent-green)' }} onClick={() => enviarWhatsApp(lead.rascunho!.mensagem)}>
-                    <MessageCircle size={12} /> Enviar no WhatsApp
-                  </button>
+          {lead.rascunho?.mensagem && (() => {
+            const r = lead.rascunho!
+            const opcoes = r.opcoes?.length ? r.opcoes : [{ angulo: '', assunto: r.assunto, mensagem: r.mensagem, objetivo: r.objetivo }]
+            const op = opcoes[Math.min(opIdx, opcoes.length - 1)]
+            const mat = r.materialTipo ? MATERIAL_META[r.materialTipo] : null
+            const MatIcon = mat?.icon || Paperclip
+            return (
+              <div className="card card--pad anim-fade" style={{ background: 'var(--accent-softer)', borderColor: 'var(--accent-line)' }}>
+                <div className="row--between" style={{ marginBottom: 10 }}>
+                  <span className="row" style={{ gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--accent-text)' }}>
+                    <Sparkles size={14} /> {opcoes.length > 1 ? 'Escolha a mensagem e envie' : 'Mensagem pronta'}
+                  </span>
+                  <button className="btn-icon btn-icon--sm" title="Descartar rascunho" onClick={descartarRascunho}><X size={13} strokeWidth={2} /></button>
+                </div>
+                {mat && (
+                  <a
+                    href={r.materialUrl || undefined} target="_blank" rel="noopener noreferrer"
+                    className="row" onClick={e => { if (!r.materialUrl) e.preventDefault() }}
+                    style={{ gap: 8, marginBottom: 10, padding: '8px 11px', borderRadius: 10, textDecoration: 'none',
+                      background: 'color-mix(in srgb, var(--accent-green) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--accent-green) 30%, transparent)' }}>
+                    <MatIcon size={14} style={{ color: 'var(--accent-green)', flexShrink: 0 }} />
+                    <span className="truncate" style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'var(--accent-green)' }}>
+                      {mat.label}{r.materialTitulo ? ` — ${r.materialTitulo}` : ''}
+                    </span>
+                    {r.materialUrl && <ExternalLink size={12} style={{ color: 'var(--accent-green)', flexShrink: 0 }} />}
+                  </a>
                 )}
-                {podeEnviarApi && (
-                  <button className="btn btn--primary btn--sm" onClick={() => enviar(lead.rascunho!.mensagem, -1)} disabled={sendingIdx === -1}>
-                    {sendingIdx === -1 ? <Loader2 size={12} className="spin" /> : <Send size={12} />} Enviar
-                  </button>
+                {opcoes.length > 1 && (
+                  <div className="row" style={{ gap: 5, marginBottom: 10 }}>
+                    {opcoes.map((o, i) => (
+                      <button key={i} onClick={() => setOpIdx(i)}
+                        className="btn btn--sm" style={{
+                          flex: 1, justifyContent: 'center', fontSize: 11.5,
+                          background: i === opIdx ? 'var(--accent-soft)' : 'transparent',
+                          borderColor: i === opIdx ? 'var(--accent)' : 'var(--border)',
+                          color: i === opIdx ? 'var(--accent-text)' : 'var(--text-secondary)',
+                        }}>
+                        {ANGULO_LABEL[o.angulo || ''] || `Opção ${i + 1}`}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(lead.rascunho!.mensagem, 'Mensagem copiada')}><Copy size={12} /> Copiar</button>
-                <button className="btn btn--ghost btn--sm" onClick={() => registrarRascunho(lead.rascunho!.mensagem)}><Check size={12} /> Registrar como enviada</button>
+                {op.assunto && <p style={{ margin: '0 0 6px', fontSize: 12.5, fontWeight: 600 }}>Assunto: {op.assunto}</p>}
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{op.mensagem}</p>
+                {op.objetivo && <p className="dim" style={{ fontSize: 11, margin: '8px 0 0' }}>🎯 {op.objetivo}</p>}
+                <div className="row wrap" style={{ gap: 6, marginTop: 12 }}>
+                  {temTelefone && (
+                    <button className="btn btn--sm" style={{ background: 'color-mix(in srgb, var(--accent-green) 16%, transparent)', borderColor: 'var(--accent-green)', color: 'var(--accent-green)' }} onClick={() => enviarWhatsApp(op.mensagem)}>
+                      <MessageCircle size={12} /> Enviar no WhatsApp
+                    </button>
+                  )}
+                  {podeEnviarApi && (
+                    <button className="btn btn--primary btn--sm" onClick={() => enviar(op.mensagem, -1)} disabled={sendingIdx === -1}>
+                      {sendingIdx === -1 ? <Loader2 size={12} className="spin" /> : <Send size={12} />} Enviar
+                    </button>
+                  )}
+                  <button className="btn btn--ghost btn--sm" onClick={() => menu.copy(op.mensagem, 'Mensagem copiada')}><Copy size={12} /> Copiar</button>
+                  <button className="btn btn--ghost btn--sm" onClick={() => registrarRascunho(op.mensagem)}><Check size={12} /> Registrar como enviada</button>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
           <div className="row wrap" style={{ gap: 8 }}>
             {temTelefone && (
               <a className="chip" href={waLink(lead.contato)} target="_blank" rel="noopener noreferrer" title={phone} style={{ color: 'var(--accent-green)', textDecoration: 'none' }}><MessageCircle size={12} /> WhatsApp</a>
@@ -440,7 +492,11 @@ export default function Conversas({ embedded }: { embedded?: boolean } = {}) {
     } catch (e: unknown) { menu.toast(e instanceof Error ? e.message : 'Erro ao gerar em lote', 'error') }
   }
 
-  const novosSemRascunho = leads.filter(l => l.stage === 'NOVO' && !l.rascunho).length
+  const novosSemRascunho = leads.filter(l => {
+    if (l.stage === 'NOVO') return !l.rascunho && (!l.historico || l.historico.length === 0)
+    if (['CONTATADO', 'RESPONDEU', 'QUALIFICADO'].includes(l.stage)) return !l.rascunho || l.rascunho.stage !== l.stage
+    return false
+  }).length
 
   const onLeadUpdate = (lead: CrmLead) => {
     setLeads(prev => prev.map(l => l.id === lead.id ? lead : l))
@@ -479,8 +535,8 @@ export default function Conversas({ embedded }: { embedded?: boolean } = {}) {
           <button className="btn btn--ghost" onClick={importLeads}><Download size={14} /> Importar leads</button>
           <button className="btn btn--ghost" onClick={removerDuplicados} title="Mescla leads repetidos (mesmo telefone, e-mail ou @, em qualquer formato)"><Copy size={14} /> Remover duplicados</button>
           {novosSemRascunho > 0 && (
-            <button className="btn btn--accent-soft" onClick={gerarLote} title="Gera a 1ª mensagem do SDR para todos os leads novos">
-              <Sparkles size={14} /> Gerar 1ª msg ({novosSemRascunho})
+            <button className="btn btn--accent-soft" onClick={gerarLote} title="Gera material e mensagens da etapa para todos os leads pendentes">
+              <Sparkles size={14} /> Gerar mensagens ({novosSemRascunho})
             </button>
           )}
           <button className="btn btn--accent-soft" onClick={() => setAddOpen(true)}><Plus size={14} /> Adicionar</button>
@@ -520,15 +576,17 @@ export default function Conversas({ embedded }: { embedded?: boolean } = {}) {
           {visibleStages.map(s => {
             const items = byStage(s)
             return (
-              <div key={s} className="panel" style={{ width: 280, flexShrink: 0, background: 'rgba(255,255,255,0.015)' }}>
-                <div className="panel-head" style={{ gap: 8 }}>
+              <div key={s} style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <div className="row" style={{ gap: 8, padding: '4px 6px 10px', flexShrink: 0 }}>
                   <span className="dot" style={{ background: STAGE_META[s].color }} />
-                  <span className="panel-title">{STAGE_META[s].label}</span>
-                  <span className="badge" style={{ marginLeft: 'auto' }}>{items.length}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '.02em' }}>{STAGE_META[s].label}</span>
+                  <span className="dim" style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 600 }}>{items.length}</span>
                 </div>
-                <div className="panel-body" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className="scroll" style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 8, minHeight: 0 }}>
                   {items.length === 0 ? (
-                    <p className="dim" style={{ fontSize: 12, textAlign: 'center', padding: '16px 8px' }}>—</p>
+                    <div style={{ border: '1px dashed var(--border)', borderRadius: 12, padding: '18px 8px', textAlign: 'center' }}>
+                      <p className="dim" style={{ fontSize: 11.5, margin: 0 }}>vazio</p>
+                    </div>
                   ) : items.map(lead => (
                     <LeadCard key={lead.id} lead={lead} onOpen={() => setSelected(lead)} menuItems={cardMenu(lead)} />
                   ))}
