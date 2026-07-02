@@ -12,6 +12,7 @@ import {
   Users, FileText, Megaphone, Mail, Package,
   AlertCircle, Activity, TrendingUp, Clock, Copy, CopyPlus,
   LayoutDashboard, Briefcase, GitBranch, Plus, Upload, Trash2, GripVertical, ExternalLink,
+  Sparkles, LayoutTemplate, Kanban, MessageCircle,
 } from 'lucide-react'
 
 type AgentsMap = Record<string, Agent>
@@ -609,6 +610,72 @@ function FunilLeads({ leads }: { leads: import('../types').CrmLead[] }) {
   )
 }
 
+const MATERIAL_DASH: Record<string, { label: string; icon: typeof BookOpen }> = {
+  ebook: { label: 'Guia', icon: BookOpen },
+  landing: { label: 'Site', icon: LayoutTemplate },
+  crm: { label: 'Sistema', icon: Kanban },
+}
+
+function ProntosCard({ leads, onNav }: { leads: import('../types').CrmLead[]; onNav: (to: string) => void }) {
+  const prontos = leads
+    .filter(l => l.rascunho?.mensagem && l.stage !== 'FECHADO' && l.stage !== 'PERDIDO')
+    .sort((a, b) => (b.rascunho?.geradoEm || '').localeCompare(a.rascunho?.geradoEm || ''))
+  return (
+    <div className="card col" style={{ gap: 9, padding: 14, borderColor: prontos.length ? 'var(--accent-line)' : 'var(--border)' }}>
+      <div className="row--between">
+        <span className="row" style={{ gap: 8, fontSize: 13, fontWeight: 700 }}>
+          <Sparkles size={15} style={{ color: 'var(--accent-text)' }} /> Prontos para enviar
+        </span>
+        <span style={{ fontSize: 20, fontWeight: 800, color: prontos.length ? 'var(--accent-text)' : 'var(--text-tertiary)' }}>{prontos.length}</span>
+      </div>
+      {prontos.length === 0 ? (
+        <p className="dim" style={{ fontSize: 12, margin: 0 }}>Nenhuma mensagem aguardando — a esteira gera material e mensagens sozinha conforme os leads avançam.</p>
+      ) : (
+        <div className="col" style={{ gap: 6 }}>
+          {prontos.slice(0, 4).map(l => {
+            const r = l.rascunho!
+            const mat = r.materialTipo ? MATERIAL_DASH[r.materialTipo] : null
+            const MatIcon = mat?.icon || FileText
+            const nOp = r.opcoes?.length || 1
+            return (
+              <div key={l.id} onClick={() => onNav('/conversas')} className="row--between" role="button" tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter') onNav('/conversas') }}
+                style={{ gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer', width: '100%' }}>
+                <span className="truncate" style={{ fontSize: 12.5, fontWeight: 600, minWidth: 0, color: 'var(--text-primary)' }}>{l.nome}</span>
+                <span className="row" style={{ gap: 5, flexShrink: 0 }}>
+                  {mat && (
+                    r.materialUrl ? (
+                      <a href={r.materialUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                        className="row" title={`${mat.label} publicado — abrir`}
+                        style={{ gap: 3, fontSize: 10, fontWeight: 700, color: 'var(--accent-green)', background: 'color-mix(in srgb, var(--accent-green) 13%, transparent)', padding: '2px 7px', borderRadius: 999, textDecoration: 'none' }}>
+                        <MatIcon size={10} /> {mat.label} <ExternalLink size={9} />
+                      </a>
+                    ) : (
+                      <span className="row" title={`${mat.label} pronto`}
+                        style={{ gap: 3, fontSize: 10, fontWeight: 700, color: 'var(--accent-green)', background: 'color-mix(in srgb, var(--accent-green) 13%, transparent)', padding: '2px 7px', borderRadius: 999 }}>
+                        <MatIcon size={10} /> {mat.label}
+                      </span>
+                    )
+                  )}
+                  <span className="row" title="Mensagens prontas — escolha e envie"
+                    style={{ gap: 3, fontSize: 10, fontWeight: 700, color: 'var(--accent-text)', background: 'var(--accent-soft)', padding: '2px 7px', borderRadius: 999 }}>
+                    <MessageCircle size={10} /> {nOp > 1 ? `${nOp} msgs` : 'msg'}
+                  </span>
+                </span>
+              </div>
+            )
+          })}
+          {prontos.length > 4 && (
+            <button className="btn btn--ghost btn--sm" onClick={() => onNav('/conversas')} style={{ alignSelf: 'flex-start' }}>
+              Ver todos ({prontos.length}) →
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AutomacaoCard({ metrics, lastCycle }: { metrics: import('../types').PipelineMetrics | null; lastCycle: string }) {
   const sr = metrics?.successRate ?? 0
   const cor = sr >= 70 ? 'var(--accent-green)' : sr >= 40 ? 'var(--accent-yellow)' : 'var(--accent-red)'
@@ -808,6 +875,7 @@ export default function Dashboard() {
 
       {view === 'ceo' && user?.isAdmin ? <CEO embedded /> : <>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+        <ProntosCard leads={crmLeads} onNav={navigate} />
         <FunilLeads leads={crmLeads} />
         <AutomacaoCard metrics={pipeMetrics} lastCycle={lastCycleLabel} />
         <SituacaoCard stats={stats} pend={pendCount} onNav={navigate} />
