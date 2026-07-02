@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react'
 import { api } from '../api'
-import type { CrmLead, Roteiro, RoteiroVariation, CalendarioItem, ConteudoPost, Blueprint, ConteudoPerfil, VideoJob, Produto } from '../types'
+import type { CrmLead, Roteiro, RoteiroVariation, CalendarioItem, ConteudoPost, Blueprint, ConteudoPerfil, VideoJob, Produto, LandingEstilo } from '../types'
 import { useContextMenu } from '../components/ContextMenu'
 import {
   Wand2, Calendar, Megaphone, Lightbulb, Sparkles, Copy, Trash2, Plus, Loader2,
@@ -779,27 +779,39 @@ function ProdutosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLe
   const [atual, setAtual] = useState<{ formato: string; conteudo: string; tipo: string } | null>(null)
   const [salvos, setSalvos] = useState<Produto[]>([])
   const [aberto, setAberto] = useState<string | null>(null)
+  const [estilos, setEstilos] = useState<LandingEstilo[]>([])
+  const [recomendado, setRecomendado] = useState<string>('')
+  const [estilo, setEstilo] = useState<string>('')
 
   const load = useCallback(() => { api.getProdutos(clienteId || undefined).then(r => setSalvos(r.produtos)).catch(() => {}) }, [clienteId])
   useEffect(() => { load(); setAtual(null); setAberto(null) }, [load])
+
+  useEffect(() => {
+    if (!cliente) { setEstilos([]); setRecomendado(''); return }
+    api.getLandingEstilos({ segmento: cliente.segmento, observacao: cliente.observacao }).then(r => {
+      setEstilos(r.estilos); setRecomendado(r.recomendado)
+      setEstilo(prev => prev || r.recomendado)
+    }).catch(() => {})
+  }, [cliente])
 
   const toggleTipo = (id: string) => setTipos(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
   const atualMeta = atual ? (PRODUTO_TIPOS.find(t => t.id === atual.tipo) || PRODUTO_TIPOS[0]) : PRODUTO_TIPOS[0]
 
   const gerarUm = async (tipo: string): Promise<boolean> => {
     const meta = PRODUTO_TIPOS.find(t => t.id === tipo) || PRODUTO_TIPOS[0]
+    const est = tipo === 'landing' ? (estilo || recomendado || undefined) : undefined
     let jobId: string | undefined
-    try { ({ jobId } = await api.gerarProduto({ cliente: { nome: cliente!.nome, segmento: cliente!.segmento, contato: cliente!.contato, observacao: cliente!.observacao }, tipo, tema: tema.trim() || undefined })) }
+    try { ({ jobId } = await api.gerarProduto({ cliente: { nome: cliente!.nome, segmento: cliente!.segmento, contato: cliente!.contato, observacao: cliente!.observacao }, tipo, tema: tema.trim() || undefined, estilo: est })) }
     catch (e: unknown) { menu.toast(`${meta.label}: ${e instanceof Error ? e.message : 'erro'}`, 'error'); return false }
     if (!jobId) { menu.toast(`${meta.label}: o servidor não iniciou a geração`, 'error'); return false }
     for (let i = 0; i < 160; i++) {
       await sleep(2500)
       let r
-      try { r = await api.getProdutoJob(jobId, tipo) } catch { continue }
+      try { r = await api.getProdutoJob(jobId, tipo, est) } catch { continue }
       if (r.status === 'done') {
         if (r.produto) {
           setAtual({ ...r.produto, tipo })
-          try { await api.saveProduto(clienteId || null, { tipo, titulo: `${meta.label} — ${cliente!.nome}`, formato: r.produto.formato, conteudo: r.produto.conteudo, tema: tema || undefined }) } catch {}
+          try { await api.saveProduto(clienteId || null, { tipo, titulo: `${meta.label} — ${cliente!.nome}`, formato: r.produto.formato, conteudo: r.produto.conteudo, tema: tema || undefined, estilo: est }) } catch {}
           return true
         }
         menu.toast(`${meta.label}: resposta inválida — tente de novo`, 'info'); return false
@@ -861,6 +873,38 @@ function ProdutosTab({ clienteId, cliente }: { clienteId: string; cliente: CrmLe
             })}
           </div>
         </div>
+        {tipos.includes('landing') && estilos.length > 0 && (
+          <div>
+            <label className="label">Estilo da landing page {cliente && <span className="dim" style={{ fontWeight: 400 }}>· escolha antes de gerar</span>}</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(198px, 1fr))', gap: 8 }}>
+              {estilos.map(s => {
+                const on = estilo === s.key
+                const rec = recomendado === s.key
+                return (
+                  <button key={s.key} type="button" onClick={() => setEstilo(s.key)} disabled={gerando}
+                    className="card card--pad" style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6,
+                      borderColor: on ? 'var(--accent)' : 'var(--border)', boxShadow: on ? '0 0 0 1px var(--accent)' : 'none', background: on ? 'var(--accent-soft)' : undefined }}>
+                    <div className="row--between" style={{ gap: 6 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 700 }}>{s.label}</span>
+                      {rec && <span className="badge" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)', display: 'inline-flex', gap: 4, alignItems: 'center', flexShrink: 0 }}><Sparkles size={11} /> Recomendado</span>}
+                    </div>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{s.tagline}</span>
+                    <div className="row wrap" style={{ gap: 4 }}>
+                      <span className="badge" style={{ fontSize: 10, background: 'var(--surface-2)' }}>{s.vibe === 'dark' ? 'escuro' : 'claro'}</span>
+                      {s.bestFor.slice(0, 2).map(b => <span key={b} className="badge" style={{ fontSize: 10, background: 'var(--surface-2)' }}>{b}</span>)}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            {recomendado && estilo && estilo !== recomendado && (
+              <p className="dim" style={{ fontSize: 11.5, margin: '7px 0 0' }}>
+                Sugerido para {cliente?.nome || 'este cliente'}: <b>{estilos.find(s => s.key === recomendado)?.label}</b>.{' '}
+                <button type="button" className="btn btn--ghost btn--sm" style={{ padding: '2px 8px' }} onClick={() => setEstilo(recomendado)}>Usar recomendado</button>
+              </p>
+            )}
+          </div>
+        )}
         <div className="row wrap" style={{ gap: 10, alignItems: 'flex-end' }}>
           <div style={{ flex: 1, minWidth: 180 }}>
             <label className="label">Foco (opcional)</label>

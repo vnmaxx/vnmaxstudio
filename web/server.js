@@ -400,7 +400,8 @@ if (BRIDGE_URL) {
   app.post('/api/conteudo/blueprints', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/blueprints', req.body); res.status(status).json(data); });
   app.delete('/api/conteudo/blueprints/:id', async (req, res) => { const { status, data } = await bridge('DELETE', `/conteudo/blueprints/${req.params.id}`); res.status(status).json(data); });
   app.post('/api/conteudo/produtos/gerar', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/produtos/gerar', req.body); res.status(status).json(data); });
-  app.get('/api/conteudo/produtos/job/:jobId', async (req, res) => { const { status, data } = await bridge('GET', `/conteudo/produtos/job/${req.params.jobId}` + (req.query.tipo ? `?tipo=${encodeURIComponent(req.query.tipo)}` : '')); res.status(status).json(data); });
+  app.get('/api/conteudo/produtos/job/:jobId', async (req, res) => { const qs = [req.query.tipo ? `tipo=${encodeURIComponent(req.query.tipo)}` : '', req.query.estilo ? `estilo=${encodeURIComponent(req.query.estilo)}` : ''].filter(Boolean).join('&'); const { status, data } = await bridge('GET', `/conteudo/produtos/job/${req.params.jobId}` + (qs ? `?${qs}` : '')); res.status(status).json(data); });
+  app.get('/api/conteudo/landing/estilos', async (req, res) => { const { status, data } = await bridge('GET', '/conteudo/landing/estilos' + cq(req)); res.status(status).json(data); });
   app.get('/api/conteudo/produtos', async (req, res) => { const { status, data } = await bridge('GET', '/conteudo/produtos' + cq(req)); res.status(status).json(data); });
   app.post('/api/conteudo/produtos', async (req, res) => { const { status, data } = await bridge('POST', '/conteudo/produtos', req.body); res.status(status).json(data); });
   app.delete('/api/conteudo/produtos/:id', async (req, res) => { const { status, data } = await bridge('DELETE', `/conteudo/produtos/${req.params.id}`); res.status(status).json(data); });
@@ -760,6 +761,13 @@ if (BRIDGE_URL) {
   app.delete('/api/conteudo/blueprints/:id', (req, res) => { if (!guard(res)) return; res.json({ ok: conteudoLocal.removeBlueprint(req.params.id) }); });
   app.post('/api/conteudo/produtos/gerar', (req, res) => res.status(503).json({ error: 'Geração disponível apenas via bridge' }));
   app.get('/api/conteudo/produtos/job/:jobId', (req, res) => res.status(503).json({ error: 'Geração disponível apenas via bridge' }));
+  app.get('/api/conteudo/landing/estilos', (req, res) => {
+    try {
+      const ls = require(path.join(STUDIO_ROOT, 'lib', 'landing-styles.js'));
+      const rec = ls.recommendStyle({ segmento: req.query.segmento, observacao: req.query.observacao, publico: req.query.publico });
+      res.json({ estilos: ls.LANDING_STYLES, recomendado: rec.estilo, niche: rec.niche });
+    } catch (e) { res.status(503).json({ error: 'estilos indisponível' }); }
+  });
   app.get('/api/conteudo/produtos', (req, res) => { if (!guard(res)) return; res.json({ produtos: conteudoLocal.listProdutos(req.query.clienteId) }); });
   app.post('/api/conteudo/produtos', (req, res) => { if (!guard(res)) return; const { clienteId, produto } = req.body || {}; if (!produto) return res.status(400).json({ error: 'produto vazio' }); res.json(conteudoLocal.addProduto(clienteId || null, produto)); });
   app.delete('/api/conteudo/produtos/:id', (req, res) => { if (!guard(res)) return; res.json({ ok: conteudoLocal.removeProduto(req.params.id) }); });
